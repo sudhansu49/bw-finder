@@ -572,6 +572,22 @@ export async function POST() {
       }
     }
 
+    // Run website detection & scoring on all businesses
+    try {
+      await fetch('http://localhost:3000/api/businesses/detect-websites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ detectAll: true }),
+      })
+      await fetch('http://localhost:3000/api/businesses/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scoreAll: true }),
+      })
+    } catch (scoringError) {
+      console.error('Post-seed scoring failed:', scoringError)
+    }
+
     return NextResponse.json({
       message: 'Database seeded successfully',
       data: {

@@ -177,7 +177,6 @@ IMPORTANT RULES:
 
         try {
           // Deduplication: Check by name + city + phone combination
-          // This prevents the same business from being added multiple times
           const orConditions: any[] = [
             {
               name: { equals: biz.name, mode: 'insensitive' },
@@ -185,7 +184,6 @@ IMPORTANT RULES:
             },
           ]
 
-          // Also check by phone if available (phone is a strong identifier)
           if (biz.phone && biz.phone.trim().length > 5) {
             orConditions.push({
               phone: { equals: biz.phone, mode: 'insensitive' },
@@ -200,27 +198,52 @@ IMPORTANT RULES:
             },
           })
 
+          // Determine website status using detection rules
+          const socialDomains = ['facebook.com','instagram.com','linkedin.com','twitter.com','x.com','whatsapp.com','youtube.com','tiktok.com','yelp.com','justdial.com','sulekha.com','tripadvisor.com','zomato.com','swiggy.com','google.com/maps','g.page']
+          function isSocialUrl(url: string): boolean {
+            try {
+              const h = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+              return socialDomains.some(d => h === d.replace(/^www\./, '') || h.endsWith('.' + d.replace(/^www\./, '')))
+            } catch { return false }
+          }
+          function isValidUrl(url: string): boolean {
+            try { const p = new URL(url); return ['http:','https:'].includes(p.protocol) && p.hostname.includes('.') } catch { return false }
+          }
+
+          let websiteStatus: string
+          let hasWebsite: boolean
+          if (!biz.website || biz.website.trim() === '') {
+            websiteStatus = 'NO_WEBSITE'; hasWebsite = false
+          } else if (!isValidUrl(biz.website)) {
+            websiteStatus = 'NO_WEBSITE'; hasWebsite = false
+          } else if (isSocialUrl(biz.website)) {
+            websiteStatus = 'SOCIAL_ONLY'; hasWebsite = false
+          } else {
+            websiteStatus = 'HAS_WEBSITE'; hasWebsite = true
+          }
+
+          const socialPresence = (biz.facebookUrl ? 1 : 0) + (biz.instagramUrl ? 1 : 0) + (biz.linkedinUrl ? 1 : 0)
+
           if (existing) {
-            // Update the existing record with any new information we found
             const updateData: any = {}
 
-            // Fill in missing fields from the new discovery
             if (!existing.country && biz.country) updateData.country = biz.country
             if (!existing.facebookUrl && biz.facebookUrl) updateData.facebookUrl = biz.facebookUrl
             if (!existing.instagramUrl && biz.instagramUrl) updateData.instagramUrl = biz.instagramUrl
             if (!existing.linkedinUrl && biz.linkedinUrl) updateData.linkedinUrl = biz.linkedinUrl
             if (!existing.email && biz.email) updateData.email = biz.email
-            if (!existing.website && biz.website) {
-              updateData.website = biz.website
-              updateData.hasWebsite = true
-            }
+            if (!existing.website && biz.website) updateData.website = biz.website
             if (!existing.googleRating && biz.googleRating) updateData.googleRating = biz.googleRating
             if (!existing.googleReviews && biz.googleReviews) updateData.googleReviews = biz.googleReviews
             if (!existing.reviewCount && biz.reviewCount) updateData.reviewCount = biz.reviewCount
             if (!existing.phone && biz.phone) updateData.phone = biz.phone
             if (!existing.address && biz.address) updateData.address = biz.address
 
-            // Track sources
+            // Always update website status and social presence
+            updateData.websiteStatus = websiteStatus
+            updateData.hasWebsite = hasWebsite
+            updateData.socialPresence = socialPresence
+
             if (existing.sourceDetail && biz.source) {
               const existingSources = existing.sourceDetail.split(',').map(s => s.trim())
               if (!existingSources.includes(biz.source)) {
@@ -255,13 +278,15 @@ IMPORTANT RULES:
               phone: biz.phone || null,
               email: biz.email || null,
               website: biz.website || null,
-              hasWebsite: biz.hasWebsite ?? !!biz.website,
+              hasWebsite,
+              websiteStatus,
               googleRating: biz.googleRating ?? null,
               googleReviews: biz.googleReviews ?? null,
               reviewCount: biz.reviewCount ?? null,
               facebookUrl: biz.facebookUrl || null,
               instagramUrl: biz.instagramUrl || null,
               linkedinUrl: biz.linkedinUrl || null,
+              socialPresence,
               source: 'web_search',
               sourceDetail: biz.source || null,
             },
@@ -270,6 +295,25 @@ IMPORTANT RULES:
         } catch (saveError) {
           console.error(`Failed to save business "${biz.name}":`, saveError)
         }
+      }
+
+      // Auto-score all discovered businesses
+      try {
+        const scoringUrl = new URL('/api/businesses/score', 'http://localhost:3000')
+        await fetch(scoringUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scoreAll: false, businessIds: savedBusinesses.map(b => b.id) }),
+        })
+
+        // Re-fetch businesses with scores
+        const scoredBusinesses = await db.business.findMany({
+          where: { id: { in: savedBusinesses.map(b => b.id) } },
+        })
+        savedBusinesses.length = 0
+        savedBusinesses.push(...scoredBusinesses)
+      } catch (scoringError) {
+        console.error('Auto-scoring failed:', scoringError)
       }
 
       // Update search job as completed

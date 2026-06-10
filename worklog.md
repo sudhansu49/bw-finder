@@ -68,3 +68,58 @@ Stage Summary:
 - Bulk lead addition for no-website businesses
 - Dashboard shows geographic distribution of discovered businesses
 - All 7 views verified working
+
+---
+Task ID: 3
+Agent: main
+Task: Phase 3 - Website Detection Engine + Phase 4 - AI Lead Scoring
+
+Work Log:
+- Updated Prisma schema with new fields: websiteStatus (NO_WEBSITE, HAS_WEBSITE, SOCIAL_ONLY), socialPresence, leadScore, opportunityScore, estimatedMonthlyRevenue, scoreFactors on Business model
+- Pushed schema changes and reset database
+- Built /api/businesses/detect-websites endpoint (GET and POST)
+  - Rule: Website URL missing → NO_WEBSITE
+  - Rule: Website URL invalid → NO_WEBSITE
+  - Rule: Only Facebook/Instagram/social page → NO_WEBSITE (SOCIAL_ONLY)
+  - Rule: Valid website exists → HAS_WEBSITE
+  - Detects 16+ social media domains (facebook, instagram, linkedin, twitter, whatsapp, youtube, tiktok, yelp, justdial, sulekha, tripadvisor, zomato, swiggy, etc.)
+  - Counts social presence (number of social platforms: FB, IG, LinkedIn)
+- Built /api/businesses/score endpoint with local scoring algorithm
+  - Factor 1: Review Count Score (0-20) - more reviews = more established
+  - Factor 2: Rating Score (0-20) - higher rating = better business
+  - Factor 3: City Population Score (0-20) - bigger city = more revenue potential
+  - Factor 4: Category Score (0-20) - some categories have higher deal values (Hotel=20, Real Estate=19, School=18, Lawyer=17)
+  - Factor 5: Social Presence Score (0-20) - more social = more digitally aware
+  - Factor 6: Website Penalty (-15 to +5) - no website = better lead opportunity
+  - Optional AI enhancement via z-ai-web-dev-sdk LLM when useAI=true
+  - Calculates: Lead Score (0-100), Opportunity Score (0-100), Estimated Monthly Revenue
+  - City population lookup for 30+ major cities worldwide
+  - Category revenue multipliers for 16 business categories
+- Updated /api/businesses/search to auto-run website detection and scoring on discovered businesses
+- Updated seed route to auto-run detect-websites and score after seeding
+- Updated Discover search view:
+  - WebsiteStatusBadge component: Green for HAS_WEBSITE, Red for NO_WEBSITE/SOCIAL_ONLY
+  - Score circles: emerald (70+), amber (40-69), red (0-39)
+  - Lead Score, Opportunity Score, Est. Revenue columns in results table
+  - Score cards in business detail dialog
+- Updated Businesses view:
+  - WebsiteBadge component with same color rules
+  - Lead, Opp., Revenue columns replace old Rating column
+  - Score circle display with color thresholds
+  - Sort dropdown (Default, Lead Score, Opportunity, Revenue)
+  - Updated detail dialog with score cards
+- Updated Dashboard:
+  - "AI Lead Scoring" section with 3 scoring cards (Avg Lead Score, Avg Opportunity, Total Est. Revenue)
+  - "Top Scoring Leads (No Website)" table showing top 5 leads by score
+  - Updated analytics API with scoringStats, topScoringBusinesses, websiteStatusBreakdown
+- Verified with Agent Browser: all checks passed
+
+Stage Summary:
+- Website Detection Engine fully functional with 4 detection rules
+- Green badge = HAS_WEBSITE, Red badge = NO_WEBSITE / SOCIAL_ONLY
+- AI Lead Scoring with 6 factors, 0-100 score range
+- Lead Score, Opportunity Score, Estimated Monthly Revenue calculated per business
+- Dashboard shows AI scoring overview and top leads
+- Businesses table includes score columns with color-coded circles
+- Auto-detection and scoring runs on discovery and seed
+- Demo data: 18 businesses with scores (e.g. Hotel Raj Palace: Lead=85, Opp=89, Revenue=$98k/mo)

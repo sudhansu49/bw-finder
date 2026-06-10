@@ -23,30 +23,36 @@ model User {
 }
 
 model Business {
-  id             String   @id @default(cuid())
-  name           String
-  category       String
-  address        String?
-  city           String?
-  state          String?
-  country        String?
-  phone          String?
-  email          String?
-  website        String?
-  hasWebsite     Boolean  @default(false)
-  googleRating   Float?
-  googleReviews  Int?
-  reviewCount    Int?
-  facebookUrl    String?
-  instagramUrl   String?
-  linkedinUrl    String?
-  latitude       Float?
-  longitude      Float?
-  source         String   @default("web_search")
-  sourceDetail   String?  // Specific directory or listing source
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                      String   @id @default(cuid())
+  name                    String
+  category                String
+  address                 String?
+  city                    String?
+  state                   String?
+  country                 String?
+  phone                   String?
+  email                   String?
+  website                 String?
+  hasWebsite              Boolean  @default(false)
+  websiteStatus           String?  // NO_WEBSITE, HAS_WEBSITE, SOCIAL_ONLY
+  googleRating            Float?
+  googleReviews           Int?
+  reviewCount             Int?
+  facebookUrl             String?
+  instagramUrl            String?
+  linkedinUrl             String?
+  socialPresence          Int      @default(0) // count of social media platforms
+  leadScore               Int?     // 0-100
+  opportunityScore        Int?     // 0-100
+  estimatedMonthlyRevenue Float?   // estimated monthly revenue in USD
+  scoreFactors            String?  // JSON string with scoring breakdown
+  latitude                Float?
+  longitude               Float?
+  source                  String   @default("web_search")
+  sourceDetail            String?  // Specific directory or listing source
+  notes                   String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   leads    Lead[]
 }

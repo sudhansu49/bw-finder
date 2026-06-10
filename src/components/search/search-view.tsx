@@ -106,12 +106,17 @@ interface Business {
   email?: string
   website?: string | null
   hasWebsite: boolean
+  websiteStatus?: string | null
   googleRating?: number | null
   googleReviews?: number | null
   reviewCount?: number | null
   facebookUrl?: string | null
   instagramUrl?: string | null
   linkedinUrl?: string | null
+  socialPresence?: number
+  leadScore?: number | null
+  opportunityScore?: number | null
+  estimatedMonthlyRevenue?: number | null
   source?: string
   sourceDetail?: string | null
 }
@@ -301,8 +306,50 @@ export function SearchView() {
     })
   }
 
+  // Website status badge component
+  const WebsiteStatusBadge = ({ status, hasWebsite }: { status?: string | null, hasWebsite: boolean }) => {
+    if (status === 'HAS_WEBSITE') {
+      return (
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200">
+          <Globe className="h-3 w-3 mr-1" />
+          Website Exists
+        </Badge>
+      )
+    }
+    if (status === 'SOCIAL_ONLY') {
+      return (
+        <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-xs font-semibold border border-red-200">
+          <Unplug className="h-3 w-3 mr-1" />
+          Social Only
+        </Badge>
+      )
+    }
+    // NO_WEBSITE or not detected yet
+    return (
+      <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-xs font-semibold border border-red-200">
+        <Unplug className="h-3 w-3 mr-1" />
+        No Website
+      </Badge>
+    )
+  }
+
+  // Lead score color
+  const getScoreColor = (score: number | null | undefined) => {
+    if (!score) return 'text-slate-400'
+    if (score >= 70) return 'text-emerald-600'
+    if (score >= 40) return 'text-amber-600'
+    return 'text-red-500'
+  }
+
+  const getScoreBg = (score: number | null | undefined) => {
+    if (!score) return 'bg-slate-50'
+    if (score >= 70) return 'bg-emerald-50'
+    if (score >= 40) return 'bg-amber-50'
+    return 'bg-red-50'
+  }
+
   const filteredResults = showNoWebsiteOnly
-    ? results.filter((b) => !b.hasWebsite)
+    ? results.filter((b) => b.websiteStatus !== 'HAS_WEBSITE')
     : results
 
   const noWebsiteCount = results.filter((b) => !b.hasWebsite).length
@@ -572,6 +619,9 @@ export function SearchView() {
                         <TableHead>Reviews</TableHead>
                         <TableHead>Website</TableHead>
                         <TableHead>Social</TableHead>
+                        <TableHead>Lead Score</TableHead>
+                        <TableHead>Opp. Score</TableHead>
+                        <TableHead>Est. Revenue</TableHead>
                         <TableHead>Source</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -627,17 +677,7 @@ export function SearchView() {
                               {business.googleReviews || business.reviewCount || '-'}
                             </TableCell>
                             <TableCell>
-                              {business.hasWebsite ? (
-                                <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 text-xs">
-                                  <Globe className="h-3 w-3 mr-1" />
-                                  Yes
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-red-50 text-red-700 hover:bg-red-50 text-xs">
-                                  <Unplug className="h-3 w-3 mr-1" />
-                                  No
-                                </Badge>
-                              )}
+                              <WebsiteStatusBadge status={business.websiteStatus} hasWebsite={business.hasWebsite} />
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1">
@@ -660,6 +700,29 @@ export function SearchView() {
                                   <span className="text-xs text-muted-foreground">-</span>
                                 )}
                               </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <div className={`h-7 w-7 rounded-full ${getScoreBg(business.leadScore)} flex items-center justify-center`}>
+                                  <span className={`text-xs font-bold ${getScoreColor(business.leadScore)}`}>
+                                    {business.leadScore ?? '-'}
+                                  </span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <div className={`h-7 w-7 rounded-full ${getScoreBg(business.opportunityScore)} flex items-center justify-center`}>
+                                  <span className={`text-xs font-bold ${getScoreColor(business.opportunityScore)}`}>
+                                    {business.opportunityScore ?? '-'}
+                                  </span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm font-medium">
+                              {business.estimatedMonthlyRevenue
+                                ? `$${business.estimatedMonthlyRevenue.toLocaleString()}`
+                                : '-'}
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline" className="text-[10px] font-normal">
@@ -761,23 +824,39 @@ export function SearchView() {
               </DialogHeader>
               <div className="space-y-4 mt-2">
                 {/* Status Row */}
-                <div className="flex items-center gap-2">
-                  {selectedBusiness.hasWebsite ? (
-                    <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
-                      <Globe className="h-3 w-3 mr-1" />
-                      Has Website
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-red-50 text-red-700 hover:bg-red-50">
-                      <Unplug className="h-3 w-3 mr-1" />
-                      No Website — Opportunity!
-                    </Badge>
-                  )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <WebsiteStatusBadge status={selectedBusiness.websiteStatus} hasWebsite={selectedBusiness.hasWebsite} />
                   <Badge variant="secondary">{selectedBusiness.category}</Badge>
                   {selectedBusiness.sourceDetail && (
                     <Badge variant="outline" className="text-xs">via {selectedBusiness.sourceDetail}</Badge>
                   )}
                 </div>
+
+                {/* Lead Scores */}
+                {(selectedBusiness.leadScore || selectedBusiness.opportunityScore) && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className={`rounded-lg p-3 text-center ${getScoreBg(selectedBusiness.leadScore)}`}>
+                      <p className={`text-2xl font-bold ${getScoreColor(selectedBusiness.leadScore)}`}>
+                        {selectedBusiness.leadScore ?? '-'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Lead Score</p>
+                    </div>
+                    <div className={`rounded-lg p-3 text-center ${getScoreBg(selectedBusiness.opportunityScore)}`}>
+                      <p className={`text-2xl font-bold ${getScoreColor(selectedBusiness.opportunityScore)}`}>
+                        {selectedBusiness.opportunityScore ?? '-'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Opportunity</p>
+                    </div>
+                    <div className="rounded-lg p-3 text-center bg-slate-50">
+                      <p className="text-2xl font-bold text-slate-700">
+                        {selectedBusiness.estimatedMonthlyRevenue
+                          ? `$${(selectedBusiness.estimatedMonthlyRevenue / 1000).toFixed(0)}k`
+                          : '-'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Est. Revenue/mo</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Rating */}
                 {selectedBusiness.googleRating && (

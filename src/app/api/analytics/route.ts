@@ -102,6 +102,44 @@ export async function GET(request: NextRequest) {
       where: { status: 'completed' },
     })
 
+    // Lead scoring stats
+    const scoredBusinesses = await db.business.findMany({
+      where: { leadScore: { not: null } },
+      select: { leadScore: true, opportunityScore: true, estimatedMonthlyRevenue: true },
+    })
+
+    const avgLeadScore = scoredBusinesses.length > 0
+      ? Math.round(scoredBusinesses.reduce((sum, b) => sum + (b.leadScore || 0), 0) / scoredBusinesses.length)
+      : 0
+
+    const avgOpportunityScore = scoredBusinesses.length > 0
+      ? Math.round(scoredBusinesses.reduce((sum, b) => sum + (b.opportunityScore || 0), 0) / scoredBusinesses.length)
+      : 0
+
+    const totalEstimatedRevenue = scoredBusinesses.reduce((sum, b) => sum + (b.estimatedMonthlyRevenue || 0), 0)
+
+    // Top scored businesses (high lead score, no website)
+    const topScoringBusinesses = await db.business.findMany({
+      where: { leadScore: { not: null }, hasWebsite: false },
+      orderBy: { leadScore: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        city: true,
+        leadScore: true,
+        opportunityScore: true,
+        estimatedMonthlyRevenue: true,
+      },
+    })
+
+    // Website status breakdown
+    const websiteStatusBreakdown = await db.business.groupBy({
+      by: ['websiteStatus'],
+      _count: { websiteStatus: true },
+    })
+
     return NextResponse.json({
       totalBusinesses,
       withoutWebsite,
@@ -115,6 +153,17 @@ export async function GET(request: NextRequest) {
         totalSearches,
         completedSearches,
       },
+      scoringStats: {
+        avgLeadScore,
+        avgOpportunityScore,
+        totalEstimatedRevenue,
+        scoredCount: scoredBusinesses.length,
+      },
+      topScoringBusinesses,
+      websiteStatusBreakdown: websiteStatusBreakdown.map(item => ({
+        status: item.websiteStatus || 'unknown',
+        count: item._count.websiteStatus,
+      })),
     })
   } catch (error) {
     console.error('Analytics error:', error)

@@ -17,6 +17,8 @@ import {
   UserPlus,
   BarChart3,
   Globe,
+  Target,
+  TrendingUp,
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -38,6 +40,22 @@ interface DashboardStats {
     totalSearches: number
     completedSearches: number
   }
+  scoringStats: {
+    avgLeadScore: number
+    avgOpportunityScore: number
+    totalEstimatedRevenue: number
+    scoredCount: number
+  }
+  topScoringBusinesses: {
+    id: string
+    name: string
+    category: string
+    city: string | null
+    leadScore: number | null
+    opportunityScore: number | null
+    estimatedMonthlyRevenue: number | null
+  }[]
+  websiteStatusBreakdown: { status: string; count: number }[]
 }
 
 const statusColors: Record<string, string> = {
@@ -92,6 +110,9 @@ export function DashboardView() {
             businessesByCountry: [],
             recentLeads: [],
             searchStats: { totalSearches: 0, completedSearches: 0 },
+            scoringStats: { avgLeadScore: 0, avgOpportunityScore: 0, totalEstimatedRevenue: 0, scoredCount: 0 },
+            topScoringBusinesses: [],
+            websiteStatusBreakdown: [],
           })
         }
       } catch {
@@ -105,6 +126,9 @@ export function DashboardView() {
           businessesByCountry: [],
           recentLeads: [],
           searchStats: { totalSearches: 0, completedSearches: 0 },
+          scoringStats: { avgLeadScore: 0, avgOpportunityScore: 0, totalEstimatedRevenue: 0, scoredCount: 0 },
+          topScoringBusinesses: [],
+          websiteStatusBreakdown: [],
         })
       } finally {
         setLoading(false)
@@ -125,9 +149,15 @@ export function DashboardView() {
 
   const statCards = [
     { title: 'Total Businesses Found', value: stats.totalBusinesses, icon: Building2, color: 'text-slate-600', bg: 'bg-slate-50' },
-    { title: 'Without Website', value: stats.withoutWebsite, icon: Unplug, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { title: 'No Website', value: stats.withoutWebsite, icon: Unplug, color: 'text-red-600', bg: 'bg-red-50' },
     { title: 'Active Leads', value: stats.activeLeads, icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
     { title: 'Won Deals Value', value: `$${stats.wonDealsValue.toLocaleString()}`, icon: DollarSign, color: 'text-orange-600', bg: 'bg-orange-50' },
+  ]
+
+  const scoringCards = [
+    { title: 'Avg Lead Score', value: stats.scoringStats?.avgLeadScore || 0, icon: Target, color: (stats.scoringStats?.avgLeadScore || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600', bg: (stats.scoringStats?.avgLeadScore || 0) >= 70 ? 'bg-emerald-50' : 'bg-amber-50', suffix: '/100' },
+    { title: 'Avg Opportunity', value: stats.scoringStats?.avgOpportunityScore || 0, icon: TrendingUp, color: (stats.scoringStats?.avgOpportunityScore || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600', bg: (stats.scoringStats?.avgOpportunityScore || 0) >= 70 ? 'bg-emerald-50' : 'bg-amber-50', suffix: '/100' },
+    { title: 'Total Est. Revenue', value: `$${((stats.scoringStats?.totalEstimatedRevenue || 0) / 1000).toFixed(0)}k`, icon: DollarSign, color: 'text-orange-600', bg: 'bg-orange-50', suffix: '/mo' },
   ]
 
   const barChartConfig = stats.leadsByStatus.reduce((acc, s) => {
@@ -183,6 +213,99 @@ export function DashboardView() {
           </motion.div>
         ))}
       </motion.div>
+
+      {/* AI Scoring Overview */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Target className="h-5 w-5 text-amber-500" />
+          AI Lead Scoring
+        </h2>
+        <motion.div
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+          variants={container}
+          initial="hidden"
+          animate="show"
+        >
+          {scoringCards.map((stat) => (
+            <motion.div key={stat.title} variants={item}>
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                      <div className="flex items-baseline gap-1">
+                        <p className="text-3xl font-bold mt-1">{stat.value}</p>
+                        {stat.suffix && <span className="text-sm text-muted-foreground">{stat.suffix}</span>}
+                      </div>
+                    </div>
+                    <div className={`h-12 w-12 rounded-xl ${stat.bg} flex items-center justify-center`}>
+                      <stat.icon className={`h-6 w-6 ${stat.color}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
+
+      {/* Top Scoring Leads */}
+      {stats.topScoringBusinesses && stats.topScoringBusinesses.length > 0 && (
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Target className="h-5 w-5 text-amber-500" />
+              Top Scoring Leads (No Website)
+            </CardTitle>
+            <CardDescription>Your best opportunities ranked by AI lead score</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Category</th>
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Lead Score</th>
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Opportunity</th>
+                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Est. Revenue/mo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.topScoringBusinesses.map((biz) => (
+                    <tr key={biz.id} className="border-b last:border-0 hover:bg-slate-50">
+                      <td className="py-3">
+                        <p className="text-sm font-medium">{biz.name}</p>
+                        <p className="text-xs text-muted-foreground">{biz.city || ''}</p>
+                      </td>
+                      <td className="py-3">
+                        <Badge variant="secondary" className="text-xs">{biz.category}</Badge>
+                      </td>
+                      <td className="py-3">
+                        <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${biz.leadScore && biz.leadScore >= 70 ? 'bg-emerald-50' : biz.leadScore && biz.leadScore >= 40 ? 'bg-amber-50' : 'bg-red-50'}`}>
+                          <span className={`text-xs font-bold ${biz.leadScore && biz.leadScore >= 70 ? 'text-emerald-600' : biz.leadScore && biz.leadScore >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                            {biz.leadScore || '-'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${biz.opportunityScore && biz.opportunityScore >= 70 ? 'bg-emerald-50' : biz.opportunityScore && biz.opportunityScore >= 40 ? 'bg-amber-50' : 'bg-red-50'}`}>
+                          <span className={`text-xs font-bold ${biz.opportunityScore && biz.opportunityScore >= 70 ? 'text-emerald-600' : biz.opportunityScore && biz.opportunityScore >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                            {biz.opportunityScore || '-'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 text-sm font-medium text-right">
+                        {biz.estimatedMonthlyRevenue ? `$${biz.estimatedMonthlyRevenue.toLocaleString()}` : '-'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
