@@ -28,3 +28,43 @@ Stage Summary:
 - Amber/orange accent color scheme throughout
 - Responsive design with mobile sidebar
 - Footer sticks to bottom of viewport
+
+---
+Task ID: 2
+Agent: main
+Task: Phase 2 - Lead Discovery Engine
+
+Work Log:
+- Updated Prisma schema with new fields: country, facebookUrl, instagramUrl, linkedinUrl, reviewCount, sourceDetail on Business model; country, state, city, sources on SearchJob model
+- Pushed schema changes to SQLite database
+- Rebuilt /api/businesses/search with multi-strategy discovery: 3 parallel web searches with different query strategies
+- Enhanced LLM extraction to include country, social media URLs (Facebook, Instagram, LinkedIn), review count, and source tracking
+- Implemented deduplication by name+city+phone with smart merge (fills missing fields from new discoveries)
+- Added source tracking: tracks which directories/sources were used (google_maps, justdial, sulekha, etc.)
+- Built new Discover page with Country, State, City, Business Category search form
+- Added category dropdown with all Phase 2 categories: Salon, Beauty Parlour, Spa, Gym, Restaurant, Clinic, Hotel, Real Estate, Dentist, Lawyer, School
+- Added "Other" option for custom country and category input
+- Built comprehensive results table with all output fields: Business Name, Category, Phone, Email, Address, City, State, Country, Rating, Review Count, Website URL, Facebook URL, Instagram URL, LinkedIn URL
+- Added stats row showing Total Found, No Website, Has Website, Duplicates Merged
+- Added source display badge showing which directory the data came from
+- Added social media icon column with clickable links
+- Added bulk "Add All No-Website as Leads" button
+- Added business detail dialog showing full info including social media links
+- Updated Businesses view with Country, Social, Source columns
+- Updated Dashboard with "Businesses by Country" horizontal bar chart
+- Updated sidebar label from "Search" to "Discover"
+- Updated seed data with Indian cities and new fields (country, social URLs, sourceDetail)
+- Reset database and re-seeded with 18 businesses, 12 leads, 8 outreach entries, 5 services
+- Fixed sidebar to use lg:sticky lg:top-0 lg:h-screen for full viewport height
+- Verified with Agent Browser: all checks passed
+
+Stage Summary:
+- Lead Discovery Engine fully functional with multi-strategy search
+- 4-field search form: Country, State, City, Business Category
+- 15 output fields displayed per business result
+- Deduplication with smart merge prevents duplicate entries
+- Source tracking shows which directories were searched
+- Social media URL extraction (Facebook, Instagram, LinkedIn)
+- Bulk lead addition for no-website businesses
+- Dashboard shows geographic distribution of discovered businesses
+- All 7 views verified working

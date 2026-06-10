@@ -18,7 +18,7 @@ import {
 
 const navItems: { view: View; label: string; icon: React.ElementType }[] = [
   { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { view: 'search', label: 'Search', icon: Search },
+  { view: 'search', label: 'Discover', icon: Search },
   { view: 'leads', label: 'Leads', icon: Users },
   { view: 'businesses', label: 'Businesses', icon: Building2 },
   { view: 'outreach', label: 'Outreach', icon: MessageSquare },
@@ -58,8 +58,7 @@ export function AppSidebar() {
         className={`
           fixed top-0 left-0 z-50 h-full w-64 bg-slate-900 text-white
           transform transition-transform duration-300 ease-in-out
-          lg:translate-x-0 lg:static lg:z-auto
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-0 lg:translate-x-0'}
+          lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:z-auto
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           flex flex-col
         `}

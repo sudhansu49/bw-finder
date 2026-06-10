@@ -62,6 +62,20 @@ export async function GET(request: NextRequest) {
       count: item._count.category,
     }))
 
+    // Businesses by country
+    const businessesByCountryRaw = await db.business.groupBy({
+      by: ['country'],
+      _count: { country: true },
+      where: { country: { not: null } },
+    })
+
+    const businessesByCountry = businessesByCountryRaw
+      .filter((item) => item.country !== null)
+      .map((item) => ({
+        country: item.country || 'Unknown',
+        count: item._count.country,
+      }))
+
     // Recent leads
     const recentLeadsRaw = await db.lead.findMany({
       take: 5,
@@ -69,7 +83,7 @@ export async function GET(request: NextRequest) {
       where: userId ? { userId } : {},
       include: {
         business: {
-          select: { name: true, category: true },
+          select: { name: true, category: true, city: true, country: true },
         },
       },
     })
@@ -82,6 +96,12 @@ export async function GET(request: NextRequest) {
       priority: lead.priority,
     }))
 
+    // Search jobs stats
+    const totalSearches = await db.searchJob.count()
+    const completedSearches = await db.searchJob.count({
+      where: { status: 'completed' },
+    })
+
     return NextResponse.json({
       totalBusinesses,
       withoutWebsite,
@@ -89,7 +109,12 @@ export async function GET(request: NextRequest) {
       wonDealsValue,
       leadsByStatus,
       businessesByCategory,
+      businessesByCountry,
       recentLeads,
+      searchStats: {
+        totalSearches,
+        completedSearches,
+      },
     })
   } catch (error) {
     console.error('Analytics error:', error)

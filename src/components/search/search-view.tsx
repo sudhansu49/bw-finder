@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { useAppStore } from '@/store/app-store'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -14,12 +15,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Search,
   Loader2,
-  CheckCircle2,
-  XCircle,
   Plus,
   MapPin,
   Phone,
@@ -27,21 +42,55 @@ import {
   Filter,
   Globe,
   Unplug,
+  Star,
+  Mail,
+  Facebook,
+  Instagram,
+  Linkedin,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  ListFilter,
+  Eye,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 const categories = [
-  'Restaurant',
   'Salon',
+  'Beauty Parlour',
+  'Spa',
+  'Gym',
+  'Restaurant',
+  'Clinic',
+  'Hotel',
+  'Real Estate',
+  'Dentist',
+  'Lawyer',
+  'School',
   'Mechanic',
   'Plumber',
   'Electrician',
-  'Gym',
   'Bakery',
-  'Dentist',
-  'Lawyer',
   'Accountant',
-  'Real Estate',
+  'Other',
+]
+
+const countries = [
+  'India',
+  'United States',
+  'United Kingdom',
+  'Canada',
+  'Australia',
+  'UAE',
+  'Singapore',
+  'Germany',
+  'France',
+  'Brazil',
+  'Mexico',
+  'South Africa',
+  'Nigeria',
+  'Kenya',
   'Other',
 ]
 
@@ -52,76 +101,113 @@ interface Business {
   address?: string
   city?: string
   state?: string
+  country?: string
   phone?: string
   email?: string
   website?: string | null
   hasWebsite: boolean
-  rating?: number
+  googleRating?: number | null
+  googleReviews?: number | null
+  reviewCount?: number | null
+  facebookUrl?: string | null
+  instagramUrl?: string | null
+  linkedinUrl?: string | null
+  source?: string
+  sourceDetail?: string | null
+}
+
+interface SearchJobInfo {
+  id: string
+  status: string
+  resultsCount: number
+  duplicatesFound: number
+  sourcesUsed: string
 }
 
 export function SearchView() {
   const { user, setCurrentView } = useAppStore()
   const { toast } = useToast()
-  const [location, setLocation] = useState('')
+  const [country, setCountry] = useState('')
+  const [state, setState] = useState('')
+  const [city, setCity] = useState('')
   const [category, setCategory] = useState('')
+  const [customCountry, setCustomCountry] = useState('')
+  const [customCategory, setCustomCategory] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<Business[]>([])
   const [showNoWebsiteOnly, setShowNoWebsiteOnly] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [searchJobInfo, setSearchJobInfo] = useState<SearchJobInfo | null>(null)
+  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [addedLeads, setAddedLeads] = useState<Set<string>>(new Set())
+  const [addingLead, setAddingLead] = useState<string | null>(null)
+
+  const effectiveCountry = country === 'Other' ? customCountry : country
+  const effectiveCategory = category === 'Other' ? customCategory : category
 
   const handleSearch = async () => {
-    if (!location.trim() && !category) {
-      toast({ title: 'Please enter a location or select a category', variant: 'destructive' })
+    if (!effectiveCountry && !customCountry) {
+      toast({ title: 'Please select or enter a country', variant: 'destructive' })
+      return
+    }
+    if (!effectiveCategory && !customCategory) {
+      toast({ title: 'Please select or enter a business category', variant: 'destructive' })
       return
     }
 
     setLoading(true)
     setSearched(true)
+    setSearchJobInfo(null)
 
     try {
       const res = await fetch('/api/businesses/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ location: location.trim(), category }),
+        body: JSON.stringify({
+          country: effectiveCountry,
+          state: state.trim(),
+          city: city.trim(),
+          category: effectiveCategory,
+          userId: user?.id || 'demo',
+        }),
       })
 
       if (res.ok) {
         const data = await res.json()
         setResults(data.businesses || [])
+        setSearchJobInfo(data.searchJob || null)
+        toast({
+          title: 'Search Complete!',
+          description: `Found ${data.businesses?.length || 0} businesses. ${data.searchJob?.duplicatesFound || 0} duplicates were merged.`,
+        })
       } else {
-        // Fallback demo data
-        setResults(generateDemoResults())
+        toast({
+          title: 'Search Failed',
+          description: 'Could not complete the search. Please try again.',
+          variant: 'destructive',
+        })
+        setResults([])
       }
     } catch {
-      setResults(generateDemoResults())
+      toast({
+        title: 'Search Failed',
+        description: 'Network error. Please try again.',
+        variant: 'destructive',
+      })
+      setResults([])
     } finally {
       setLoading(false)
     }
   }
 
-  const generateDemoResults = (): Business[] => {
-    const demoBusinesses: Business[] = [
-      { name: "Mario's Pizza Palace", category: 'Restaurant', address: '123 Main St', city: location || 'Springfield', state: 'IL', phone: '(555) 123-4567', hasWebsite: true, website: 'https://mariospizza.com', rating: 4.5 },
-      { name: 'Luigi’s Pasta House', category: 'Restaurant', address: '456 Oak Ave', city: location || 'Springfield', state: 'IL', phone: '(555) 234-5678', hasWebsite: false, rating: 4.2 },
-      { name: 'Style & Shine Salon', category: 'Salon', address: '789 Elm St', city: location || 'Springfield', state: 'IL', phone: '(555) 345-6789', hasWebsite: false, rating: 4.7 },
-      { name: 'Quick Fix Auto', category: 'Mechanic', address: '321 Pine Rd', city: location || 'Springfield', state: 'IL', phone: '(555) 456-7890', hasWebsite: false, rating: 4.0 },
-      { name: 'Dr. Smith Dental', category: 'Dentist', address: '654 Maple Dr', city: location || 'Springfield', state: 'IL', phone: '(555) 567-8901', hasWebsite: true, website: 'https://drsmithdental.com', rating: 4.8 },
-      { name: 'Pipe Masters Plumbing', category: 'Plumber', address: '987 Cedar Ln', city: location || 'Springfield', state: 'IL', phone: '(555) 678-9012', hasWebsite: false, rating: 3.9 },
-      { name: 'Bright Spark Electric', category: 'Electrician', address: '147 Birch Ct', city: location || 'Springfield', state: 'IL', phone: '(555) 789-0123', hasWebsite: false, rating: 4.3 },
-      { name: 'FitLife Gym', category: 'Gym', address: '258 Walnut Pl', city: location || 'Springfield', state: 'IL', phone: '(555) 890-1234', hasWebsite: true, website: 'https://fitlifegym.com', rating: 4.6 },
-      { name: 'Sweet Treats Bakery', category: 'Bakery', address: '369 Ash Blvd', city: location || 'Springfield', state: 'IL', phone: '(555) 901-2345', hasWebsite: false, rating: 4.4 },
-      { name: "Johnson's Law Office", category: 'Lawyer', address: '480 Spruce Way', city: location || 'Springfield', state: 'IL', phone: '(555) 012-3456', hasWebsite: false, rating: 4.1 },
-    ]
-    if (category && category !== 'Other') {
-      return demoBusinesses.filter((b) => b.category === category)
-    }
-    return demoBusinesses
-  }
-
   const handleAddAsLead = async (business: Business) => {
+    if (!business.id || addedLeads.has(business.id)) return
+
+    setAddingLead(business.id || business.name)
     try {
-      // First save the business if it doesn't have an ID
       let businessId = business.id
+
       if (!businessId) {
         const businessRes = await fetch('/api/businesses', {
           method: 'POST',
@@ -132,10 +218,14 @@ export function SearchView() {
             address: business.address || '',
             city: business.city || '',
             state: business.state || '',
+            country: business.country || '',
             phone: business.phone || '',
             email: business.email || '',
             website: business.website || null,
             hasWebsite: business.hasWebsite,
+            facebookUrl: business.facebookUrl || null,
+            instagramUrl: business.instagramUrl || null,
+            linkedinUrl: business.linkedinUrl || null,
           }),
         })
         if (businessRes.ok) {
@@ -152,11 +242,15 @@ export function SearchView() {
             businessId,
             userId: user?.id || 'demo',
             status: 'New',
-            priority: 'medium',
-            estimatedValue: 1500,
-            notes: `Lead from search: ${business.name}`,
+            priority: business.hasWebsite ? 'low' : 'medium',
+            estimatedValue: business.hasWebsite ? 800 : 1500,
+            notes: `Lead from discovery search: ${business.name} in ${business.city || ''}, ${business.country || ''}`,
           }),
         })
+      }
+
+      if (business.id) {
+        setAddedLeads(prev => new Set([...prev, business.id!]))
       }
 
       toast({
@@ -165,10 +259,46 @@ export function SearchView() {
       })
     } catch {
       toast({
-        title: 'Lead Added!',
-        description: `${business.name} has been added to your leads pipeline.`,
+        title: 'Error',
+        description: `Failed to add ${business.name} as lead.`,
+        variant: 'destructive',
       })
+    } finally {
+      setAddingLead(null)
     }
+  }
+
+  const handleAddAllNoWebsiteAsLeads = async () => {
+    const noWebsiteBusinesses = filteredResults.filter(b => !b.hasWebsite && b.id && !addedLeads.has(b.id))
+    let added = 0
+
+    for (const business of noWebsiteBusinesses) {
+      try {
+        await fetch('/api/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessId: business.id,
+            userId: user?.id || 'demo',
+            status: 'New',
+            priority: 'medium',
+            estimatedValue: 1500,
+            notes: `Bulk lead from discovery: ${business.name}`,
+          }),
+        })
+        if (business.id) {
+          setAddedLeads(prev => new Set([...prev, business.id!]))
+        }
+        added++
+      } catch {
+        // Skip failed ones
+      }
+    }
+
+    toast({
+      title: `${added} Leads Added!`,
+      description: `Added ${added} businesses without websites to your leads pipeline.`,
+    })
   }
 
   const filteredResults = showNoWebsiteOnly
@@ -176,36 +306,95 @@ export function SearchView() {
     : results
 
   const noWebsiteCount = results.filter((b) => !b.hasWebsite).length
+  const withWebsiteCount = results.filter((b) => b.hasWebsite).length
+
+  const openDetail = (business: Business) => {
+    setSelectedBusiness(business)
+    setDetailOpen(true)
+  }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Search Businesses</h1>
-        <p className="text-muted-foreground">Find local businesses without websites</p>
+        <h1 className="text-2xl font-bold text-slate-900">Lead Discovery Engine</h1>
+        <p className="text-muted-foreground">Find local businesses without websites across any location</p>
       </div>
 
       {/* Search Form */}
       <Card className="border-0 shadow-sm">
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-            <div className="md:col-span-4 space-y-2">
-              <Label htmlFor="location">Location</Label>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Search className="h-4 w-4 text-amber-500" />
+            Search Criteria
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6 pt-0">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Country */}
+            <div className="space-y-2">
+              <Label htmlFor="country" className="text-sm font-medium">
+                Country <span className="text-red-500">*</span>
+              </Label>
+              <Select value={country} onValueChange={setCountry}>
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Select country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {country === 'Other' && (
+                <Input
+                  placeholder="Enter country name"
+                  value={customCountry}
+                  onChange={(e) => setCustomCountry(e.target.value)}
+                  className="h-10"
+                />
+              )}
+            </div>
+
+            {/* State */}
+            <div className="space-y-2">
+              <Label htmlFor="state" className="text-sm font-medium">State / Province</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  id="location"
-                  placeholder="City, state, or zip code"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                  id="state"
+                  placeholder="e.g. Maharashtra, California"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
                   className="pl-10 h-11"
                 />
               </div>
             </div>
-            <div className="md:col-span-4 space-y-2">
-              <Label>Category</Label>
+
+            {/* City */}
+            <div className="space-y-2">
+              <Label htmlFor="city" className="text-sm font-medium">City</Label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="city"
+                  placeholder="e.g. Mumbai, New York"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="pl-10 h-11"
+                />
+              </div>
+            </div>
+
+            {/* Category */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Business Category <span className="text-red-500">*</span>
+              </Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="h-11">
-                  <SelectValue placeholder="All categories" />
+                  <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
                   {categories.map((cat) => (
@@ -215,176 +404,524 @@ export function SearchView() {
                   ))}
                 </SelectContent>
               </Select>
+              {category === 'Other' && (
+                <Input
+                  placeholder="Enter business category"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  className="h-10"
+                />
+              )}
             </div>
-            <div className="md:col-span-4 flex items-end">
+          </div>
+
+          {/* Search Button */}
+          <div className="mt-5 flex items-center gap-3">
+            <Button
+              onClick={handleSearch}
+              disabled={loading || !effectiveCountry || !effectiveCategory}
+              className="h-11 px-8 bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Discovering Businesses...
+                </>
+              ) : (
+                <>
+                  <Search className="mr-2 h-4 w-4" />
+                  Discover Businesses
+                </>
+              )}
+            </Button>
+            {searched && !loading && (
               <Button
-                onClick={handleSearch}
-                disabled={loading}
-                className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                variant="outline"
+                onClick={() => {
+                  setSearched(false)
+                  setResults([])
+                  setSearchJobInfo(null)
+                  setAddedLeads(new Set())
+                }}
+                className="h-11"
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  <>
-                    <Search className="mr-2 h-4 w-4" />
-                    Search Businesses
-                  </>
-                )}
+                Clear Results
               </Button>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* Loading State */}
       {loading && (
-        <div className="flex flex-col items-center justify-center py-16">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center justify-center py-16"
+        >
           <div className="relative">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-500" />
             <Search className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-amber-500" />
           </div>
           <p className="mt-4 text-muted-foreground font-medium">Discovering businesses...</p>
-          <p className="text-sm text-muted-foreground">This may take a moment</p>
-        </div>
+          <p className="text-sm text-muted-foreground mt-1">Searching multiple directories and business listings</p>
+          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+              Web Search
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Directory Scan
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+              Data Extraction
+            </div>
+          </div>
+        </motion.div>
       )}
 
       {/* Results */}
       {!loading && searched && (
         <div className="space-y-4">
-          {/* Results Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold">
-                {filteredResults.length} business{filteredResults.length !== 1 ? 'es' : ''} found
-              </h2>
-              {results.length > 0 && (
-                <Badge variant="secondary" className="bg-amber-50 text-amber-700">
-                  {noWebsiteCount} without website
-                </Badge>
-              )}
+          {/* Results Header & Stats */}
+          <div className="flex flex-col gap-4">
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+                <p className="text-2xl font-bold text-slate-900">{results.length}</p>
+                <p className="text-xs text-muted-foreground">Total Found</p>
+              </div>
+              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+                <p className="text-2xl font-bold text-red-600">{noWebsiteCount}</p>
+                <p className="text-xs text-muted-foreground">No Website</p>
+              </div>
+              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+                <p className="text-2xl font-bold text-emerald-600">{withWebsiteCount}</p>
+                <p className="text-xs text-muted-foreground">Has Website</p>
+              </div>
+              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+                <p className="text-2xl font-bold text-amber-600">
+                  {searchJobInfo?.duplicatesFound || 0}
+                </p>
+                <p className="text-xs text-muted-foreground">Duplicates Merged</p>
+              </div>
             </div>
-            <Button
-              variant={showNoWebsiteOnly ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowNoWebsiteOnly(!showNoWebsiteOnly)}
-              className={showNoWebsiteOnly ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              {showNoWebsiteOnly ? 'Showing: No Website Only' : 'Filter: No Website'}
-            </Button>
+
+            {/* Search Job Info */}
+            {searchJobInfo && searchJobInfo.sourcesUsed && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 rounded-lg px-4 py-2">
+                <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+                <span>Sources searched: <span className="font-medium text-amber-700">{searchJobInfo.sourcesUsed}</span></span>
+              </div>
+            )}
+
+            {/* Actions Row */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold">
+                  {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}
+                </h2>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={showNoWebsiteOnly ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setShowNoWebsiteOnly(!showNoWebsiteOnly)}
+                    className={showNoWebsiteOnly ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}
+                  >
+                    <Filter className="mr-1 h-3.5 w-3.5" />
+                    {showNoWebsiteOnly ? 'No Website Only' : 'Filter: No Website'}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {noWebsiteCount > 0 && !showNoWebsiteOnly && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAddAllNoWebsiteAsLeads}
+                    className="border-amber-200 text-amber-700 hover:bg-amber-50"
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Add All No-Website as Leads ({noWebsiteCount})
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Results Grid */}
-          <AnimatePresence mode="popLayout">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredResults.map((business, index) => (
-                <motion.div
-                  key={business.name + index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card className={`border-0 shadow-sm hover:shadow-md transition-all duration-200 ${!business.hasWebsite ? 'ring-2 ring-amber-200' : ''}`}>
-                    <CardContent className="p-6">
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${business.hasWebsite ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-                              <Building2 className={`h-4 w-4 ${business.hasWebsite ? 'text-emerald-600' : 'text-amber-600'}`} />
-                            </div>
-                            <div>
-                              <h3 className="font-semibold text-sm leading-tight">{business.name}</h3>
-                              <p className="text-xs text-muted-foreground">{business.category}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {business.hasWebsite ? (
-                              <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 text-xs">
-                                <Globe className="h-3 w-3 mr-1" />
-                                Website
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-red-50 text-red-700 hover:bg-red-50 text-xs">
-                                <Unplug className="h-3 w-3 mr-1" />
-                                No Website
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-
-                        {business.address && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <MapPin className="h-3.5 w-3.5 shrink-0" />
-                            <span className="truncate">{business.address}, {business.city}</span>
-                          </div>
-                        )}
-
-                        {business.phone && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Phone className="h-3.5 w-3.5 shrink-0" />
-                            <span>{business.phone}</span>
-                          </div>
-                        )}
-
-                        {business.rating && (
-                          <div className="flex items-center gap-1">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <svg
-                                key={i}
-                                className={`h-3.5 w-3.5 ${i < Math.floor(business.rating!) ? 'text-amber-400' : 'text-slate-200'}`}
-                                fill="currentColor"
-                                viewBox="0 0 20 20"
-                              >
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                            ))}
-                            <span className="text-xs text-muted-foreground ml-1">{business.rating}</span>
-                          </div>
-                        )}
-
-                        {!business.hasWebsite && (
-                          <Button
-                            size="sm"
-                            className="w-full bg-amber-500 hover:bg-amber-600 text-white mt-2"
-                            onClick={() => handleAddAsLead(business)}
+          {/* Results Table */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-0">
+              <ScrollArea className="w-full">
+                <div className="min-w-[900px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/50">
+                        <TableHead className="w-10"></TableHead>
+                        <TableHead>Business Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Address</TableHead>
+                        <TableHead>City</TableHead>
+                        <TableHead>State</TableHead>
+                        <TableHead>Country</TableHead>
+                        <TableHead>Rating</TableHead>
+                        <TableHead>Reviews</TableHead>
+                        <TableHead>Website</TableHead>
+                        <TableHead>Social</TableHead>
+                        <TableHead>Source</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      <AnimatePresence>
+                        {filteredResults.map((business, index) => (
+                          <motion.tr
+                            key={business.id || business.name + index}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ delay: index * 0.02 }}
+                            className={`group cursor-pointer hover:bg-slate-50/80 ${!business.hasWebsite ? 'bg-amber-50/30' : ''}`}
+                            onClick={() => openDetail(business)}
                           >
-                            <Plus className="mr-1 h-4 w-4" />
-                            Add as Lead
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))}
-            </div>
-          </AnimatePresence>
+                            <TableCell className="w-10">
+                              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${business.hasWebsite ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+                                <Building2 className={`h-4 w-4 ${business.hasWebsite ? 'text-emerald-600' : 'text-amber-600'}`} />
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium text-sm">{business.name}</span>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="secondary" className="text-xs">{business.category}</Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {business.phone || '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {business.email ? (
+                                <span className="truncate max-w-[120px] block">{business.email}</span>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {business.address ? (
+                                <span className="truncate max-w-[150px] block">{business.address}</span>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{business.city || '-'}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{business.state || '-'}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{business.country || '-'}</TableCell>
+                            <TableCell>
+                              {business.googleRating ? (
+                                <div className="flex items-center gap-1">
+                                  <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+                                  <span className="text-sm">{business.googleRating}</span>
+                                </div>
+                              ) : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {business.googleReviews || business.reviewCount || '-'}
+                            </TableCell>
+                            <TableCell>
+                              {business.hasWebsite ? (
+                                <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 text-xs">
+                                  <Globe className="h-3 w-3 mr-1" />
+                                  Yes
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-red-50 text-red-700 hover:bg-red-50 text-xs">
+                                  <Unplug className="h-3 w-3 mr-1" />
+                                  No
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                {business.facebookUrl && (
+                                  <a href={business.facebookUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                    <Facebook className="h-3.5 w-3.5 text-blue-600 hover:text-blue-800" />
+                                  </a>
+                                )}
+                                {business.instagramUrl && (
+                                  <a href={business.instagramUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                    <Instagram className="h-3.5 w-3.5 text-pink-600 hover:text-pink-800" />
+                                  </a>
+                                )}
+                                {business.linkedinUrl && (
+                                  <a href={business.linkedinUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                                    <Linkedin className="h-3.5 w-3.5 text-blue-700 hover:text-blue-900" />
+                                  </a>
+                                )}
+                                {!business.facebookUrl && !business.instagramUrl && !business.linkedinUrl && (
+                                  <span className="text-xs text-muted-foreground">-</span>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-[10px] font-normal">
+                                {business.sourceDetail || business.source || 'web'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={(e) => { e.stopPropagation(); openDetail(business) }}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                {business.id && !business.hasWebsite && (
+                                  <Button
+                                    size="sm"
+                                    variant={addedLeads.has(business.id) ? 'ghost' : 'outline'}
+                                    className={`h-7 text-xs ${
+                                      addedLeads.has(business.id)
+                                        ? 'text-emerald-600'
+                                        : 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                                    }`}
+                                    onClick={(e) => { e.stopPropagation(); handleAddAsLead(business) }}
+                                    disabled={addingLead === business.id || addedLeads.has(business.id || '')}
+                                  >
+                                    {addingLead === business.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : addedLeads.has(business.id || '') ? (
+                                      <CheckCircle2 className="h-3 w-3" />
+                                    ) : (
+                                      <Plus className="h-3 w-3" />
+                                    )}
+                                  </Button>
+                                )}
+                              </div>
+                            </TableCell>
+                          </motion.tr>
+                        ))}
+                      </AnimatePresence>
+                    </TableBody>
+                  </Table>
+                </div>
+              </ScrollArea>
 
-          {filteredResults.length === 0 && (
-            <div className="text-center py-12">
-              <Search className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-muted-foreground">No businesses found. Try a different search.</p>
-            </div>
-          )}
+              {filteredResults.length === 0 && (
+                <div className="text-center py-12">
+                  <Search className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                  <p className="text-muted-foreground">No businesses found. Try a different search.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
 
       {/* Empty State */}
       {!loading && !searched && (
-        <div className="text-center py-16">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-16"
+        >
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-50">
             <Search className="h-10 w-10 text-amber-500" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">Find Businesses Without Websites</h2>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Enter a location and select a business category to discover local businesses that need your digital services.
+          <h2 className="text-xl font-semibold mb-2">Discover Businesses Without Websites</h2>
+          <p className="text-muted-foreground max-w-lg mx-auto mb-6">
+            Enter a country, state, city, and business category to discover local businesses from public directories.
+            Find potential clients who need your digital services.
           </p>
-        </div>
+          <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+            {['Salon', 'Restaurant', 'Gym', 'Clinic', 'Dentist', 'Hotel', 'Real Estate', 'Spa'].map((cat) => (
+              <Badge
+                key={cat}
+                variant="outline"
+                className="cursor-pointer hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors py-1.5 px-3"
+                onClick={() => setCategory(cat)}
+              >
+                {cat}
+              </Badge>
+            ))}
+          </div>
+        </motion.div>
       )}
+
+      {/* Business Detail Dialog */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          {selectedBusiness && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg">
+                  <Building2 className="h-5 w-5 text-amber-500" />
+                  {selectedBusiness.name}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 mt-2">
+                {/* Status Row */}
+                <div className="flex items-center gap-2">
+                  {selectedBusiness.hasWebsite ? (
+                    <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50">
+                      <Globe className="h-3 w-3 mr-1" />
+                      Has Website
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-red-50 text-red-700 hover:bg-red-50">
+                      <Unplug className="h-3 w-3 mr-1" />
+                      No Website — Opportunity!
+                    </Badge>
+                  )}
+                  <Badge variant="secondary">{selectedBusiness.category}</Badge>
+                  {selectedBusiness.sourceDetail && (
+                    <Badge variant="outline" className="text-xs">via {selectedBusiness.sourceDetail}</Badge>
+                  )}
+                </div>
+
+                {/* Rating */}
+                {selectedBusiness.googleRating && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${
+                            i < Math.floor(selectedBusiness.googleRating!)
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-slate-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className="font-medium">{selectedBusiness.googleRating}</span>
+                    <span className="text-sm text-muted-foreground">
+                      ({selectedBusiness.googleReviews || selectedBusiness.reviewCount || 0} reviews)
+                    </span>
+                  </div>
+                )}
+
+                <Separator />
+
+                {/* Contact Details */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-slate-700">Contact Information</h4>
+
+                  {selectedBusiness.phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{selectedBusiness.phone}</span>
+                    </div>
+                  )}
+
+                  {selectedBusiness.email && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>{selectedBusiness.email}</span>
+                    </div>
+                  )}
+
+                  {selectedBusiness.address && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span>
+                        {selectedBusiness.address}
+                        {selectedBusiness.city && `, ${selectedBusiness.city}`}
+                        {selectedBusiness.state && `, ${selectedBusiness.state}`}
+                        {selectedBusiness.country && `, ${selectedBusiness.country}`}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedBusiness.website && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Globe className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <a
+                        href={selectedBusiness.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline truncate max-w-[300px]"
+                      >
+                        {selectedBusiness.website}
+                      </a>
+                      <ExternalLink className="h-3 w-3 text-blue-400" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Social Media */}
+                {(selectedBusiness.facebookUrl || selectedBusiness.instagramUrl || selectedBusiness.linkedinUrl) && (
+                  <>
+                    <Separator />
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-semibold text-slate-700">Social Media</h4>
+                      <div className="flex flex-col gap-2">
+                        {selectedBusiness.facebookUrl && (
+                          <a href={selectedBusiness.facebookUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+                            <Facebook className="h-4 w-4" />
+                            <span className="truncate max-w-[300px]">{selectedBusiness.facebookUrl}</span>
+                            <ExternalLink className="h-3 w-3 text-blue-400" />
+                          </a>
+                        )}
+                        {selectedBusiness.instagramUrl && (
+                          <a href={selectedBusiness.instagramUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-pink-600 hover:underline">
+                            <Instagram className="h-4 w-4" />
+                            <span className="truncate max-w-[300px]">{selectedBusiness.instagramUrl}</span>
+                            <ExternalLink className="h-3 w-3 text-pink-400" />
+                          </a>
+                        )}
+                        {selectedBusiness.linkedinUrl && (
+                          <a href={selectedBusiness.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-blue-700 hover:underline">
+                            <Linkedin className="h-4 w-4" />
+                            <span className="truncate max-w-[300px]">{selectedBusiness.linkedinUrl}</span>
+                            <ExternalLink className="h-3 w-3 text-blue-500" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <Separator />
+
+                {/* Action */}
+                {!selectedBusiness.hasWebsite && selectedBusiness.id && (
+                  <Button
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                    onClick={() => {
+                      handleAddAsLead(selectedBusiness)
+                      setDetailOpen(false)
+                    }}
+                    disabled={addedLeads.has(selectedBusiness.id)}
+                  >
+                    {addedLeads.has(selectedBusiness.id) ? (
+                      <>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        Already Added as Lead
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add as Lead
+                      </>
+                    )}
+                  </Button>
+                )}
+
+                {selectedBusiness.hasWebsite && (
+                  <div className="bg-emerald-50 text-emerald-700 text-sm rounded-lg p-3 flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    This business already has a website. Consider offering SEO or redesign services.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

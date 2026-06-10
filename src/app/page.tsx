@@ -42,7 +42,11 @@ export default function Home() {
   useEffect(() => {
     const seedIfNeeded = async () => {
       try {
-        await fetch('/api/seed', { method: 'POST' })
+        const seeded = localStorage.getItem('bw-finder-seeded')
+        if (!seeded) {
+          await fetch('/api/seed', { method: 'POST' })
+          localStorage.setItem('bw-finder-seeded', 'true')
+        }
       } catch {
         // Silent fail - seed might already exist
       }

@@ -16,7 +16,7 @@ import {
   Search,
   UserPlus,
   BarChart3,
-  TrendingUp,
+  Globe,
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -26,13 +26,18 @@ interface DashboardStats {
   wonDealsValue: number
   leadsByStatus: { status: string; count: number }[]
   businessesByCategory: { category: string; count: number }[]
+  businessesByCountry: { country: string; count: number }[]
   recentLeads: {
     id: string
-    business: { name: string; category: string }
+    business: { name: string; category: string; city?: string; country?: string }
     status: string
     estimatedValue: number
     priority: string
   }[]
+  searchStats: {
+    totalSearches: number
+    completedSearches: number
+  }
 }
 
 const statusColors: Record<string, string> = {
@@ -77,36 +82,16 @@ export function DashboardView() {
           const data = await res.json()
           setStats(data)
         } else {
-          // Fallback demo data
           setStats({
-            totalBusinesses: 156,
-            withoutWebsite: 89,
-            activeLeads: 34,
-            wonDealsValue: 24500,
-            leadsByStatus: [
-              { status: 'New', count: 8 },
-              { status: 'Contacted', count: 12 },
-              { status: 'Qualified', count: 6 },
-              { status: 'Proposal', count: 4 },
-              { status: 'Negotiation', count: 3 },
-              { status: 'Won', count: 5 },
-              { status: 'Lost', count: 2 },
-            ],
-            businessesByCategory: [
-              { category: 'Restaurant', count: 28 },
-              { category: 'Salon', count: 18 },
-              { category: 'Mechanic', count: 15 },
-              { category: 'Plumber', count: 12 },
-              { category: 'Dentist', count: 9 },
-              { category: 'Gym', count: 7 },
-            ],
-            recentLeads: [
-              { id: '1', business: { name: 'Mario\'s Pizza', category: 'Restaurant' }, status: 'Contacted', estimatedValue: 2500, priority: 'high' },
-              { id: '2', business: { name: 'Style Studio', category: 'Salon' }, status: 'New', estimatedValue: 1800, priority: 'medium' },
-              { id: '3', business: { name: 'Quick Fix Auto', category: 'Mechanic' }, status: 'Proposal', estimatedValue: 3200, priority: 'high' },
-              { id: '4', business: { name: 'Bright Smile Dental', category: 'Dentist' }, status: 'Won', estimatedValue: 4500, priority: 'high' },
-              { id: '5', business: { name: 'FitLife Gym', category: 'Gym' }, status: 'Qualified', estimatedValue: 2000, priority: 'low' },
-            ],
+            totalBusinesses: 0,
+            withoutWebsite: 0,
+            activeLeads: 0,
+            wonDealsValue: 0,
+            leadsByStatus: [],
+            businessesByCategory: [],
+            businessesByCountry: [],
+            recentLeads: [],
+            searchStats: { totalSearches: 0, completedSearches: 0 },
           })
         }
       } catch {
@@ -117,7 +102,9 @@ export function DashboardView() {
           wonDealsValue: 0,
           leadsByStatus: [],
           businessesByCategory: [],
+          businessesByCountry: [],
           recentLeads: [],
+          searchStats: { totalSearches: 0, completedSearches: 0 },
         })
       } finally {
         setLoading(false)
@@ -150,6 +137,11 @@ export function DashboardView() {
 
   const pieChartConfig = stats.businessesByCategory.reduce((acc, c, i) => {
     acc[c.category] = { label: c.category, color: categoryColors[i % categoryColors.length] }
+    return acc
+  }, {} as Record<string, { label: string; color: string }>)
+
+  const countryChartConfig = stats.businessesByCountry.reduce((acc, c, i) => {
+    acc[c.country] = { label: c.country, color: categoryColors[i % categoryColors.length] }
     return acc
   }, {} as Record<string, { label: string; color: string }>)
 
@@ -200,26 +192,24 @@ export function DashboardView() {
             <CardDescription>Distribution of leads across pipeline stages</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={barChartConfig} className="h-[280px] w-full">
-              <BarChart data={stats.leadsByStatus} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                <XAxis
-                  dataKey="status"
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fontSize: 12 }}
-                />
-                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                  {stats.leadsByStatus.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={statusColors[entry.status] || '#94a3b8'}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ChartContainer>
+            {stats.leadsByStatus.length > 0 ? (
+              <ChartContainer config={barChartConfig} className="h-[280px] w-full">
+                <BarChart data={stats.leadsByStatus} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <XAxis dataKey="status" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                    {stats.leadsByStatus.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={statusColors[entry.status] || '#94a3b8'} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+                No lead data yet. Start discovering businesses!
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -229,83 +219,133 @@ export function DashboardView() {
             <CardDescription>Top business categories discovered</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={pieChartConfig} className="h-[280px] w-full">
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Pie
-                  data={stats.businessesByCategory}
-                  dataKey="count"
-                  nameKey="category"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  innerRadius={50}
-                  strokeWidth={2}
-                  stroke="#fff"
-                >
-                  {stats.businessesByCategory.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={categoryColors[index % categoryColors.length]}
-                    />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
+            {stats.businessesByCategory.length > 0 ? (
+              <ChartContainer config={pieChartConfig} className="h-[280px] w-full">
+                <PieChart>
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Pie
+                    data={stats.businessesByCategory}
+                    dataKey="count"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    innerRadius={50}
+                    strokeWidth={2}
+                    stroke="#fff"
+                  >
+                    {stats.businessesByCategory.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+                No business data yet. Run a discovery search!
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Leads Table */}
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Recent Leads</CardTitle>
-          <CardDescription>Latest leads in your pipeline</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b text-left">
-                  <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
-                  <th className="pb-3 text-sm font-medium text-muted-foreground">Category</th>
-                  <th className="pb-3 text-sm font-medium text-muted-foreground">Status</th>
-                  <th className="pb-3 text-sm font-medium text-muted-foreground">Priority</th>
-                  <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stats.recentLeads.map((lead) => (
-                  <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50">
-                    <td className="py-3 text-sm font-medium">{lead.business.name}</td>
-                    <td className="py-3 text-sm text-muted-foreground">{lead.business.category}</td>
-                    <td className="py-3">
-                      <Badge
-                        variant="secondary"
-                        className="text-xs"
-                        style={{
-                          backgroundColor: statusColors[lead.status] + '20',
-                          color: statusColors[lead.status],
-                        }}
-                      >
-                        {lead.status}
-                      </Badge>
-                    </td>
-                    <td className="py-3">
-                      <Badge variant="secondary" className={`text-xs ${priorityColors[lead.priority] || ''}`}>
-                        {lead.priority}
-                      </Badge>
-                    </td>
-                    <td className="py-3 text-sm font-medium text-right">
-                      ${lead.estimatedValue.toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Businesses by Country + Recent Leads */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Businesses by Country */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Globe className="h-5 w-5 text-amber-500" />
+              Businesses by Country
+            </CardTitle>
+            <CardDescription>Geographic distribution of discovered businesses</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats.businessesByCountry.length > 0 ? (
+              <ChartContainer config={countryChartConfig} className="h-[200px] w-full">
+                <BarChart data={stats.businessesByCountry} layout="vertical" margin={{ top: 5, right: 10, left: 60, bottom: 5 }}>
+                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <YAxis dataKey="country" type="category" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+                    {stats.businessesByCountry.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                No country data yet. Discover businesses in different locations!
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Leads */}
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg">Recent Leads</CardTitle>
+            <CardDescription>Latest leads in your pipeline</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats.recentLeads.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b text-left">
+                      <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+                      <th className="pb-3 text-sm font-medium text-muted-foreground">Status</th>
+                      <th className="pb-3 text-sm font-medium text-muted-foreground">Priority</th>
+                      <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.recentLeads.map((lead) => (
+                      <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50">
+                        <td className="py-3">
+                          <div>
+                            <p className="text-sm font-medium">{lead.business.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {lead.business.category}
+                              {lead.business.city && ` · ${lead.business.city}`}
+                              {lead.business.country && `, ${lead.business.country}`}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          <Badge
+                            variant="secondary"
+                            className="text-xs"
+                            style={{
+                              backgroundColor: statusColors[lead.status] + '20',
+                              color: statusColors[lead.status],
+                            }}
+                          >
+                            {lead.status}
+                          </Badge>
+                        </td>
+                        <td className="py-3">
+                          <Badge variant="secondary" className={`text-xs ${priorityColors[lead.priority] || ''}`}>
+                            {lead.priority}
+                          </Badge>
+                        </td>
+                        <td className="py-3 text-sm font-medium text-right">
+                          ${lead.estimatedValue.toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="h-[200px] flex items-center justify-center text-muted-foreground text-sm">
+                No leads yet. Start discovering businesses!
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -314,7 +354,7 @@ export function DashboardView() {
           className="h-20 bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-3 text-base"
         >
           <Search className="h-5 w-5" />
-          Search Businesses
+          Discover Businesses
         </Button>
         <Button
           onClick={() => setCurrentView('leads')}
