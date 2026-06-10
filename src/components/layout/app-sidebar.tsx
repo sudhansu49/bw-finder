@@ -18,6 +18,7 @@ import {
   FileText,
   Smartphone,
   Mail,
+  Kanban,
 } from 'lucide-react'
 
 const navItems: { view: View; label: string; icon: React.ElementType }[] = [
@@ -25,6 +26,7 @@ const navItems: { view: View; label: string; icon: React.ElementType }[] = [
   { view: 'search', label: 'Discover', icon: Search },
   { view: 'leads', label: 'Leads', icon: Users },
   { view: 'businesses', label: 'Businesses', icon: Building2 },
+  { view: 'crm', label: 'CRM Pipeline', icon: Kanban },
   { view: 'audit', label: 'Audit', icon: ClipboardCheck },
   { view: 'proposal', label: 'Proposal', icon: FileText },
   { view: 'outreach', label: 'Outreach', icon: MessageSquare },

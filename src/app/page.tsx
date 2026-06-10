@@ -11,6 +11,7 @@ import { BusinessesView } from '@/components/businesses/businesses-view'
 import { OutreachView } from '@/components/outreach/outreach-view'
 import { WhatsAppView } from '@/components/whatsapp/whatsapp-view'
 import { EmailView } from '@/components/email/email-view'
+import { CRMView } from '@/components/crm/crm-view'
 import { ServicesView } from '@/components/services/services-view'
 import { SettingsView } from '@/components/settings/settings-view'
 import { AuditView } from '@/components/audit/audit-view'
@@ -28,6 +29,8 @@ function ViewRenderer({ view }: { view: string }) {
       return <LeadsView />
     case 'businesses':
       return <BusinessesView />
+    case 'crm':
+      return <CRMView />
     case 'outreach':
       return <OutreachView />
     case 'whatsapp':

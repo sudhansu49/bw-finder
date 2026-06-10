@@ -424,20 +424,20 @@ export async function POST() {
       }
     }
 
-    // Create leads
+    // Create leads (using pipeline stages: new_lead, contacted, interested, meeting_scheduled, proposal_sent, won, lost)
     const leadsData = [
-      { businessIndex: 0, status: 'qualified', priority: 'high', estimatedValue: 499.00, notes: 'Interested in website redesign' },
+      { businessIndex: 0, status: 'interested', priority: 'high', estimatedValue: 499.00, notes: 'Interested in website redesign' },
       { businessIndex: 1, status: 'contacted', priority: 'medium', estimatedValue: 299.00, notes: 'Called, asked for pricing info' },
-      { businessIndex: 3, status: 'proposal', priority: 'high', estimatedValue: 798.00, notes: 'Needs website + SEO package' },
+      { businessIndex: 3, status: 'proposal_sent', priority: 'high', estimatedValue: 798.00, notes: 'Needs website + SEO package' },
       { businessIndex: 4, status: 'won', priority: 'high', estimatedValue: 1098.00, notes: 'Signed! Full package deal' },
-      { businessIndex: 5, status: 'new', priority: 'medium', estimatedValue: 499.00, notes: 'Found via web search, no website' },
+      { businessIndex: 5, status: 'new_lead', priority: 'medium', estimatedValue: 499.00, notes: 'Found via web search, no website' },
       { businessIndex: 7, status: 'contacted', priority: 'low', estimatedValue: 299.00, notes: 'Emailed, awaiting response' },
-      { businessIndex: 8, status: 'qualified', priority: 'high', estimatedValue: 898.00, notes: 'Wants website + CRM setup' },
-      { businessIndex: 10, status: 'new', priority: 'medium', estimatedValue: 499.00, notes: 'No website, good candidate' },
+      { businessIndex: 8, status: 'interested', priority: 'high', estimatedValue: 898.00, notes: 'Wants website + CRM setup' },
+      { businessIndex: 10, status: 'new_lead', priority: 'medium', estimatedValue: 499.00, notes: 'No website, good candidate' },
       { businessIndex: 11, status: 'lost', priority: 'low', estimatedValue: 299.00, notes: 'Chose competitor, price too high' },
-      { businessIndex: 12, status: 'contacted', priority: 'high', estimatedValue: 1098.00, notes: 'Very interested in full digital package' },
-      { businessIndex: 13, status: 'new', priority: 'medium', estimatedValue: 499.00, notes: 'Popular barbershop, no online presence' },
-      { businessIndex: 16, status: 'qualified', priority: 'medium', estimatedValue: 598.00, notes: 'Needs website and WhatsApp marketing' },
+      { businessIndex: 12, status: 'meeting_scheduled', priority: 'high', estimatedValue: 1098.00, notes: 'Very interested in full digital package' },
+      { businessIndex: 13, status: 'new_lead', priority: 'medium', estimatedValue: 499.00, notes: 'Popular barbershop, no online presence' },
+      { businessIndex: 16, status: 'interested', priority: 'medium', estimatedValue: 598.00, notes: 'Needs website and WhatsApp marketing' },
     ]
 
     const leads = []
@@ -463,7 +463,7 @@ export async function POST() {
             priority: leadData.priority,
             estimatedValue: leadData.estimatedValue,
             notes: leadData.notes,
-            lastContactedAt: leadData.status === 'contacted' || leadData.status === 'qualified' || leadData.status === 'proposal'
+            lastContactedAt: leadData.status === 'contacted' || leadData.status === 'interested' || leadData.status === 'proposal_sent' || leadData.status === 'meeting_scheduled'
               ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000)
               : null,
           },
@@ -768,6 +768,106 @@ export async function POST() {
       }
     } catch (postSeedError) {
       console.error('Post-seed processing failed:', postSeedError)
+    }
+
+    // Seed CRM data (notes, tasks, reminders, activities) for leads
+    try {
+      const allLeads = await db.lead.findMany({ take: 12 })
+      for (let i = 0; i < allLeads.length; i++) {
+        const lead = allLeads[i]
+
+        // Add initial activity
+        await db.activityLog.create({
+          data: {
+            leadId: lead.id,
+            userId: demoUser.id,
+            action: 'created',
+            details: JSON.stringify({ message: 'Lead created' }),
+          },
+        })
+
+        // Add notes for some leads
+        if (i % 2 === 0) {
+          await db.leadNote.create({
+            data: {
+              leadId: lead.id,
+              userId: demoUser.id,
+              content: i === 0
+                ? 'Had a great initial conversation. Business owner is very interested in getting a website. Follow up with proposal next week.'
+                : i === 2
+                  ? 'Sent proposal via email. Awaiting response. Client mentioned budget concerns — may need to offer starter package.'
+                  : i === 4
+                    ? 'Found this business through Google Maps search. No website, no social media. Perfect candidate for our services.'
+                    : 'General note: Business seems interested but needs more information about ROI.',
+            },
+          })
+          await db.activityLog.create({
+            data: {
+              leadId: lead.id,
+              userId: demoUser.id,
+              action: 'note_added',
+              details: JSON.stringify({ preview: 'Added initial notes' }),
+            },
+          })
+        }
+
+        // Add tasks for some leads
+        if (i < 6) {
+          await db.leadTask.create({
+            data: {
+              leadId: lead.id,
+              userId: demoUser.id,
+              title: i === 0 ? 'Send website proposal' : i === 2 ? 'Follow up on proposal' : i === 4 ? 'Research competitor websites' : 'Schedule intro call',
+              description: 'Important task for this lead',
+              dueDate: new Date(Date.now() + (i + 1) * 24 * 60 * 60 * 1000),
+              completed: i === 3,
+              completedAt: i === 3 ? new Date() : null,
+            },
+          })
+          await db.activityLog.create({
+            data: {
+              leadId: lead.id,
+              userId: demoUser.id,
+              action: i === 3 ? 'task_completed' : 'task_added',
+              details: JSON.stringify({ title: i === 0 ? 'Send website proposal' : i === 2 ? 'Follow up on proposal' : 'Schedule intro call' }),
+            },
+          })
+        }
+
+        // Add reminders for some leads
+        if (i === 0 || i === 2 || i === 4) {
+          await db.reminder.create({
+            data: {
+              leadId: lead.id,
+              userId: demoUser.id,
+              title: i === 0 ? 'Follow up call with owner' : i === 2 ? 'Proposal deadline reminder' : 'Check if they saw our email',
+              dueDate: new Date(Date.now() + (i === 2 ? 2 : 3) * 24 * 60 * 60 * 1000),
+            },
+          })
+          await db.activityLog.create({
+            data: {
+              leadId: lead.id,
+              userId: demoUser.id,
+              action: 'reminder_added',
+              details: JSON.stringify({ title: 'Reminder set' }),
+            },
+          })
+        }
+
+        // Log status change for leads not in new_lead
+        if (lead.status !== 'new_lead') {
+          await db.activityLog.create({
+            data: {
+              leadId: lead.id,
+              userId: demoUser.id,
+              action: 'status_change',
+              details: JSON.stringify({ from: 'New Lead', to: lead.status }),
+            },
+          })
+        }
+      }
+    } catch (crmSeedError) {
+      console.error('CRM seed error:', crmSeedError)
     }
 
     return NextResponse.json({

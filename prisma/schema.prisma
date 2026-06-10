@@ -20,6 +20,10 @@ model User {
   leads      Lead[]
   outreach   Outreach[]
   searchJobs SearchJob[]
+  leadNotes  LeadNote[]
+  leadTasks  LeadTask[]
+  reminders  Reminder[]
+  activities ActivityLog[]
 }
 
 model Business {
@@ -66,17 +70,21 @@ model Lead {
   id              String    @id @default(cuid())
   businessId      String
   userId          String
-  status          String    @default("new")
-  priority        String    @default("medium")
+  status          String    @default("new_lead") // new_lead, contacted, interested, meeting_scheduled, proposal_sent, won, lost
+  priority        String    @default("medium") // low, medium, high, urgent
   estimatedValue  Float?
   notes           String?
   lastContactedAt DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  business  Business   @relation(fields: [businessId], references: [id])
-  user      User       @relation(fields: [userId], references: [id])
-  outreach  Outreach[]
+  business   Business      @relation(fields: [businessId], references: [id])
+  user       User          @relation(fields: [userId], references: [id])
+  outreach   Outreach[]
+  leadNotes  LeadNote[]
+  leadTasks  LeadTask[]
+  reminders  Reminder[]
+  activities ActivityLog[]
 }
 
 model Outreach {
@@ -87,6 +95,61 @@ model Outreach {
   subject   String?
   notes     String?
   outcome   String?
+  createdAt DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId    String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+model LeadTask {
+  id          String    @id @default(cuid())
+  leadId      String
+  userId      String
+  title       String
+  description String?
+  dueDate     DateTime?
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Reminder {
+  id          String   @id @default(cuid())
+  leadId      String
+  userId      String
+  title       String
+  description String?
+  dueDate     DateTime
+  completed   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  leadId    String
+  userId    String
+  action    String   // created, status_change, note_added, task_added, task_completed, reminder_added, etc.
+  details   String?  // JSON string with additional details
   createdAt DateTime @default(now())
 
   lead Lead @relation(fields: [leadId], references: [id])
