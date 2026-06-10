@@ -17,6 +17,7 @@ import {
   ClipboardCheck,
   FileText,
   Smartphone,
+  Mail,
 } from 'lucide-react'
 
 const navItems: { view: View; label: string; icon: React.ElementType }[] = [
@@ -28,6 +29,7 @@ const navItems: { view: View; label: string; icon: React.ElementType }[] = [
   { view: 'proposal', label: 'Proposal', icon: FileText },
   { view: 'outreach', label: 'Outreach', icon: MessageSquare },
   { view: 'whatsapp', label: 'WhatsApp AI', icon: Smartphone },
+  { view: 'email', label: 'Email AI', icon: Mail },
   { view: 'services', label: 'Services', icon: Briefcase },
   { view: 'settings', label: 'Settings', icon: Settings },
 ]
