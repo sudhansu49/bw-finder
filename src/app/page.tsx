@@ -12,6 +12,7 @@ import { OutreachView } from '@/components/outreach/outreach-view'
 import { ServicesView } from '@/components/services/services-view'
 import { SettingsView } from '@/components/settings/settings-view'
 import { AuditView } from '@/components/audit/audit-view'
+import { ProposalView } from '@/components/proposal/proposal-view'
 import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
 
@@ -29,6 +30,8 @@ function ViewRenderer({ view }: { view: string }) {
       return <OutreachView />
     case 'audit':
       return <AuditView />
+    case 'proposal':
+      return <ProposalView />
     case 'services':
       return <ServicesView />
     case 'settings':

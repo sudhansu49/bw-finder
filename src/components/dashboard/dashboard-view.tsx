@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Sparkles,
   Shield,
+  FileText,
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -643,7 +644,7 @@ export function DashboardView() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         <Button
           onClick={() => setCurrentView('search')}
           className="h-20 bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-3 text-base"
@@ -658,6 +659,14 @@ export function DashboardView() {
         >
           <ClipboardCheck className="h-5 w-5" />
           AI Audit
+        </Button>
+        <Button
+          onClick={() => setCurrentView('proposal')}
+          variant="outline"
+          className="h-20 border-2 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 flex items-center gap-3 text-base"
+        >
+          <FileText className="h-5 w-5" />
+          Proposals
         </Button>
         <Button
           onClick={() => setCurrentView('leads')}

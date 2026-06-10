@@ -223,7 +223,7 @@ const formatDate = (dateStr: string | null | undefined) => {
 // ── Main Component ─────────────────────────────────────────────────
 
 export function AuditView() {
-  const { user } = useAppStore()
+  const { user, setCurrentView } = useAppStore()
   const { toast } = useToast()
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [loading, setLoading] = useState(true)
@@ -844,6 +844,18 @@ export function AuditView() {
                     Estimated value of recommended digital services for {selectedBusiness.name}
                   </p>
                 </div>
+
+                {/* Generate Proposal Button */}
+                <Button
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                  onClick={() => {
+                    setDetailOpen(false)
+                    setCurrentView('proposal')
+                  }}
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate Website Proposal
+                </Button>
 
                 {/* Audit Date */}
                 <p className="text-xs text-muted-foreground text-center">

@@ -168,3 +168,59 @@ Stage Summary:
 - Dashboard shows audit overview and top opportunities
 - Demo data: Hotel Raj Palace has auditScore=0 (4 critical issues, $26,400 total opportunity value)
 - 8 navigation views: Dashboard, Discover, Leads, Businesses, Audit, Outreach, Services, Settings
+
+---
+Task ID: 6
+Agent: main
+Task: Phase 6 - AI Website Proposal
+
+Work Log:
+- Updated Prisma schema with proposalData (JSON string) and proposalDate fields on Business model
+- Pushed schema changes to SQLite database
+- Built /api/businesses/proposal endpoint with GET and POST methods
+  - POST: Generate proposal for a business (with optional AI enhancement via z-ai-web-dev-sdk)
+  - GET: Retrieve existing proposal or generate on-the-fly
+  - 3-tier packages: Basic, Professional, Premium
+  - Each package has: name, tier, price, originalPrice, timeline, deliveryWeeks, features[], description, recommended
+  - Each feature has: name, included, highlight
+  - Category-based pricing multipliers (Hotel=1.5x, Lawyer=1.4x, Salon=0.9x, etc.)
+  - Dynamic feature inclusion based on audit findings (needsWebsite, needsSEO, needsBooking, etc.)
+  - Professional package marked as recommended with discount pricing
+  - Cover letter with personalization
+  - Valid until date (30 days from generation)
+- Built /api/businesses/proposal/pdf endpoint for PDF export
+  - Generates professional HTML with 4 pages: Cover, Cover Letter, Packages, Timeline & Terms
+  - Cover page: dark gradient with business name, category, location
+  - Cover letter page: personalized message + audit summary + services badges
+  - Packages page: 3-column side-by-side comparison cards with pricing, features, checkmarks
+  - Timeline & Terms page: project milestones per package, terms & conditions, signature area
+  - Opens in new window for browser Print-to-PDF
+- Created /src/components/proposal/proposal-view.tsx - comprehensive Proposal page
+  - Stats cards: Businesses, Proposals Generated, No Website, Need Proposal
+  - Search/filter: by name, city, category
+  - Businesses table with proposal status (Generated/Pending)
+  - Per-business actions: Generate (quick), Sparkles (AI-enhanced), View, PDF Export
+  - PackageCard component with tier-based color scheme (Slate/Amber/Emerald)
+  - Feature lists with checkmarks/crosses, highlight for key features
+  - Recommended badge on Professional package
+  - Proposal Dialog with: audit summary banner, 3 package cards, cover letter, action bar
+  - Export PDF button opens browser print dialog
+  - Enhance with AI button for AI-enhanced proposals
+- Updated store: added 'proposal' to View type
+- Updated sidebar: added Proposal navigation with FileText icon
+- Updated page.tsx: added ProposalView import and rendering
+- Updated Dashboard: added "Proposals" quick action button
+- Updated Audit view: added "Generate Website Proposal" button in audit report dialog
+- Lint passes cleanly
+
+Stage Summary:
+- AI Website Proposal generator with 3-tier package system fully functional
+- Basic Package: $499-749 (10 features, 2-3 weeks) — essential web presence
+- Professional Package: $999-1499 (16 features, 4-6 weeks) — complete digital solution ★ RECOMMENDED
+- Premium Package: $1999-2999 (20 features, 6-8 weeks) — full digital transformation
+- Each package includes: pricing, features with included/excluded, timeline, description
+- Professional 4-page PDF export via browser print dialog
+- AI enhancement available for more specific, persuasive proposals
+- Audit-to-Proposal flow: Generate Audit → View Report → Generate Proposal → Export PDF
+- Dashboard, Audit view, and Businesses view all link to Proposal generation
+- 9 navigation views: Dashboard, Discover, Leads, Businesses, Audit, Proposal, Outreach, Services, Settings

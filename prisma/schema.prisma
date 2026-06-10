@@ -49,6 +49,8 @@ model Business {
   auditReport             String?  // JSON string with full audit report
   auditScore              Int?     // 0-100 overall audit score
   auditDate               DateTime? // when audit was last run
+  proposalData            String?  // JSON string with proposal packages
+  proposalDate            DateTime? // when proposal was last generated
   latitude                Float?
   longitude               Float?
   source                  String   @default("web_search")
