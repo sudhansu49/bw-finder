@@ -140,6 +140,52 @@ export async function GET(request: NextRequest) {
       _count: { websiteStatus: true },
     })
 
+    // Audit stats
+    const auditedBusinesses = await db.business.findMany({
+      where: { auditScore: { not: null } },
+      select: { auditScore: true, auditReport: true },
+    })
+
+    const avgAuditScore = auditedBusinesses.length > 0
+      ? Math.round(auditedBusinesses.reduce((sum, b) => sum + (b.auditScore || 0), 0) / auditedBusinesses.length)
+      : 0
+
+    // Calculate total opportunity value from audit reports
+    let totalAuditOpportunityValue = 0
+    const auditIssueCounts: Record<string, number> = { critical: 0, warning: 0, opportunity: 0, good: 0 }
+    for (const b of auditedBusinesses) {
+      if (b.auditReport) {
+        try {
+          const report = JSON.parse(b.auditReport)
+          totalAuditOpportunityValue += report.totalOpportunityValue || 0
+          if (report.items) {
+            for (const item of report.items) {
+              if (auditIssueCounts[item.status] !== undefined) {
+                auditIssueCounts[item.status]++
+              }
+            }
+          }
+        } catch {
+          // Skip malformed reports
+        }
+      }
+    }
+
+    // Top audit opportunities (lowest audit scores = most issues = best opportunities)
+    const topAuditOpportunities = await db.business.findMany({
+      where: { auditScore: { not: null } },
+      orderBy: { auditScore: 'asc' },
+      take: 5,
+      select: {
+        id: true,
+        name: true,
+        category: true,
+        city: true,
+        auditScore: true,
+        leadScore: true,
+      },
+    })
+
     return NextResponse.json({
       totalBusinesses,
       withoutWebsite,
@@ -164,6 +210,15 @@ export async function GET(request: NextRequest) {
         status: item.websiteStatus || 'unknown',
         count: item._count.websiteStatus,
       })),
+      auditStats: {
+        auditedCount: auditedBusinesses.length,
+        avgAuditScore,
+        totalOpportunityValue: totalAuditOpportunityValue,
+        criticalIssues: auditIssueCounts.critical,
+        warningIssues: auditIssueCounts.warning,
+        opportunities: auditIssueCounts.opportunity,
+      },
+      topAuditOpportunities,
     })
   } catch (error) {
     console.error('Analytics error:', error)

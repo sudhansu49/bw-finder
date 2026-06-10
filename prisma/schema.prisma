@@ -46,6 +46,9 @@ model Business {
   opportunityScore        Int?     // 0-100
   estimatedMonthlyRevenue Float?   // estimated monthly revenue in USD
   scoreFactors            String?  // JSON string with scoring breakdown
+  auditReport             String?  // JSON string with full audit report
+  auditScore              Int?     // 0-100 overall audit score
+  auditDate               DateTime? // when audit was last run
   latitude                Float?
   longitude               Float?
   source                  String   @default("web_search")

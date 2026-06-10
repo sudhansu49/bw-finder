@@ -58,6 +58,9 @@ import {
   TrendingUp,
   DollarSign,
   Target,
+  ClipboardCheck,
+  Sparkles,
+  Loader2,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -86,6 +89,7 @@ interface Business {
   leadScore?: number | null
   opportunityScore?: number | null
   estimatedMonthlyRevenue?: number | null
+  auditScore?: number | null
   source?: string
   sourceDetail?: string | null
   rating?: number
@@ -166,6 +170,7 @@ export function BusinessesView() {
   const [page, setPage] = useState(1)
   const [addedLeads, setAddedLeads] = useState<Set<string>>(new Set())
   const [sortBy, setSortBy] = useState<string>('default')
+  const [auditingId, setAuditingId] = useState<string | null>(null)
   const pageSize = 10
 
   useEffect(() => {
@@ -244,6 +249,39 @@ export function BusinessesView() {
   const openDetail = (business: Business) => {
     setSelectedBusiness(business)
     setDetailOpen(true)
+  }
+
+  const handleAudit = async (business: Business) => {
+    setAuditingId(business.id)
+    try {
+      const res = await fetch('/api/businesses/audit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessIds: [business.id], useAI: true }),
+      })
+      if (res.ok) {
+        toast({
+          title: 'Audit Complete!',
+          description: `Audit report generated for ${business.name}. View it in the Audit tab.`,
+        })
+        // Refresh businesses to get updated audit score
+        const params = new URLSearchParams()
+        if (categoryFilter && categoryFilter !== 'All') params.set('category', categoryFilter)
+        if (searchTerm) params.set('search', searchTerm)
+        params.set('limit', '200')
+        const bizRes = await fetch(`/api/businesses?${params.toString()}`)
+        if (bizRes.ok) {
+          const bizData = await bizRes.json()
+          setBusinesses(bizData.businesses || [])
+        }
+      } else {
+        toast({ title: 'Audit Failed', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Audit Failed', variant: 'destructive' })
+    } finally {
+      setAuditingId(null)
+    }
   }
 
   if (loading) {
@@ -406,6 +444,22 @@ export function BusinessesView() {
                               onClick={(e) => { e.stopPropagation(); openDetail(business) }}
                             >
                               <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                              disabled={auditingId === business.id}
+                              onClick={(e) => { e.stopPropagation(); handleAudit(business) }}
+                              title="Generate AI Audit"
+                            >
+                              {auditingId === business.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : business.auditScore != null ? (
+                                <ClipboardCheck className="h-3.5 w-3.5" />
+                              ) : (
+                                <Sparkles className="h-3.5 w-3.5" />
+                              )}
                             </Button>
                             {!addedLeads.has(business.id) && (
                               <Button

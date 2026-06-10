@@ -14,6 +14,7 @@ import {
   Settings,
   LogOut,
   X,
+  ClipboardCheck,
 } from 'lucide-react'
 
 const navItems: { view: View; label: string; icon: React.ElementType }[] = [
@@ -21,6 +22,7 @@ const navItems: { view: View; label: string; icon: React.ElementType }[] = [
   { view: 'search', label: 'Discover', icon: Search },
   { view: 'leads', label: 'Leads', icon: Users },
   { view: 'businesses', label: 'Businesses', icon: Building2 },
+  { view: 'audit', label: 'Audit', icon: ClipboardCheck },
   { view: 'outreach', label: 'Outreach', icon: MessageSquare },
   { view: 'services', label: 'Services', icon: Briefcase },
   { view: 'settings', label: 'Settings', icon: Settings },

@@ -19,6 +19,10 @@ import {
   Globe,
   Target,
   TrendingUp,
+  ClipboardCheck,
+  AlertTriangle,
+  Sparkles,
+  Shield,
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -56,6 +60,22 @@ interface DashboardStats {
     estimatedMonthlyRevenue: number | null
   }[]
   websiteStatusBreakdown: { status: string; count: number }[]
+  auditStats: {
+    auditedCount: number
+    avgAuditScore: number
+    totalOpportunityValue: number
+    criticalIssues: number
+    warningIssues: number
+    opportunities: number
+  }
+  topAuditOpportunities: {
+    id: string
+    name: string
+    category: string
+    city: string | null
+    auditScore: number | null
+    leadScore: number | null
+  }[]
 }
 
 const statusColors: Record<string, string> = {
@@ -113,6 +133,8 @@ export function DashboardView() {
             scoringStats: { avgLeadScore: 0, avgOpportunityScore: 0, totalEstimatedRevenue: 0, scoredCount: 0 },
             topScoringBusinesses: [],
             websiteStatusBreakdown: [],
+            auditStats: { auditedCount: 0, avgAuditScore: 0, totalOpportunityValue: 0, criticalIssues: 0, warningIssues: 0, opportunities: 0 },
+            topAuditOpportunities: [],
           })
         }
       } catch {
@@ -129,6 +151,8 @@ export function DashboardView() {
           scoringStats: { avgLeadScore: 0, avgOpportunityScore: 0, totalEstimatedRevenue: 0, scoredCount: 0 },
           topScoringBusinesses: [],
           websiteStatusBreakdown: [],
+          auditStats: { auditedCount: 0, avgAuditScore: 0, totalOpportunityValue: 0, criticalIssues: 0, warningIssues: 0, opportunities: 0 },
+          topAuditOpportunities: [],
         })
       } finally {
         setLoading(false)
@@ -307,6 +331,154 @@ export function DashboardView() {
         </Card>
       )}
 
+      {/* AI Business Audit Overview */}
+      {stats.auditStats && stats.auditStats.auditedCount > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 text-amber-500" />
+            AI Business Audit
+          </h2>
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-4 gap-4"
+            variants={container}
+            initial="hidden"
+            animate="show"
+          >
+            <motion.div variants={item}>
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Audited</p>
+                      <p className="text-3xl font-bold mt-1">{stats.auditStats.auditedCount}</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+                      <ClipboardCheck className="h-6 w-6 text-emerald-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div variants={item}>
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Avg Audit Score</p>
+                      <div className="flex items-baseline gap-1">
+                        <p className="text-3xl font-bold mt-1">{stats.auditStats.avgAuditScore}</p>
+                        <span className="text-sm text-muted-foreground">/100</span>
+                      </div>
+                    </div>
+                    <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
+                      <Shield className="h-6 w-6 text-amber-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div variants={item}>
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Critical Issues</p>
+                      <p className="text-3xl font-bold text-red-600 mt-1">{stats.auditStats.criticalIssues}</p>
+                    </div>
+                    <div className="h-12 w-12 rounded-xl bg-red-50 flex items-center justify-center">
+                      <AlertTriangle className="h-6 w-6 text-red-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+            <motion.div variants={item}>
+              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Opp. Value</p>
+                      <p className="text-3xl font-bold text-orange-600 mt-1">
+                        ${stats.auditStats.totalOpportunityValue >= 1000
+                          ? `${(stats.auditStats.totalOpportunityValue / 1000).toFixed(0)}k`
+                          : stats.auditStats.totalOpportunityValue}
+                      </p>
+                    </div>
+                    <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
+                      <Sparkles className="h-6 w-6 text-orange-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Top Audit Opportunities */}
+      {stats.topAuditOpportunities && stats.topAuditOpportunities.length > 0 && (
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              Top Audit Opportunities
+            </CardTitle>
+            <CardDescription>Businesses with the most digital gaps — best opportunities for your services</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Category</th>
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Audit Score</th>
+                    <th className="pb-3 text-sm font-medium text-muted-foreground">Lead Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.topAuditOpportunities.map((biz) => (
+                    <tr key={biz.id} className="border-b last:border-0 hover:bg-slate-50">
+                      <td className="py-3">
+                        <p className="text-sm font-medium">{biz.name}</p>
+                        <p className="text-xs text-muted-foreground">{biz.city || ''}</p>
+                      </td>
+                      <td className="py-3">
+                        <Badge variant="secondary" className="text-xs">{biz.category}</Badge>
+                      </td>
+                      <td className="py-3">
+                        <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${
+                          biz.auditScore && biz.auditScore >= 80 ? 'bg-emerald-50' :
+                          biz.auditScore && biz.auditScore >= 60 ? 'bg-amber-50' :
+                          biz.auditScore && biz.auditScore >= 40 ? 'bg-orange-50' :
+                          'bg-red-50'
+                        }`}>
+                          <span className={`text-xs font-bold ${
+                            biz.auditScore && biz.auditScore >= 80 ? 'text-emerald-600' :
+                            biz.auditScore && biz.auditScore >= 60 ? 'text-amber-600' :
+                            biz.auditScore && biz.auditScore >= 40 ? 'text-orange-600' :
+                            'text-red-600'
+                          }`}>
+                            {biz.auditScore || '-'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3">
+                        <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${biz.leadScore && biz.leadScore >= 70 ? 'bg-emerald-50' : biz.leadScore && biz.leadScore >= 40 ? 'bg-amber-50' : 'bg-red-50'}`}>
+                          <span className={`text-xs font-bold ${biz.leadScore && biz.leadScore >= 70 ? 'text-emerald-600' : biz.leadScore && biz.leadScore >= 40 ? 'text-amber-600' : 'text-red-500'}`}>
+                            {biz.leadScore || '-'}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-0 shadow-sm">
@@ -471,13 +643,21 @@ export function DashboardView() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Button
           onClick={() => setCurrentView('search')}
           className="h-20 bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-3 text-base"
         >
           <Search className="h-5 w-5" />
           Discover Businesses
+        </Button>
+        <Button
+          onClick={() => setCurrentView('audit')}
+          variant="outline"
+          className="h-20 border-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 flex items-center gap-3 text-base"
+        >
+          <ClipboardCheck className="h-5 w-5" />
+          AI Audit
         </Button>
         <Button
           onClick={() => setCurrentView('leads')}

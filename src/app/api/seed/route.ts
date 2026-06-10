@@ -572,20 +572,202 @@ export async function POST() {
       }
     }
 
-    // Run website detection & scoring on all businesses
+    // Run website detection, scoring & audit directly (avoid self-referential fetch)
     try {
-      await fetch('http://localhost:3000/api/businesses/detect-websites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ detectAll: true }),
-      })
-      await fetch('http://localhost:3000/api/businesses/score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scoreAll: true }),
-      })
-    } catch (scoringError) {
-      console.error('Post-seed scoring failed:', scoringError)
+      // Website Detection
+      const allBusinesses = await db.business.findMany()
+      const SOCIAL_DOMAINS = [
+        'facebook.com', 'fb.com', 'instagram.com', 'linkedin.com', 'twitter.com', 'x.com',
+        'whatsapp.com', 'youtube.com', 'tiktok.com', 'yelp.com', 'justdial.com', 'sulekha.com',
+        'google.com/maps', 'tripadvisor.com', 'zomato.com', 'swiggy.com',
+      ]
+      for (const biz of allBusinesses) {
+        let websiteStatus: string
+        let hasWebsite: boolean
+        let socialPresence = 0
+        if (biz.facebookUrl) socialPresence++
+        if (biz.instagramUrl) socialPresence++
+        if (biz.linkedinUrl) socialPresence++
+
+        if (!biz.website || biz.website.trim() === '') {
+          websiteStatus = 'NO_WEBSITE'
+          hasWebsite = false
+        } else {
+          try {
+            const parsed = new URL(biz.website)
+            const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '')
+            const isSocial = SOCIAL_DOMAINS.some(d => {
+              const cd = d.replace(/^www\./, '')
+              return hostname === cd || hostname.endsWith('.' + cd)
+            })
+            if (isSocial) { websiteStatus = 'SOCIAL_ONLY'; hasWebsite = false }
+            else if (!parsed.hostname.includes('.') || !['http:', 'https:'].includes(parsed.protocol)) { websiteStatus = 'NO_WEBSITE'; hasWebsite = false }
+            else { websiteStatus = 'HAS_WEBSITE'; hasWebsite = true }
+          } catch { websiteStatus = 'NO_WEBSITE'; hasWebsite = false }
+        }
+        await db.business.update({ where: { id: biz.id }, data: { websiteStatus, hasWebsite, socialPresence } })
+      }
+
+      // Lead Scoring (simplified)
+      const CITY_POPS: Record<string, number> = {
+        'mumbai': 12400000, 'delhi': 11000000, 'bengaluru': 8400000, 'hyderabad': 6800000,
+        'chennai': 4600000, 'pune': 3100000, 'jaipur': 3100000, 'goa': 400000,
+      }
+      const CAT_SCORES: Record<string, number> = {
+        'hotel': 20, 'real estate': 19, 'school': 18, 'lawyer': 17, 'clinic': 16, 'dentist': 16,
+        'restaurant': 14, 'gym': 13, 'spa': 12, 'salon': 11, 'beauty parlour': 11,
+        'accountant': 15, 'bakery': 10, 'mechanic': 9, 'plumber': 8, 'electrician': 8,
+      }
+      const CAT_REVENUE: Record<string, { base: number; perReview: number }> = {
+        'restaurant': { base: 15000, perReview: 50 }, 'hotel': { base: 40000, perReview: 200 },
+        'salon': { base: 8000, perReview: 30 }, 'beauty parlour': { base: 7000, perReview: 25 },
+        'spa': { base: 12000, perReview: 40 }, 'gym': { base: 10000, perReview: 35 },
+        'clinic': { base: 25000, perReview: 100 }, 'dentist': { base: 20000, perReview: 80 },
+        'lawyer': { base: 30000, perReview: 150 }, 'real estate': { base: 50000, perReview: 200 },
+        'school': { base: 35000, perReview: 100 }, 'mechanic': { base: 8000, perReview: 20 },
+        'plumber': { base: 6000, perReview: 15 }, 'electrician': { base: 7000, perReview: 15 },
+        'bakery': { base: 8000, perReview: 25 }, 'accountant': { base: 15000, perReview: 50 },
+      }
+
+      const scoredBusinesses = await db.business.findMany()
+      for (const biz of scoredBusinesses) {
+        const reviews = biz.reviewCount || biz.googleReviews || 0
+        const rating = biz.googleRating || 0
+        const cityPop = CITY_POPS[(biz.city || '').toLowerCase().trim()] || 500000
+        const catKey = biz.category.toLowerCase()
+        const catScore = CAT_SCORES[catKey] || 10
+        const revMult = CAT_REVENUE[catKey] || { base: 10000, perReview: 30 }
+
+        let reviewScore = reviews >= 500 ? 20 : reviews >= 200 ? 16 : reviews >= 100 ? 12 : reviews >= 50 ? 8 : reviews >= 20 ? 5 : reviews >= 5 ? 3 : 1
+        let ratingScore = rating >= 4.5 ? 20 : rating >= 4.0 ? 16 : rating >= 3.5 ? 12 : rating >= 3.0 ? 8 : rating > 0 ? 4 : 0
+        let popScore = cityPop >= 5000000 ? 20 : cityPop >= 1000000 ? 16 : cityPop >= 500000 ? 12 : cityPop >= 200000 ? 8 : 5
+        let socialScore = (biz.socialPresence || 0) >= 3 ? 18 : (biz.socialPresence || 0) === 2 ? 12 : (biz.socialPresence || 0) === 1 ? 6 : 2
+        let websitePenalty = biz.websiteStatus === 'HAS_WEBSITE' ? -15 : biz.websiteStatus === 'SOCIAL_ONLY' ? -5 : 5
+
+        const leadScore = Math.max(0, Math.min(100, reviewScore + ratingScore + popScore + catScore + socialScore + websitePenalty))
+        const opportunityRaw = (popScore * 0.3 + catScore * 0.3 + reviewScore * 0.2 + socialScore * 0.1 + Math.max(0, websitePenalty) * 0.1) * 100 / 20
+        const opportunityScore = Math.max(0, Math.min(100, Math.round(opportunityRaw * 5)))
+        const estimatedMonthlyRevenue = Math.round(revMult.base + reviews * revMult.perReview)
+
+        await db.business.update({
+          where: { id: biz.id },
+          data: { leadScore, opportunityScore, estimatedMonthlyRevenue, scoreFactors: JSON.stringify({ reviewScore, ratingScore, populationScore: popScore, categoryScore: catScore, socialScore, websitePenalty }) },
+        })
+      }
+
+      // Audit (simplified - just save a basic report)
+      const auditedBusinesses = await db.business.findMany()
+      for (const biz of auditedBusinesses) {
+        const items = []
+        let auditScore = 100
+        const services: string[] = []
+        let totalOppValue = 0
+
+        // Website Missing
+        if (!biz.hasWebsite || biz.websiteStatus === 'NO_WEBSITE' || biz.websiteStatus === 'SOCIAL_ONLY') {
+          const isSocialOnly = biz.websiteStatus === 'SOCIAL_ONLY'
+          const webVal = CAT_REVENUE[biz.category.toLowerCase()]?.base ? Math.round(CAT_REVENUE[biz.category.toLowerCase()].base * 0.2) : 2500
+          items.push({
+            id: 'website_missing',
+            title: isSocialOnly ? 'No Professional Website' : 'Website Missing',
+            status: 'critical',
+            description: `${biz.name} ${isSocialOnly ? 'only has social media pages but no dedicated website' : 'does not have a website'}.`,
+            recommendation: `Build a professional website for ${biz.name} with service pages, contact form, and mobile-responsive design.`,
+            impact: 'high',
+            estimatedValue: webVal,
+          })
+          auditScore -= 30
+          services.push('Website Design & Development')
+          totalOppValue += webVal
+        } else {
+          items.push({ id: 'website_missing', title: 'Website Present', status: 'good', description: `${biz.name} has a website.`, recommendation: 'Conduct a detailed website audit.', impact: 'low', estimatedValue: 500 })
+        }
+
+        // SEO Missing
+        if (!biz.hasWebsite || !(biz.googleReviews && biz.googleReviews > 20)) {
+          const seoVal = CAT_REVENUE[biz.category.toLowerCase()]?.base ? Math.round(CAT_REVENUE[biz.category.toLowerCase()].base * 0.12) : 1500
+          items.push({ id: 'seo_missing', title: 'SEO Missing', status: biz.hasWebsite ? 'warning' : 'critical', description: `No SEO presence detected.`, recommendation: `Implement local SEO strategy.`, impact: 'high', estimatedValue: seoVal })
+          auditScore -= biz.hasWebsite ? 15 : 25
+          services.push('Local SEO Optimization')
+          totalOppValue += seoVal
+        } else {
+          items.push({ id: 'seo_missing', title: 'Basic SEO Present', status: 'good', description: 'Some SEO indicators present.', recommendation: 'Continue building SEO authority.', impact: 'low', estimatedValue: 300 })
+        }
+
+        // Booking Missing
+        const bookingCats = ['salon', 'beauty parlour', 'spa', 'gym', 'clinic', 'dentist', 'hotel', 'restaurant', 'school']
+        if (bookingCats.some(c => biz.category.toLowerCase().includes(c))) {
+          const bookVal = Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.1)
+          items.push({ id: 'booking_missing', title: 'Online Booking Missing', status: 'critical', description: `${biz.category} business without online booking.`, recommendation: 'Implement an online booking system.', impact: 'high', estimatedValue: bookVal })
+          auditScore -= 20
+          services.push('Online Booking System')
+          totalOppValue += bookVal
+        } else {
+          items.push({ id: 'booking_missing', title: 'Booking System', status: 'opportunity', description: 'Could benefit from scheduling.', recommendation: 'Consider adding scheduling.', impact: 'medium', estimatedValue: 800 })
+          totalOppValue += 800
+        }
+
+        // Lead Capture Missing
+        if (!biz.hasWebsite || !biz.email) {
+          const lcVal = Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.08)
+          items.push({ id: 'lead_capture_missing', title: 'Lead Capture Missing', status: biz.hasWebsite ? 'warning' : 'critical', description: 'No lead capture mechanism.', recommendation: 'Add strategic lead capture forms.', impact: 'high', estimatedValue: lcVal })
+          auditScore -= biz.hasWebsite ? 10 : 20
+          services.push('Lead Capture & CRM')
+          totalOppValue += lcVal
+        } else {
+          items.push({ id: 'lead_capture_missing', title: 'Basic Lead Capture', status: 'good', description: 'Basic contact information available.', recommendation: 'Add automated lead nurturing.', impact: 'medium', estimatedValue: 600 })
+        }
+
+        // Google Ranking Opportunity
+        if (!biz.hasWebsite || !(biz.googleReviews && biz.googleReviews > 0)) {
+          const grVal = Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.1)
+          items.push({ id: 'google_ranking_opportunity', title: 'Google Ranking Opportunity', status: 'opportunity', description: 'Low Google visibility.', recommendation: 'Optimize Google Business Profile and target local keywords.', impact: 'high', estimatedValue: grVal })
+          auditScore -= 15
+          services.push('Google Business Profile Optimization')
+          totalOppValue += grVal
+        } else {
+          items.push({ id: 'google_ranking_opportunity', title: 'Google Presence Exists', status: 'good', description: 'Has Google presence.', recommendation: 'Boost with content marketing.', impact: 'medium', estimatedValue: 500 })
+          totalOppValue += 500
+        }
+
+        // WhatsApp Opportunity
+        items.push({
+          id: 'whatsapp_opportunity', title: 'WhatsApp Business Opportunity', status: 'opportunity',
+          description: 'Can leverage WhatsApp Business for direct customer engagement.',
+          recommendation: 'Set up WhatsApp Business with automated greetings, quick replies, and catalog.',
+          impact: 'medium',
+          estimatedValue: Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.06),
+        })
+        services.push('WhatsApp Business Setup')
+        totalOppValue += Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.06)
+
+        auditScore = Math.max(0, Math.min(100, auditScore))
+        const criticalCount = items.filter(i => i.status === 'critical').length
+
+        const report = {
+          businessName: biz.name,
+          category: biz.category,
+          city: biz.city,
+          country: biz.country,
+          auditDate: new Date().toISOString(),
+          overallScore: auditScore,
+          items,
+          summary: criticalCount >= 3
+            ? `${biz.name} has significant digital presence gaps with ${criticalCount} critical issues. Total opportunity value: $${totalOppValue.toLocaleString()}+.`
+            : criticalCount >= 1
+              ? `${biz.name} has ${criticalCount} critical issue(s). A targeted digital services package could be worth $${totalOppValue.toLocaleString()}.`
+              : `${biz.name} has a basic digital presence but growth opportunities. Potential value: $${totalOppValue.toLocaleString()}.`,
+          totalOpportunityValue: totalOppValue,
+          servicesRecommended: services,
+        }
+
+        await db.business.update({
+          where: { id: biz.id },
+          data: { auditReport: JSON.stringify(report), auditScore, auditDate: new Date() },
+        })
+      }
+    } catch (postSeedError) {
+      console.error('Post-seed processing failed:', postSeedError)
     }
 
     return NextResponse.json({

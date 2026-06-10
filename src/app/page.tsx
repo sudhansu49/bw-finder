@@ -11,6 +11,7 @@ import { BusinessesView } from '@/components/businesses/businesses-view'
 import { OutreachView } from '@/components/outreach/outreach-view'
 import { ServicesView } from '@/components/services/services-view'
 import { SettingsView } from '@/components/settings/settings-view'
+import { AuditView } from '@/components/audit/audit-view'
 import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
 
@@ -26,6 +27,8 @@ function ViewRenderer({ view }: { view: string }) {
       return <BusinessesView />
     case 'outreach':
       return <OutreachView />
+    case 'audit':
+      return <AuditView />
     case 'services':
       return <ServicesView />
     case 'settings':

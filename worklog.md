@@ -123,3 +123,48 @@ Stage Summary:
 - Businesses table includes score columns with color-coded circles
 - Auto-detection and scoring runs on discovery and seed
 - Demo data: 18 businesses with scores (e.g. Hotel Raj Palace: Lead=85, Opp=89, Revenue=$98k/mo)
+
+---
+Task ID: 5
+Agent: main
+Task: Phase 5 - AI Business Audit
+
+Work Log:
+- Updated Prisma schema with auditReport (JSON string), auditScore (0-100), auditDate fields on Business model
+- Pushed schema changes to SQLite database
+- Built /api/businesses/audit endpoint with GET and POST methods
+  - POST: Generate audit for one or all businesses (with optional AI enhancement via z-ai-web-dev-sdk)
+  - GET: Retrieve existing audit or generate on-the-fly for a single business
+  - 6 audit items: Website Missing, SEO Missing, Booking Missing, Lead Capture Missing, Google Ranking Opportunity, WhatsApp Opportunity
+  - Each item has: id, title, status (critical/warning/good/opportunity), description, recommendation, impact (high/medium/low), estimatedValue
+  - Overall audit score: 0-100 (starts at 100, subtracts for issues)
+  - Total opportunity value calculated across all items
+  - Services recommended list generated from identified issues
+  - Executive summary auto-generated based on critical issue count
+- Refactored /api/seed to inline website detection, scoring, and audit logic (avoids self-referential fetch crashes)
+- Created /src/components/audit/audit-view.tsx - comprehensive Audit page
+  - Stats cards: Total Businesses, Audited, Critical Issues, Avg Audit Score
+  - Search/filter: by name, city, category
+  - Sort: by Audit Score, Lead Score, Name, Category
+  - Businesses table with audit score circles (color-coded: red < 40, amber 40-69, emerald 70+)
+  - "Audit All Businesses" button for bulk audit
+  - "Audit" button per business for individual AI-enhanced audit
+  - Professional Audit Report Dialog with business header, audit score circle, issue summary cards, executive summary, expandable audit items, recommended services badges, total opportunity value banner
+- Updated store: added 'audit' to View type
+- Updated sidebar: added Audit navigation with ClipboardCheck icon
+- Updated page.tsx: added AuditView import and rendering
+- Updated dashboard with AI Business Audit section (4 stat cards + Top Audit Opportunities table + AI Audit quick action)
+- Updated analytics API with auditStats and topAuditOpportunities
+- Updated Businesses view with per-business audit button
+- Lint passes cleanly
+- All API endpoints verified working via curl
+
+Stage Summary:
+- AI Business Audit engine fully functional with 6 audit checks
+- Audit report includes: Website Missing, SEO Missing, Booking Missing, Lead Capture Missing, Google Ranking Opportunity, WhatsApp Opportunity
+- Each item has professional description, recommendation, impact level, and estimated project value
+- Audit scores 0-100 (lower = more issues = better lead opportunity)
+- Professional report dialog with expandable items, executive summary, and opportunity value
+- Dashboard shows audit overview and top opportunities
+- Demo data: Hotel Raj Palace has auditScore=0 (4 critical issues, $26,400 total opportunity value)
+- 8 navigation views: Dashboard, Discover, Leads, Businesses, Audit, Outreach, Services, Settings
