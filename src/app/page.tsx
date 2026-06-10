@@ -9,6 +9,7 @@ import { SearchView } from '@/components/search/search-view'
 import { LeadsView } from '@/components/leads/leads-view'
 import { BusinessesView } from '@/components/businesses/businesses-view'
 import { OutreachView } from '@/components/outreach/outreach-view'
+import { WhatsAppView } from '@/components/whatsapp/whatsapp-view'
 import { ServicesView } from '@/components/services/services-view'
 import { SettingsView } from '@/components/settings/settings-view'
 import { AuditView } from '@/components/audit/audit-view'
@@ -28,6 +29,8 @@ function ViewRenderer({ view }: { view: string }) {
       return <BusinessesView />
     case 'outreach':
       return <OutreachView />
+    case 'whatsapp':
+      return <WhatsAppView />
     case 'audit':
       return <AuditView />
     case 'proposal':

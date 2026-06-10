@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 
-export type View = 'dashboard' | 'search' | 'leads' | 'businesses' | 'audit' | 'proposal' | 'outreach' | 'services' | 'settings'
+export type View = 'dashboard' | 'search' | 'leads' | 'businesses' | 'audit' | 'proposal' | 'outreach' | 'whatsapp' | 'services' | 'settings'
 
 interface User {
   id: string
