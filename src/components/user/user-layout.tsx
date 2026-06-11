@@ -13,10 +13,16 @@ import { EmailView } from '@/components/email/email-view'
 import { CRMView } from '@/components/crm/crm-view'
 import { ExportView } from '@/components/export/export-view'
 import { SettingsView } from '@/components/settings/settings-view'
+import { ProfileView } from '@/components/profile/profile-view'
+import { BillingView } from '@/components/billing/billing-view'
+import { SubscriptionView } from '@/components/subscription/subscription-view'
+import { NotificationsView } from '@/components/notifications/notifications-view'
+import { HelpView } from '@/components/help/help-view'
+import { ReportsView } from '@/components/reports/reports-view'
+import { OutreachView } from '@/components/outreach/outreach-view'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent } from '@/components/ui/card'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -50,8 +56,6 @@ import {
   ChevronDown,
   Crown,
   CreditCard,
-  BarChart3,
-  LifeBuoy,
   Shield,
   ArrowLeftRight,
 } from 'lucide-react'
@@ -65,6 +69,7 @@ const viewLabels: Record<UserView, string> = {
   'user-lead-finder': 'Lead Finder',
   'user-website-detection': 'Website Detection',
   'user-lead-scoring': 'Lead Scoring',
+  'user-outreach': 'Outreach',
   'user-audit': 'AI Audit',
   'user-proposal': 'Proposal Generator',
   'user-whatsapp': 'WhatsApp Generator',
@@ -85,6 +90,7 @@ const viewGroups: Record<UserView, string> = {
   'user-lead-finder': 'Overview',
   'user-website-detection': 'Overview',
   'user-lead-scoring': 'Overview',
+  'user-outreach': 'Overview',
   'user-audit': 'Tools',
   'user-proposal': 'Tools',
   'user-whatsapp': 'Tools',
@@ -100,86 +106,7 @@ const viewGroups: Record<UserView, string> = {
   'user-help': 'Account',
 }
 
-// ─── Placeholder Views ───────────────────────────────────────────────────────
-
-function PlaceholderView({ title, description, icon: Icon }: { title: string; description: string; icon: React.ElementType }) {
-  return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Card className="w-full max-w-lg border-dashed">
-        <CardContent className="flex flex-col items-center justify-center py-16 px-6 text-center">
-          <div className="h-16 w-16 rounded-2xl bg-amber-100 dark:bg-amber-500/20 flex items-center justify-center mb-4">
-            <Icon className="h-8 w-8 text-amber-500" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">{title}</h2>
-          <p className="text-muted-foreground text-sm max-w-sm">{description}</p>
-          <Badge variant="outline" className="mt-4 text-amber-600 border-amber-300 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30">
-            Coming Soon
-          </Badge>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-function UserProfileView() {
-  return (
-    <PlaceholderView
-      title="Profile"
-      description="Manage your personal information, avatar, and account preferences. Update your name, email, and other details."
-      icon={User}
-    />
-  )
-}
-
-function UserBillingView() {
-  return (
-    <PlaceholderView
-      title="Billing"
-      description="View your billing history, manage payment methods, download invoices, and track your spending."
-      icon={CreditCard}
-    />
-  )
-}
-
-function UserSubscriptionView() {
-  return (
-    <PlaceholderView
-      title="Subscription"
-      description="Manage your subscription plan, upgrade or downgrade, view plan features, and check your usage limits."
-      icon={Crown}
-    />
-  )
-}
-
-function UserNotificationsView() {
-  return (
-    <PlaceholderView
-      title="Notifications"
-      description="Configure your notification preferences, view recent alerts, and manage email and push notification settings."
-      icon={Bell}
-    />
-  )
-}
-
-function UserHelpView() {
-  return (
-    <PlaceholderView
-      title="Help Center"
-      description="Access documentation, tutorials, FAQs, and contact support. Get help with any feature or issue."
-      icon={LifeBuoy}
-    />
-  )
-}
-
-function UserReportsView() {
-  return (
-    <PlaceholderView
-      title="Reports"
-      description="Generate and view detailed reports on your leads, campaigns, outreach performance, and business metrics."
-      icon={BarChart3}
-    />
-  )
-}
+// All views are now imported as proper components - no more placeholders
 
 // ─── View Renderer ───────────────────────────────────────────────────────────
 
@@ -213,22 +140,24 @@ function ViewRenderer({ view }: { view: UserView }) {
               return <EmailView />
             case 'user-crm':
               return <CRMView />
+            case 'user-outreach':
+              return <OutreachView />
             case 'user-exports':
               return <ExportView />
             case 'user-settings':
               return <SettingsView />
             case 'user-reports':
-              return <UserReportsView />
+              return <ReportsView />
             case 'user-profile':
-              return <UserProfileView />
+              return <ProfileView />
             case 'user-billing':
-              return <UserBillingView />
+              return <BillingView />
             case 'user-subscription':
-              return <UserSubscriptionView />
+              return <SubscriptionView />
             case 'user-notifications':
-              return <UserNotificationsView />
+              return <NotificationsView />
             case 'user-help':
-              return <UserHelpView />
+              return <HelpView />
             default:
               return <DashboardView />
           }

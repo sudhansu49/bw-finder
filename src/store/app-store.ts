@@ -37,6 +37,7 @@ export type UserView =
   | 'user-lead-finder'
   | 'user-website-detection'
   | 'user-lead-scoring'
+  | 'user-outreach'
   | 'user-audit'
   | 'user-proposal'
   | 'user-whatsapp'

@@ -12,6 +12,7 @@ import {
   Search,
   Globe,
   Target,
+  Megaphone,
   ClipboardCheck,
   FileText,
   Smartphone,
@@ -52,6 +53,7 @@ const navGroups: NavGroup[] = [
       { view: 'user-lead-finder', label: 'Lead Finder', icon: Search },
       { view: 'user-website-detection', label: 'Website Detection', icon: Globe },
       { view: 'user-lead-scoring', label: 'Lead Scoring', icon: Target },
+      { view: 'user-outreach', label: 'Outreach', icon: Megaphone },
     ],
   },
   {
