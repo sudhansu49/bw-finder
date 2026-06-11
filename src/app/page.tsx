@@ -14,6 +14,7 @@ import { EmailView } from '@/components/email/email-view'
 import { CRMView } from '@/components/crm/crm-view'
 import { ServicesView } from '@/components/services/services-view'
 import { SettingsView } from '@/components/settings/settings-view'
+import { ApiDocsView } from '@/components/api-docs/api-docs-view'
 import { AuditView } from '@/components/audit/audit-view'
 import { ProposalView } from '@/components/proposal/proposal-view'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,8 @@ function ViewRenderer({ view }: { view: string }) {
       return <ProposalView />
     case 'services':
       return <ServicesView />
+    case 'api-docs':
+      return <ApiDocsView />
     case 'settings':
       return <SettingsView />
     default:

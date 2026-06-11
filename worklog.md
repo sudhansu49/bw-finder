@@ -27,3 +27,33 @@ Stage Summary:
 - All KPI cards with gradient headers and hover effects
 - Analytics API returns comprehensive conversion and revenue data
 - Browser verified: all sections render correctly with real data
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Phase 11 - Create REST API, Swagger Documentation, and Endpoints (/search, /leads, /audit, /proposal, /crm, /export)
+
+Work Log:
+- Audited all 23 existing API route files to understand current endpoints
+- Created /api/docs/route.ts - OpenAPI 3.0.3 spec generator with full documentation for all endpoints
+- Created /api/export/route.ts - Data export endpoint supporting leads, businesses, audits, pipeline in CSV/JSON
+- Built API Docs UI component (api-docs-view.tsx) - Swagger-like interface with:
+  - Header with version badge, endpoint count, OpenAPI spec buttons
+  - Quick reference cards (Base URL, Auth, Format, Export, Spec, Version)
+  - Search/filter for endpoints
+  - 9 tagged endpoint groups with color-coded icons
+  - Method badges (GET=green, POST=amber, PATCH=orange, DELETE=red)
+  - Expandable endpoints with parameters tables, request body fields, responses
+  - "Try it" section with cURL copy button
+  - Data Export section with 4 export cards (Leads, Businesses, Audits, Pipeline) with CSV/JSON buttons
+- Added 'api-docs' to View type in app-store.ts
+- Added BookOpen icon + API Docs nav item to app-sidebar.tsx
+- Added ApiDocsView import and route to page.tsx
+- All lint checks pass
+- Browser verified: all features working, 25 endpoints documented across 9 groups
+
+Stage Summary:
+- OpenAPI 3.0.3 spec at /api/docs with 25 endpoints across 9 tags
+- Export endpoint at /api/export supporting CSV and JSON formats for 4 data types
+- Swagger-like API documentation UI integrated into the app
+- All endpoints for /search, /leads, /audit, /proposal, /crm, /export documented and functional
