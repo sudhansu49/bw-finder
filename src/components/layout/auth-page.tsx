@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { LoginForm } from '@/components/auth/login-form'
 import { SignupForm } from '@/components/auth/signup-form'
-import { Search, CheckCircle2, Zap, Globe, BarChart3, MessageSquare } from 'lucide-react'
+import { Search, CheckCircle2, Zap, Globe, BarChart3, MessageSquare, Shield } from 'lucide-react'
 
 export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
@@ -41,6 +41,7 @@ export function AuthPage() {
               { icon: Globe, label: 'Website Status Detection' },
               { icon: BarChart3, label: 'Lead Pipeline Management' },
               { icon: MessageSquare, label: 'Outreach Tracking' },
+              { icon: Shield, label: 'Multi-Panel Admin & User Dashboards' },
             ].map((feature) => (
               <div key={feature.label} className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
@@ -51,15 +52,21 @@ export function AuthPage() {
             ))}
           </div>
 
-          <div className="mt-12 flex items-center gap-2 text-sm text-slate-400">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            <span>Free to start &bull; No credit card required</span>
+          <div className="mt-12 space-y-2">
+            <div className="flex items-center gap-2 text-sm text-slate-400">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <span>Free to start &bull; No credit card required</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-amber-400/80">
+              <Shield className="h-4 w-4" />
+              <span>Demo: demo@finder.com / demo123 (Admin access)</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Right side - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-slate-50">
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-slate-50 dark:bg-slate-950">
         {isLogin ? (
           <LoginForm onSwitchToSignup={() => setIsLogin(false)} />
         ) : (

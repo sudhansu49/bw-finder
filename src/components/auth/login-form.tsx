@@ -39,7 +39,11 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
       }
 
       setUser(data.user)
-      setCurrentView('dashboard')
+      setCurrentView('user-dashboard')
+      // Auto-switch to admin panel for admin users
+      if (data.user.role === 'super_admin' || data.user.role === 'admin') {
+        useAppStore.getState().setActivePanel('admin')
+      }
     } catch {
       setError('Network error. Please try again.')
     } finally {

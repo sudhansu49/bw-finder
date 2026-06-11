@@ -1,6 +1,6 @@
 'use client'
 
-import { useAppStore, type View } from '@/store/app-store'
+import { useAppStore } from '@/store/app-store'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -24,7 +24,7 @@ import {
   Shield,
 } from 'lucide-react'
 
-const navItems: { view: View; label: string; icon: React.ElementType }[] = [
+const navItems: { view: string; label: string; icon: React.ElementType }[] = [
   { view: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { view: 'search', label: 'Discover', icon: Search },
   { view: 'leads', label: 'Leads', icon: Users },
@@ -43,10 +43,14 @@ const navItems: { view: View; label: string; icon: React.ElementType }[] = [
 ]
 
 export function AppSidebar() {
-  const { currentView, setCurrentView, user, setUser, sidebarOpen, setSidebarOpen } = useAppStore()
+  const { currentView, setCurrentView, user, setUser, sidebarOpen, setSidebarOpen, setActivePanel } = useAppStore()
 
-  const handleNavClick = (view: View) => {
-    setCurrentView(view)
+  const handleNavClick = (view: string) => {
+    if (view === 'admin') {
+      setActivePanel('admin')
+    } else {
+      setCurrentView(view)
+    }
     setSidebarOpen(false)
   }
 

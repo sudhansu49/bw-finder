@@ -41,7 +41,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
       }
 
       setUser(data.user)
-      setCurrentView('dashboard')
+      setCurrentView('user-dashboard')
     } catch {
       setError('Network error. Please try again.')
     } finally {

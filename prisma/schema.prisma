@@ -7,33 +7,90 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id              String   @id @default(cuid())
-  email           String   @unique
-  name            String
-  password        String
-  company         String?
-  role            String   @default("user")
-  avatar          String?
-  credits         Int      @default(0)
-  planId          String?
-  stripeCustomerId String?
-  status          String   @default("active") // active, suspended, banned
-  lastLoginAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+// ─── ROLE SYSTEM ──────────────────────────────────────────────────────────────
+// SUPER_ADMIN > ADMIN > AGENCY_OWNER > TEAM_MEMBER > USER
 
-  plan               Plan?    @relation(fields: [planId], references: [id])
-  leads              Lead[]
-  outreach           Outreach[]
-  searchJobs         SearchJob[]
-  leadNotes          LeadNote[]
-  leadTasks          LeadTask[]
-  reminders          Reminder[]
-  activities         ActivityLog[]
-  creditTransactions CreditTransaction[]
-  subscriptions      Subscription[]
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  name              String
+  password          String
+  company           String?
+  role              String    @default("user") // super_admin, admin, agency_owner, team_member, user
+  avatar            String?
+  credits           Int       @default(0)
+  planId            String?
+  stripeCustomerId  String?
+  status            String    @default("active") // active, suspended, banned
+  agencyId          String?
+  lastLoginAt       DateTime?
+  loginIp           String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  plan                Plan?                        @relation(fields: [planId], references: [id])
+  agency              Agency?                     @relation("AgencyMembers", fields: [agencyId], references: [id])
+  ownedAgencies      Agency[]                     @relation("AgencyOwner")
+  leads               Lead[]
+  outreach            Outreach[]
+  searchJobs          SearchJob[]
+  leadNotes           LeadNote[]
+  leadTasks           LeadTask[]
+  reminders           Reminder[]
+  activities          ActivityLog[]
+  creditTransactions  CreditTransaction[]
+  subscriptions       Subscription[]
+  sentNotifications   Notification[]              @relation("NotificationSender")
+  receivedNotifications Notification[]            @relation("NotificationRecipient")
+  supportTickets      SupportTicket[]             @relation("TicketCreator")
+  assignedTickets     SupportTicket[]             @relation("TicketAssignee")
+  auditLogs           SystemAuditLog[]            @relation("AuditLogActor")
+  teamMemberships     TeamMember[]
 }
+
+model Agency {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  logo        String?
+  website     String?
+  ownerId     String   @unique
+  status      String   @default("active") // active, suspended, banned
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner        User         @relation("AgencyOwner", fields: [ownerId], references: [id])
+  members      User[]       @relation("AgencyMembers")
+  teams        Team[]
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  agencyId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  agency  Agency       @relation(fields: [agencyId], references: [id])
+  members TeamMember[]
+}
+
+model TeamMember {
+  id     String   @id @default(cuid())
+  userId String
+  teamId String
+  role   String   @default("member") // admin, member, viewer
+  joined DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+  team Team @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, teamId])
+}
+
+// ─── CORE BUSINESS MODELS ────────────────────────────────────────────────────
 
 model Business {
   id                      String   @id @default(cuid())
@@ -54,20 +111,20 @@ model Business {
   facebookUrl             String?
   instagramUrl            String?
   linkedinUrl             String?
-  socialPresence          Int      @default(0) // count of social media platforms
-  leadScore               Int?     // 0-100
-  opportunityScore        Int?     // 0-100
-  estimatedMonthlyRevenue Float?   // estimated monthly revenue in USD
-  scoreFactors            String?  // JSON string with scoring breakdown
-  auditReport             String?  // JSON string with full audit report
-  auditScore              Int?     // 0-100 overall audit score
-  auditDate               DateTime? // when audit was last run
-  proposalData            String?  // JSON string with proposal packages
-  proposalDate            DateTime? // when proposal was last generated
+  socialPresence          Int      @default(0)
+  leadScore               Int?
+  opportunityScore        Int?
+  estimatedMonthlyRevenue Float?
+  scoreFactors            String?
+  auditReport             String?
+  auditScore              Int?
+  auditDate               DateTime?
+  proposalData            String?
+  proposalDate            DateTime?
   latitude                Float?
   longitude               Float?
   source                  String   @default("web_search")
-  sourceDetail            String?  // Specific directory or listing source
+  sourceDetail            String?
   notes                   String?
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -79,8 +136,8 @@ model Lead {
   id              String    @id @default(cuid())
   businessId      String
   userId          String
-  status          String    @default("new_lead") // new_lead, contacted, interested, meeting_scheduled, proposal_sent, won, lost
-  priority        String    @default("medium") // low, medium, high, urgent
+  status          String    @default("new_lead")
+  priority        String    @default("medium")
   estimatedValue  Float?
   notes           String?
   lastContactedAt DateTime?
@@ -157,8 +214,8 @@ model ActivityLog {
   id        String   @id @default(cuid())
   leadId    String
   userId    String
-  action    String   // created, status_change, note_added, task_added, task_completed, reminder_added, etc.
-  details   String?  // JSON string with additional details
+  action    String
+  details   String?
   createdAt DateTime @default(now())
 
   lead Lead @relation(fields: [leadId], references: [id])
@@ -187,20 +244,22 @@ model SearchJob {
   city         String?
   status       String    @default("pending")
   resultsCount Int       @default(0)
-  sources      String?   // JSON array of sources used
+  sources      String?
   createdAt    DateTime  @default(now())
   completedAt  DateTime?
 
   user User @relation(fields: [userId], references: [id])
 }
 
+// ─── SUBSCRIPTIONS & BILLING ─────────────────────────────────────────────────
+
 model Plan {
   id          String   @id @default(cuid())
   name        String   @unique
   description String
-  price       Float     // monthly price in USD
-  credits     Int       // credits included per month
-  features    String    // JSON array of feature strings
+  price       Float
+  credits     Int
+  features    String
   popular     Boolean  @default(false)
   maxLeads    Int      @default(100)
   maxSearches Int      @default(50)
@@ -213,15 +272,16 @@ model Plan {
 }
 
 model Subscription {
-  id                String   @id @default(cuid())
-  userId            String
-  planId            String
-  status            String   @default("active") // active, canceled, expired, past_due
+  id                 String   @id @default(cuid())
+  userId             String
+  planId             String
+  status             String   @default("active")
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
-  cancelAtPeriodEnd  Boolean @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  cancelAtPeriodEnd  Boolean  @default(false)
+  trialEnd           DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id])
   plan Plan @relation(fields: [planId], references: [id])
@@ -230,12 +290,85 @@ model Subscription {
 model CreditTransaction {
   id          String   @id @default(cuid())
   userId      String
-  amount      Int      // positive = credit added, negative = credit used
-  balance     Int      // balance after transaction
-  type        String   // purchase, usage, bonus, refund, plan_credits
+  amount      Int
+  balance     Int
+  type        String
   description String
-  referenceId String?  // ID of the related entity (lead, search, export, etc.)
+  referenceId String?
   createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+}
+
+// ─── SYSTEM MODELS ────────────────────────────────────────────────────────────
+
+model SystemAuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  category   String   // auth, user, subscription, credit, system, admin
+  details    String?
+  ipAddress  String?
+  userAgent  String?
+  severity   String   @default("info")
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditLogActor", fields: [actorId], references: [id])
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  senderId    String?
+  recipientId String
+  type        String   // info, warning, success, error, system
+  title       String
+  message     String
+  read        Boolean  @default(false)
+  actionUrl   String?
+  createdAt   DateTime @default(now())
+
+  sender    User?  @relation("NotificationSender", fields: [senderId], references: [id])
+  recipient User   @relation("NotificationRecipient", fields: [recipientId], references: [id])
+}
+
+model SupportTicket {
+  id          String   @id @default(cuid())
+  creatorId   String
+  assigneeId  String?
+  subject     String
+  description String
+  status      String   @default("open")
+  priority    String   @default("medium")
+  category    String?
+  resolution  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  creator  User  @relation("TicketCreator", fields: [creatorId], references: [id])
+  assignee User? @relation("TicketAssignee", fields: [assigneeId], references: [id])
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  enabled     Boolean  @default(false)
+  rolloutPct  Int      @default(0)
+  targetRoles String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Announcement {
+  id         String   @id @default(cuid())
+  title      String
+  content    String
+  type       String   @default("info")
+  priority   String   @default("normal")
+  active     Boolean  @default(true)
+  startsAt   DateTime
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
