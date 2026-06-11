@@ -42,6 +42,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
 
       setUser(data.user)
       setCurrentView('user-dashboard')
+      useAppStore.getState().setActivePanel('user')
     } catch {
       setError('Network error. Please try again.')
     } finally {

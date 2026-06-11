@@ -118,7 +118,10 @@ export function UserSidebar() {
     setUser,
     setActivePanel,
     setAuthMode,
+    setCurrentAdminView,
   } = useAppStore()
+
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
 
   const handleNavClick = (view: UserView) => {
     setCurrentView(view)
@@ -126,11 +129,12 @@ export function UserSidebar() {
   }
 
   const handleLogout = () => {
+    sessionStorage.setItem('bw-finder-logged-out', 'true')
     setUser(null)
     setAuthMode('user')
   }
   const initials = user?.name ? getInitials(user.name) : 'U'
-  const planLabel = user?.planId || 'free'
+  const planLabel = user?.planName || 'Free'
 
   const renderNavItem = (item: NavItem) => {
     const isActive = currentView === item.view
@@ -294,10 +298,10 @@ export function UserSidebar() {
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <Badge
                     variant="outline"
-                    className={`text-[10px] px-1.5 py-0 ${planBadgeColor(user?.planId)}`}
+                    className={`text-[10px] px-1.5 py-0 ${planBadgeColor(user?.planName?.toLowerCase())}`}
                   >
                     <Crown className="h-2.5 w-2.5 mr-0.5" />
-                    {planLabel.charAt(0).toUpperCase() + planLabel.slice(1)}
+                    {planLabel}
                   </Badge>
                   {user?.credits !== undefined && (
                     <span className="text-[10px] text-slate-500">{user.credits} credits</span>
@@ -313,6 +317,19 @@ export function UserSidebar() {
               <LogOut className="h-4 w-4" />
               Logout
             </Button>
+            {isAdmin && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                onClick={() => {
+                  setActivePanel('admin')
+                  setCurrentAdminView('admin-dashboard')
+                }}
+              >
+                <Shield className="h-4 w-4" />
+                Admin Panel
+              </Button>
+            )}
           </div>
         )}
       </div>

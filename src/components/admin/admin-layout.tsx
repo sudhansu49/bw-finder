@@ -61,6 +61,7 @@ import {
   User,
   Settings,
   ChevronDown,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useState, useEffect, useRef } from 'react'
@@ -200,6 +201,8 @@ export function AdminLayout() {
     setSidebarMobileOpen,
     setUser,
     setAuthMode,
+    setActivePanel,
+    setCurrentView,
   } = useAppStore()
   const { theme, setTheme } = useTheme()
   const mountedRef = useRef(false)
@@ -352,8 +355,20 @@ export function AdminLayout() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
+                      className="text-amber-600 focus:text-amber-600"
+                      onClick={() => {
+                        setActivePanel('user')
+                        setCurrentView('user-dashboard')
+                      }}
+                    >
+                      <ArrowLeftRight className="h-4 w-4 mr-2" />
+                      Switch to User Panel
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
                       className="text-red-600 focus:text-red-600"
                       onClick={() => {
+                        sessionStorage.setItem('bw-finder-logged-out', 'true')
                         setUser(null)
                         setAuthMode('admin')
                       }}

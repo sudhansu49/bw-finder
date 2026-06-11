@@ -39,9 +39,16 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
       }
 
       setUser(data.user)
-      setCurrentView('user-dashboard')
-      // User login ALWAYS goes to user panel - admin access is separate
-      useAppStore.getState().setActivePanel('user')
+      
+      // Auto-switch to admin panel for admin users
+      const role = data.user?.role
+      if (role === 'super_admin' || role === 'admin') {
+        useAppStore.getState().setActivePanel('admin')
+        useAppStore.getState().setCurrentAdminView('admin-dashboard')
+      } else {
+        setCurrentView('user-dashboard')
+        useAppStore.getState().setActivePanel('user')
+      }
     } catch {
       setError('Network error. Please try again.')
     } finally {

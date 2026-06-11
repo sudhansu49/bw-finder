@@ -55,6 +55,7 @@ export function AppSidebar() {
   }
 
   const handleLogout = () => {
+    sessionStorage.setItem('bw-finder-logged-out', 'true')
     setUser(null)
     setCurrentView('dashboard')
   }

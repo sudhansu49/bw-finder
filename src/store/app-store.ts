@@ -63,6 +63,7 @@ interface AppUser {
   avatar?: string | null
   credits: number
   planId?: string | null
+  planName?: string
   agencyId?: string | null
   status: string
 }

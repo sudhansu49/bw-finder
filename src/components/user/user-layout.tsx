@@ -51,6 +51,8 @@ import {
   CreditCard,
   BarChart3,
   LifeBuoy,
+  Shield,
+  ArrowLeftRight,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -270,7 +272,11 @@ export function UserLayout() {
     setSidebarMobileOpen,
     setUser,
     setCurrentView,
+    setActivePanel,
+    setCurrentAdminView,
   } = useAppStore()
+
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
   const { theme, setTheme } = useTheme()
   const notificationCount = 3
 
@@ -391,10 +397,10 @@ export function UserLayout() {
                       </span>
                       <Badge
                         variant="outline"
-                        className={`hidden lg:inline-flex text-[10px] px-1.5 py-0 ${planBadgeColorLight(user?.planId)}`}
+                        className={`hidden lg:inline-flex text-[10px] px-1.5 py-0 ${planBadgeColorLight(user?.planName?.toLowerCase())}`}
                       >
                         <Crown className="h-2.5 w-2.5 mr-0.5" />
-                        {(user?.planId || 'free').charAt(0).toUpperCase() + (user?.planId || 'free').slice(1)}
+                        {(user?.planName || 'Free')}
                       </Badge>
                       <ChevronDown className="h-3 w-3 text-muted-foreground hidden md:inline" />
                     </Button>
@@ -423,10 +429,26 @@ export function UserLayout() {
                       <Crown className="h-4 w-4 mr-2" />
                       Subscription
                     </DropdownMenuItem>
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-red-600 focus:text-red-600"
+                          onClick={() => {
+                            setActivePanel('admin')
+                            setCurrentAdminView('admin-dashboard')
+                          }}
+                        >
+                          <Shield className="h-4 w-4 mr-2" />
+                          Switch to Admin Panel
+                        </DropdownMenuItem>
+                      </>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-red-600 focus:text-red-600"
                       onClick={() => {
+                        sessionStorage.setItem('bw-finder-logged-out', 'true')
                         setUser(null)
                         setAuthMode('user')
                       }}

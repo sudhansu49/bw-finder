@@ -187,3 +187,37 @@ Work Log:
 - Amber-500 primary accent, no indigo/blue, responsive mobile-first design
 - Lint passes clean with no errors
 - Dev server running normally, page loads with 200 OK
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix all issues with the BW Finder app
+
+Work Log:
+- Identified dev server persistence issue - server kept dying after bash commands completed
+- Installed pm2 process manager to keep the Next.js dev server running persistently
+- Fixed plan name display - was showing raw CUID instead of readable plan name (e.g. "Pro")
+  - Updated login API to include plan name from database relation
+  - Updated AppUser type to include planName field
+  - Updated user layout header badge and sidebar to use planName
+- Fixed login redirect - admin users now auto-redirect to Admin Panel after login
+  - Updated login-form.tsx to check role and switch to admin panel for admin users
+  - Updated signup-form.tsx to properly set activePanel to 'user'
+- Added panel switching between Admin and User panels
+  - Added "Switch to Admin Panel" option in User Panel header dropdown (for admin users only)
+  - Added "Switch to User Panel" option in Admin Panel header dropdown
+  - Added "Admin Panel" button in User sidebar (for admin users only)
+  - Added "User Panel" button in Admin sidebar
+- Fixed logout not working - user session was being immediately restored from localStorage
+  - Added sessionStorage flag 'bw-finder-logged-out' to prevent auto-restore after explicit logout
+  - Updated all logout handlers across admin-sidebar, user-sidebar, admin-layout, user-layout, app-sidebar
+  - Fixed page.tsx to only restore user on initial mount, not after explicit logout
+- Cleaned up temporary files (server-watchdog.js, serve.sh, etc.)
+- Verified all flows work: login, panel switching, logout, admin console login
+
+Stage Summary:
+- pm2 now manages the dev server persistently (no more dying between commands)
+- Admin users auto-redirect to Admin Panel on login
+- Panel switching works via header dropdown menus and sidebar buttons
+- Plan names display correctly (e.g., "Pro" instead of raw CUID)
+- Logout works properly without auto-restoring the session
+- Lint passes with no errors

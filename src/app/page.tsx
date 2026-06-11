@@ -27,9 +27,11 @@ export default function Home() {
   }, [])
 
   // Persist user session in localStorage
+  // Only restore user on initial mount, not after explicit logout
   useEffect(() => {
     const savedUser = localStorage.getItem('bw-finder-user')
-    if (savedUser && !user) {
+    const explicitLogout = sessionStorage.getItem('bw-finder-logged-out')
+    if (savedUser && !user && !explicitLogout) {
       try {
         const parsed = JSON.parse(savedUser)
         useAppStore.getState().setUser(parsed)
@@ -37,11 +39,16 @@ export default function Home() {
         localStorage.removeItem('bw-finder-user')
       }
     }
-  }, [user])
+    // Clear the logout flag after checking
+    if (explicitLogout) {
+      sessionStorage.removeItem('bw-finder-logged-out')
+    }
+  }, []) // Only run on mount
 
   useEffect(() => {
     if (user) {
       localStorage.setItem('bw-finder-user', JSON.stringify(user))
+      sessionStorage.removeItem('bw-finder-logged-out')
     } else {
       localStorage.removeItem('bw-finder-user')
     }

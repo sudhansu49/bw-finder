@@ -139,6 +139,8 @@ export function AdminSidebar() {
     user,
     setUser,
     setAuthMode,
+    setActivePanel,
+    setCurrentView,
   } = useAppStore()
 
   const handleNavClick = (view: AdminView) => {
@@ -147,6 +149,7 @@ export function AdminSidebar() {
   }
 
   const handleLogout = () => {
+    sessionStorage.setItem('bw-finder-logged-out', 'true')
     setUser(null)
     setAuthMode('admin')
   }
@@ -333,6 +336,17 @@ export function AdminSidebar() {
             >
               <LogOut className="h-4 w-4" />
               Logout
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+              onClick={() => {
+                setActivePanel('user')
+                setCurrentView('user-dashboard')
+              }}
+            >
+              <Search className="h-4 w-4" />
+              User Panel
             </Button>
           </div>
         )}
