@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useToast } from '@/hooks/use-toast'
 import { motion } from 'framer-motion'
 import {
   Crown,
@@ -21,16 +24,32 @@ import {
   Code,
   ArrowUpRight,
   Star,
+  AlertCircle,
+  Calendar,
+  Clock,
 } from 'lucide-react'
 
-// ─── Plan Data ─────────────────────────────────────────────────────────────────
+// ─── Types ──────────────────────────────────────────────────────────────────────
 
 interface PlanFeature {
   label: string
   included: boolean
 }
 
-interface Plan {
+interface ApiPlan {
+  id: string
+  name: string
+  description: string
+  price: number
+  credits: number
+  features: string // JSON string
+  popular: boolean
+  maxLeads: number
+  maxSearches: number
+  maxExports: number
+}
+
+interface DisplayPlan {
   id: string
   name: string
   price: number
@@ -43,131 +62,42 @@ interface Plan {
   enterprise?: boolean
 }
 
-const plans: Plan[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 0,
-    period: '/mo',
-    description: 'Perfect for exploring lead generation and getting started.',
-    icon: <Zap className="h-5 w-5" />,
-    features: [
-      { label: '50 leads per month', included: true },
-      { label: '10 searches per month', included: true },
-      { label: 'Basic reports', included: true },
-      { label: 'Email support', included: true },
-      { label: 'AI lead scoring', included: false },
-      { label: 'CRM access', included: false },
-      { label: 'Proposal generator', included: false },
-      { label: 'Priority support', included: false },
-      { label: 'API access', included: false },
-    ],
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 29,
-    period: '/mo',
-    description: 'For professionals who need powerful lead intelligence.',
-    icon: <Crown className="h-5 w-5" />,
-    highlight: true,
-    current: true,
-    features: [
-      { label: '500 leads per month', included: true },
-      { label: '100 searches per month', included: true },
-      { label: 'AI lead scoring', included: true },
-      { label: 'Priority support', included: true },
-      { label: 'CRM access', included: true },
-      { label: 'Proposal generator', included: true },
-      { label: 'White-label reports', included: false },
-      { label: 'API access', included: false },
-      { label: 'Custom integrations', included: false },
-    ],
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 99,
-    period: '/mo',
-    description: 'For teams and agencies that need unlimited power.',
-    icon: <Globe className="h-5 w-5" />,
-    enterprise: true,
-    features: [
-      { label: 'Unlimited leads', included: true },
-      { label: 'Unlimited searches', included: true },
-      { label: 'White-label reports', included: true },
-      { label: 'API access', included: true },
-      { label: 'Dedicated support', included: true },
-      { label: 'Custom integrations', included: true },
-      { label: 'AI lead scoring', included: true },
-      { label: 'CRM access', included: true },
-      { label: 'Proposal generator', included: true },
-    ],
-  },
-]
-
-// ─── Usage Data ────────────────────────────────────────────────────────────────
-
-interface UsageItem {
-  label: string
-  used: number
-  total: number
-  unit?: string
-  icon: React.ReactNode
-  color: string
+interface SubscriptionInfo {
+  id: string
+  status: string
+  currentPeriodStart: string
+  currentPeriodEnd: string
+  cancelAtPeriodEnd: boolean
+  trialEnd: string | null
+  createdAt: string
 }
 
-const usageData: UsageItem[] = [
-  {
-    label: 'Leads',
-    used: 350,
-    total: 500,
-    icon: <Target className="h-4 w-4" />,
-    color: 'text-amber-600',
-  },
-  {
-    label: 'Searches',
-    used: 67,
-    total: 100,
-    icon: <BarChart3 className="h-4 w-4" />,
-    color: 'text-emerald-600',
-  },
-  {
-    label: 'Credits',
-    used: 280,
-    total: 500,
-    icon: <Zap className="h-4 w-4" />,
-    color: 'text-orange-600',
-  },
-  {
-    label: 'API Calls',
-    used: 1200,
-    total: 5000,
-    unit: '',
-    icon: <Code className="h-4 w-4" />,
-    color: 'text-violet-600',
-  },
-]
-
-// ─── Billing History ───────────────────────────────────────────────────────────
+interface UsageData {
+  leads: { used: number; limit: number }
+  searches: { used: number; limit: number }
+  exports: { used: number; limit: number }
+  credits: { remaining: number; total: number }
+}
 
 interface BillingRecord {
   id: string
-  date: string
-  description: string
   amount: number
-  status: 'paid' | 'pending' | 'failed'
+  balance: number
+  type: string
+  description: string
+  referenceId: string | null
+  createdAt: string
 }
 
-const billingHistory: BillingRecord[] = [
-  { id: 'INV-2026-012', date: 'Jun 1, 2026', description: 'Pro Plan — Monthly', amount: 29.00, status: 'paid' },
-  { id: 'INV-2026-011', date: 'May 1, 2026', description: 'Pro Plan — Monthly', amount: 29.00, status: 'paid' },
-  { id: 'INV-2026-010', date: 'Apr 1, 2026', description: 'Pro Plan — Monthly', amount: 29.00, status: 'paid' },
-  { id: 'INV-2026-009', date: 'Mar 1, 2026', description: 'Pro Plan — Monthly', amount: 29.00, status: 'paid' },
-  { id: 'INV-2026-008', date: 'Feb 1, 2026', description: 'Starter → Pro Upgrade', amount: 29.00, status: 'paid' },
-]
+interface SubscriptionApiData {
+  currentPlan: ApiPlan | null
+  subscription: SubscriptionInfo | null
+  usage: UsageData
+  allPlans: ApiPlan[]
+  billingHistory: BillingRecord[]
+}
 
-// ─── FAQ Data ──────────────────────────────────────────────────────────────────
+// ─── FAQ Data (static) ──────────────────────────────────────────────────────────
 
 const faqItems = [
   {
@@ -204,12 +134,41 @@ const faqItems = [
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
+function parseFeatures(featuresJson: string): PlanFeature[] {
+  try {
+    const parsed = JSON.parse(featuresJson)
+    if (Array.isArray(parsed)) {
+      return parsed.map((f: string | PlanFeature) => {
+        if (typeof f === 'string') {
+          return { label: f, included: true }
+        }
+        return f as PlanFeature
+      })
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+function getPlanIcon(name: string): React.ReactNode {
+  const lower = name.toLowerCase()
+  if (lower.includes('enterprise') || lower.includes('team') || lower.includes('agency')) {
+    return <Globe className="h-5 w-5" />
+  }
+  if (lower.includes('pro') || lower.includes('professional')) {
+    return <Crown className="h-5 w-5" />
+  }
+  return <Zap className="h-5 w-5" />
+}
+
 function formatNumber(n: number): string {
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
   return n.toString()
 }
 
 function getUsagePercentage(used: number, total: number): number {
+  if (total === 0) return 0
   return Math.min(Math.round((used / total) * 100), 100)
 }
 
@@ -219,15 +178,30 @@ function getUsageColor(percent: number): string {
   return 'bg-emerald-500'
 }
 
-function getStatusBadge(status: BillingRecord['status']) {
-  switch (status) {
-    case 'paid':
-      return <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-0 text-xs">Paid</Badge>
-    case 'pending':
-      return <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-0 text-xs">Pending</Badge>
-    case 'failed':
-      return <Badge className="bg-red-50 text-red-700 hover:bg-red-50 border-0 text-xs">Failed</Badge>
+function formatDate(dateStr: string): string {
+  try {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return dateStr
   }
+}
+
+function formatCurrency(amount: number): string {
+  return `$${Math.abs(amount).toFixed(2)}`
+}
+
+function getBillingStatusBadge(type: string, amount: number) {
+  if (type === 'refund') {
+    return <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-0 text-xs">Refund</Badge>
+  }
+  if (type === 'purchase') {
+    return <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-50 border-0 text-xs">Purchase</Badge>
+  }
+  if (type === 'subscription') {
+    return <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-0 text-xs">Subscription</Badge>
+  }
+  return <Badge className="bg-slate-50 text-slate-700 hover:bg-slate-50 border-0 text-xs">{type}</Badge>
 }
 
 // ─── Animation Variants ────────────────────────────────────────────────────────
@@ -245,11 +219,212 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
+// ─── Loading Skeleton ──────────────────────────────────────────────────────────
+
+function SubscriptionSkeleton() {
+  return (
+    <div className="space-y-8 max-w-6xl">
+      <div>
+        <Skeleton className="h-8 w-48 mb-2" />
+        <Skeleton className="h-4 w-72" />
+      </div>
+      <Card className="border-2 border-amber-500 shadow-sm overflow-hidden">
+        <div className="h-1.5 bg-amber-100" />
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 rounded-2xl" />
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[1, 2, 3].map((i) => (
+          <Card key={i} className="border-0 shadow-sm">
+            <CardContent className="p-6 space-y-4">
+              <Skeleton className="h-10 w-10 rounded-xl" />
+              <Skeleton className="h-6 w-24" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-10 w-20" />
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((j) => (
+                  <Skeleton key={j} className="h-4 w-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-4 w-72" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="space-y-2">
+                <div className="flex justify-between">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <Skeleton className="h-3 w-full rounded-full" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="border-0 shadow-sm">
+        <CardHeader>
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex gap-4">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-4 w-16" />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export function SubscriptionView() {
   const { user } = useAppStore()
-  const currentPlan = plans.find((p) => p.current)!
+  const { toast } = useToast()
+
+  const [data, setData] = useState<SubscriptionApiData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchSubscription = useCallback(async () => {
+    if (!user?.id) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/user/subscription?userId=${user.id}`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Failed to fetch subscription data')
+      }
+      const json = await res.json()
+      setData(json)
+    } catch (err: any) {
+      console.error('Failed to fetch subscription:', err)
+      setError(err.message || 'Failed to load subscription data')
+      toast({
+        title: 'Error',
+        description: 'Failed to load subscription data. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id, toast])
+
+  useEffect(() => {
+    fetchSubscription()
+  }, [fetchSubscription])
+
+  if (loading) return <SubscriptionSkeleton />
+
+  if (error && !data) {
+    return (
+      <div className="space-y-8 max-w-6xl">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Subscription</h1>
+          <p className="text-muted-foreground">Manage your plan, usage, and billing</p>
+        </div>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-12 flex flex-col items-center text-center">
+            <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+              <AlertCircle className="h-7 w-7 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-1">Failed to load subscription data</h3>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+            <Button onClick={fetchSubscription} variant="outline">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!data) return null
+
+  // Build display plans from API data
+  const currentPlanId = data.currentPlan?.id ?? user?.planId ?? ''
+  const displayPlans: DisplayPlan[] = (data.allPlans ?? []).map((plan) => {
+    const isCurrent = plan.id === currentPlanId
+    const nameLower = plan.name.toLowerCase()
+    const isEnterprise = nameLower.includes('enterprise') || nameLower.includes('team') || nameLower.includes('agency')
+
+    return {
+      id: plan.id,
+      name: plan.name,
+      price: plan.price,
+      period: '/mo',
+      description: plan.description,
+      icon: getPlanIcon(plan.name),
+      features: parseFeatures(plan.features),
+      highlight: isCurrent || plan.popular,
+      current: isCurrent,
+      enterprise: isEnterprise,
+    }
+  })
+
+  // Build usage items from API data
+  const usageItems = [
+    {
+      label: 'Leads',
+      used: data.usage.leads.used,
+      total: data.usage.leads.limit,
+      icon: <Target className="h-4 w-4" />,
+      color: 'text-amber-600',
+    },
+    {
+      label: 'Searches',
+      used: data.usage.searches.used,
+      total: data.usage.searches.limit,
+      icon: <BarChart3 className="h-4 w-4" />,
+      color: 'text-emerald-600',
+    },
+    {
+      label: 'Exports',
+      used: data.usage.exports.used,
+      total: data.usage.exports.limit,
+      icon: <Code className="h-4 w-4" />,
+      color: 'text-violet-600',
+    },
+    {
+      label: 'Credits',
+      used: data.usage.credits.total - data.usage.credits.remaining,
+      total: data.usage.credits.total,
+      icon: <Zap className="h-4 w-4" />,
+      color: 'text-orange-600',
+    },
+  ]
+
+  const currentPlan = data.currentPlan
+  const subscription = data.subscription
+
+  // Format period dates
+  const periodStart = subscription?.currentPeriodStart
+    ? formatDate(subscription.currentPeriodStart)
+    : null
+  const periodEnd = subscription?.currentPeriodEnd
+    ? formatDate(subscription.currentPeriodEnd)
+    : null
 
   return (
     <div className="space-y-8 max-w-6xl">
@@ -276,21 +451,35 @@ export function SubscriptionView() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <h2 className="text-lg font-bold text-slate-900">
-                      {currentPlan.name} Plan
+                      {currentPlan?.name ?? 'No Plan'} Plan
                     </h2>
                     <Badge className="bg-amber-500 text-white hover:bg-amber-500 border-0 text-xs font-medium">
                       Current Plan
                     </Badge>
+                    {subscription?.status === 'active' && (
+                      <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-0 text-xs font-medium">
+                        Active
+                      </Badge>
+                    )}
+                    {subscription?.cancelAtPeriodEnd && (
+                      <Badge className="bg-red-50 text-red-700 hover:bg-red-50 border-0 text-xs font-medium">
+                        Cancels at Period End
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Shield className="h-3.5 w-3.5" />
-                      Renews Jul 1, 2026
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5" />
-                      ${currentPlan.price}.00/month
-                    </span>
+                    {periodEnd && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {subscription?.cancelAtPeriodEnd ? 'Expires' : 'Renews'} {periodEnd}
+                      </span>
+                    )}
+                    {currentPlan && (
+                      <span className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5" />
+                        ${currentPlan.price.toFixed(2)}/month
+                      </span>
+                    )}
                     <span>
                       {user?.name || 'User'} &middot; {user?.email || 'user@example.com'}
                     </span>
@@ -317,7 +506,7 @@ export function SubscriptionView() {
           initial="hidden"
           animate="show"
         >
-          {plans.map((plan) => {
+          {displayPlans.map((plan) => {
             const isCurrent = plan.current
             const isEnterprise = plan.enterprise
 
@@ -360,12 +549,12 @@ export function SubscriptionView() {
               <CardTitle className="text-lg">Usage This Billing Period</CardTitle>
             </div>
             <CardDescription>
-              Your resource consumption since Jun 1, 2026. Resets on Jul 1, 2026.
+              Your resource consumption{periodStart ? ` since ${periodStart}` : ''}.{periodEnd ? ` Resets on ${periodEnd}.` : ''}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {usageData.map((u) => {
+              {usageItems.map((u) => {
                 const pct = getUsagePercentage(u.used, u.total)
                 const barColor = getUsageColor(pct)
                 return (
@@ -427,54 +616,66 @@ export function SubscriptionView() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b text-left">
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">Invoice</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">Date</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground">Description</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Amount</th>
-                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {billingHistory.map((record) => (
-                    <tr
-                      key={record.id}
-                      className="border-b last:border-0 hover:bg-slate-50 transition-colors"
-                    >
-                      <td className="py-3">
-                        <span className="text-sm font-medium text-slate-700">{record.id}</span>
-                      </td>
-                      <td className="py-3">
-                        <span className="text-sm text-muted-foreground">{record.date}</span>
-                      </td>
-                      <td className="py-3">
-                        <span className="text-sm text-slate-700">{record.description}</span>
-                      </td>
-                      <td className="py-3 text-right">
-                        <span className="text-sm font-medium text-slate-700">
-                          ${record.amount.toFixed(2)}
-                        </span>
-                      </td>
-                      <td className="py-3 text-right">
-                        {getStatusBadge(record.status)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <Separator className="my-4" />
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Showing last {billingHistory.length} invoices
-              </p>
-              <Button variant="ghost" size="sm" className="text-amber-600 text-xs">
-                View All Invoices
-              </Button>
-            </div>
+            {data.billingHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+                  <Clock className="h-6 w-6 text-slate-300" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-700 mb-1">No billing history yet</h3>
+                <p className="text-xs text-muted-foreground">Your billing transactions will appear here.</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pb-3 text-sm font-medium text-muted-foreground">Date</th>
+                        <th className="pb-3 text-sm font-medium text-muted-foreground">Description</th>
+                        <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Amount</th>
+                        <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Balance</th>
+                        <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Type</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.billingHistory.map((record) => (
+                        <tr
+                          key={record.id}
+                          className="border-b last:border-0 hover:bg-slate-50 transition-colors"
+                        >
+                          <td className="py-3">
+                            <span className="text-sm text-muted-foreground">{formatDate(record.createdAt)}</span>
+                          </td>
+                          <td className="py-3">
+                            <span className="text-sm text-slate-700">{record.description}</span>
+                          </td>
+                          <td className="py-3 text-right">
+                            <span className={`text-sm font-medium ${record.amount < 0 ? 'text-emerald-600' : 'text-slate-700'}`}>
+                              {record.amount < 0 ? '-' : ''}{formatCurrency(record.amount)}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right">
+                            <span className="text-sm text-muted-foreground">{record.balance}</span>
+                          </td>
+                          <td className="py-3 text-right">
+                            {getBillingStatusBadge(record.type, record.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Separator className="my-4" />
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-muted-foreground">
+                    Showing last {data.billingHistory.length} transactions
+                  </p>
+                  <Button variant="ghost" size="sm" className="text-amber-600 text-xs">
+                    View All Transactions
+                  </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </motion.div>
@@ -522,7 +723,7 @@ function PlanCard({
   isCurrent,
   isEnterprise,
 }: {
-  plan: Plan
+  plan: DisplayPlan
   isCurrent: boolean
   isEnterprise: boolean
 }) {
@@ -574,8 +775,8 @@ function PlanCard({
 
       {/* Features */}
       <div className="space-y-3 flex-1 mb-6">
-        {plan.features.map((feature) => (
-          <div key={feature.label} className="flex items-start gap-2.5">
+        {plan.features.map((feature, idx) => (
+          <div key={`${feature.label}-${idx}`} className="flex items-start gap-2.5">
             {feature.included ? (
               <Check className="h-4 w-4 mt-0.5 text-emerald-600 shrink-0" />
             ) : (

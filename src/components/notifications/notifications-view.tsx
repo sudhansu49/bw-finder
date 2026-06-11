@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
-import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useToast } from '@/hooks/use-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Bell,
@@ -20,24 +21,29 @@ import {
   X,
   Clock,
   AlertTriangle,
-  TrendingUp,
-  Users,
-  Zap,
   Settings,
+  AlertCircle,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NotificationType = 'lead' | 'outreach' | 'system' | 'marketing'
+type NotificationType = 'info' | 'warning' | 'success' | 'error' | 'system' | 'lead' | 'outreach' | 'marketing'
 
-interface Notification {
+interface ApiNotification {
   id: string
-  type: NotificationType
+  senderId: string | null
+  recipientId: string
+  type: string
   title: string
-  description: string
-  timestamp: Date
+  message: string
   read: boolean
-  mention?: boolean
+  actionUrl: string | null
+  createdAt: string
+  sender?: {
+    id: string
+    name: string
+    avatar: string | null
+  } | null
 }
 
 interface NotificationPreference {
@@ -51,7 +57,8 @@ interface NotificationPreference {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function formatRelativeTime(date: Date): string {
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffSeconds = Math.floor(diffMs / 1000)
@@ -66,164 +73,131 @@ function formatRelativeTime(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-function getTypeIcon(type: NotificationType) {
+function getTypeIcon(type: string) {
   switch (type) {
     case 'lead':
       return Target
     case 'outreach':
       return Mail
+    case 'warning':
+      return AlertTriangle
+    case 'success':
+      return Target
+    case 'error':
+      return AlertTriangle
     case 'system':
       return Shield
     case 'marketing':
       return Megaphone
+    case 'info':
+    default:
+      return Shield
   }
 }
 
-function getTypeColor(type: NotificationType) {
+function getTypeColor(type: string) {
   switch (type) {
     case 'lead':
       return { icon: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' }
     case 'outreach':
       return { icon: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' }
+    case 'warning':
+      return { icon: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' }
+    case 'success':
+      return { icon: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' }
+    case 'error':
+      return { icon: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' }
     case 'system':
       return { icon: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }
     case 'marketing':
       return { icon: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' }
+    case 'info':
+    default:
+      return { icon: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }
   }
 }
 
-// ─── Demo Data ────────────────────────────────────────────────────────────────
+// ─── Loading Skeleton ──────────────────────────────────────────────────────────
 
-function generateDemoNotifications(): Notification[] {
-  const now = new Date()
-  return [
-    {
-      id: 'n1',
-      type: 'lead',
-      title: 'New high-value lead discovered',
-      description: 'Bella Vista Restaurant scored 92/100 on opportunity analysis. Estimated revenue: $4,200/mo.',
-      timestamp: new Date(now.getTime() - 12 * 60000),
-      read: false,
-    },
-    {
-      id: 'n2',
-      type: 'lead',
-      title: 'Lead score updated',
-      description: 'Sunrise Dental Clinic lead score increased from 64 to 78. Now qualifies as hot lead.',
-      timestamp: new Date(now.getTime() - 38 * 60000),
-      read: false,
-    },
-    {
-      id: 'n3',
-      type: 'outreach',
-      title: 'Email opened by prospect',
-      description: 'Marco Rossi from TechHub Solutions opened your proposal email 2 times.',
-      timestamp: new Date(now.getTime() - 1.5 * 3600000),
-      read: false,
-      mention: true,
-    },
-    {
-      id: 'n4',
-      type: 'outreach',
-      title: 'Call reminder: Follow-up with Green Leaf Spa',
-      description: 'Scheduled call in 30 minutes. Last contact: proposal sent 3 days ago.',
-      timestamp: new Date(now.getTime() - 2 * 3600000),
-      read: false,
-    },
-    {
-      id: 'n5',
-      type: 'system',
-      title: 'Plan upgraded successfully',
-      description: 'Your account has been upgraded to the Professional plan. You now have 500 credits/month.',
-      timestamp: new Date(now.getTime() - 3 * 3600000),
-      read: true,
-    },
-    {
-      id: 'n6',
-      type: 'lead',
-      title: '5 new leads in your pipeline',
-      description: 'New leads found matching your saved search: "Restaurants without websites in Milan".',
-      timestamp: new Date(now.getTime() - 4 * 3600000),
-      read: true,
-    },
-    {
-      id: 'n7',
-      type: 'system',
-      title: 'Scheduled maintenance tonight',
-      description: 'System maintenance from 2:00 AM to 3:00 AM UTC. Expected downtime: 15 minutes.',
-      timestamp: new Date(now.getTime() - 5 * 3600000),
-      read: false,
-    },
-    {
-      id: 'n8',
-      type: 'marketing',
-      title: 'Pro tip: Optimize your outreach sequence',
-      description: 'Our data shows adding a follow-up within 48h increases response rates by 34%. Try it now!',
-      timestamp: new Date(now.getTime() - 8 * 3600000),
-      read: true,
-    },
-    {
-      id: 'n9',
-      type: 'outreach',
-      title: 'Email campaign completed',
-      description: 'Your "Q1 Outreach Blast" campaign finished. 142 sent, 38 opened, 12 replies.',
-      timestamp: new Date(now.getTime() - 12 * 3600000),
-      read: true,
-    },
-    {
-      id: 'n10',
-      type: 'lead',
-      title: 'Lead score dropped below threshold',
-      description: 'City Gym lead score decreased from 52 to 38. Consider re-evaluating or archiving.',
-      timestamp: new Date(now.getTime() - 1 * 86400000),
-      read: false,
-    },
-    {
-      id: 'n11',
-      type: 'marketing',
-      title: 'Limited offer: 20% off annual plans',
-      description: 'Upgrade to annual billing before March 31st and save 20%. Use code SPRING20 at checkout.',
-      timestamp: new Date(now.getTime() - 1.5 * 86400000),
-      read: true,
-    },
-    {
-      id: 'n12',
-      type: 'system',
-      title: 'Credits running low',
-      description: 'You have 15 credits remaining. Consider upgrading your plan to avoid interruptions.',
-      timestamp: new Date(now.getTime() - 2 * 86400000),
-      read: false,
-    },
-    {
-      id: 'n13',
-      type: 'outreach',
-      title: 'Reply received from Urban Coffee Co.',
-      description: 'Lisa Chen replied: "Thanks for reaching out. Can we schedule a call next week?"',
-      timestamp: new Date(now.getTime() - 2.5 * 86400000),
-      read: true,
-      mention: true,
-    },
-    {
-      id: 'n14',
-      type: 'marketing',
-      title: 'New feature: AI-powered lead scoring',
-      description: 'Our AI now automatically scores leads based on 30+ signals. Check your lead dashboard!',
-      timestamp: new Date(now.getTime() - 3 * 86400000),
-      read: true,
-    },
-  ]
+function NotificationsSkeleton() {
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-10 w-10 rounded-xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-36" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-10 w-72 rounded-lg" />
+      </div>
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <Skeleton className="h-6 w-44" />
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 space-y-3">
+                <div className="flex items-center gap-2.5">
+                  <Skeleton className="h-8 w-8 rounded-lg" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-5 w-9 rounded-full" />
+                  </div>
+                  <div className="flex justify-between">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-5 w-9 rounded-full" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex justify-between">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0 space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="flex items-start gap-3 rounded-xl p-4">
+              <Skeleton className="h-9 w-9 rounded-lg flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-4 w-56" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  )
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NotificationsView() {
   const { user } = useAppStore()
+  const { toast } = useToast()
 
   // Notification state
-  const [notifications, setNotifications] = useState<Notification[]>(generateDemoNotifications)
+  const [notifications, setNotifications] = useState<ApiNotification[]>([])
+  const [apiUnreadCount, setApiUnreadCount] = useState<number>(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>('all')
+  const [markingRead, setMarkingRead] = useState<string | null>(null) // notificationId being marked as read
 
-  // Preferences state
+  // Preferences state (local)
   const [preferences, setPreferences] = useState<NotificationPreference[]>([
     {
       id: 'lead-alerts',
@@ -271,6 +245,37 @@ export function NotificationsView() {
     },
   ])
 
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/user/notifications?userId=${user.id}&limit=50`)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Failed to fetch notifications')
+      }
+      const json = await res.json()
+      setNotifications(json.notifications ?? [])
+      setApiUnreadCount(json.unreadCount ?? 0)
+    } catch (err: any) {
+      console.error('Failed to fetch notifications:', err)
+      setError(err.message || 'Failed to load notifications')
+      toast({
+        title: 'Error',
+        description: 'Failed to load notifications. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id, toast])
+
+  useEffect(() => {
+    fetchNotifications()
+  }, [fetchNotifications])
+
   // Derived state
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications])
 
@@ -278,25 +283,75 @@ export function NotificationsView() {
     switch (activeTab) {
       case 'unread':
         return notifications.filter((n) => !n.read)
-      case 'mentions':
-        return notifications.filter((n) => n.mention)
       default:
         return notifications
     }
   }, [notifications, activeTab])
 
   // Actions
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+  const markAsRead = async (id: string) => {
+    if (!user?.id) return
+    // Optimistic update
+    const prev = notifications
+    setNotifications((ns) =>
+      ns.map((n) => (n.id === id ? { ...n, read: true } : n))
     )
+    setMarkingRead(id)
+    try {
+      const res = await fetch('/api/user/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, notificationId: id }),
+      })
+      if (!res.ok) {
+        throw new Error('Failed to mark as read')
+      }
+    } catch (err) {
+      console.error('Failed to mark as read:', err)
+      // Rollback
+      setNotifications(prev)
+      toast({
+        title: 'Error',
+        description: 'Failed to mark notification as read.',
+        variant: 'destructive',
+      })
+    } finally {
+      setMarkingRead(null)
+    }
   }
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
+  const markAllAsRead = async () => {
+    if (!user?.id) return
+    // Optimistic update
+    const prev = notifications
+    setNotifications((ns) => ns.map((n) => ({ ...n, read: true })))
+    try {
+      const res = await fetch('/api/user/notifications', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, markAllRead: true }),
+      })
+      if (!res.ok) {
+        throw new Error('Failed to mark all as read')
+      }
+      toast({
+        title: 'Success',
+        description: 'All notifications marked as read.',
+      })
+    } catch (err) {
+      console.error('Failed to mark all as read:', err)
+      // Rollback
+      setNotifications(prev)
+      toast({
+        title: 'Error',
+        description: 'Failed to mark all notifications as read.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const dismissNotification = (id: string) => {
+    // Just remove from local state (no API for delete)
     setNotifications((prev) => prev.filter((n) => n.id !== id))
   }
 
@@ -312,6 +367,40 @@ export function NotificationsView() {
             }
           : cat
       )
+    )
+  }
+
+  // ─── Loading State ──────────────────────────────────────────────────────
+
+  if (loading) return <NotificationsSkeleton />
+
+  // ─── Error State ────────────────────────────────────────────────────────
+
+  if (error && notifications.length === 0) {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center">
+            <Bell className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+            <p className="text-sm text-muted-foreground">Manage your notifications</p>
+          </div>
+        </div>
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-12 flex flex-col items-center text-center">
+            <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+              <AlertCircle className="h-7 w-7 text-red-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-slate-700 mb-1">Failed to load notifications</h3>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+            <Button onClick={fetchNotifications} variant="outline">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -352,7 +441,7 @@ export function NotificationsView() {
         </div>
       </div>
 
-      {/* Tabs: All / Unread / Mentions */}
+      {/* Tabs: All / Unread */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-slate-100 h-10 p-1">
           <TabsTrigger value="all" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
@@ -365,9 +454,6 @@ export function NotificationsView() {
                 {unreadCount}
               </span>
             )}
-          </TabsTrigger>
-          <TabsTrigger value="mentions" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            Mentions
           </TabsTrigger>
         </TabsList>
 
@@ -457,16 +543,12 @@ export function NotificationsView() {
                     <h3 className="text-lg font-semibold text-slate-700 mb-1">
                       {activeTab === 'unread'
                         ? 'No unread notifications'
-                        : activeTab === 'mentions'
-                          ? 'No mentions'
-                          : 'No notifications'}
+                        : 'No notifications'}
                     </h3>
                     <p className="text-sm text-muted-foreground max-w-sm">
                       {activeTab === 'unread'
-                        ? 'You\'ve read everything! New notifications will appear here.'
-                        : activeTab === 'mentions'
-                          ? 'When someone mentions you, it\'ll show up here.'
-                          : 'Your notification inbox is empty. Stay tuned for updates!'}
+                        ? "You've read everything! New notifications will appear here."
+                        : 'Your notification inbox is empty. Stay tuned for updates!'}
                     </p>
                   </motion.div>
                 ) : (
@@ -485,7 +567,9 @@ export function NotificationsView() {
                               animate={{ opacity: 1, x: 0 }}
                               exit={{ opacity: 0, x: 10, height: 0, marginBottom: 0, padding: 0 }}
                               transition={{ duration: 0.2, delay: idx * 0.03 }}
-                              onClick={() => markAsRead(notification.id)}
+                              onClick={() => {
+                                if (!notification.read) markAsRead(notification.id)
+                              }}
                               className={`
                                 group relative flex items-start gap-3 rounded-xl p-4 cursor-pointer
                                 transition-all duration-200 hover:bg-slate-50
@@ -514,16 +598,16 @@ export function NotificationsView() {
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground line-clamp-2 mb-1">
-                                  {notification.description}
+                                  {notification.message}
                                 </p>
                                 <div className="flex items-center gap-2">
                                   <Clock className="h-3 w-3 text-slate-400" />
                                   <span className="text-[11px] text-slate-400">
-                                    {formatRelativeTime(notification.timestamp)}
+                                    {formatRelativeTime(notification.createdAt)}
                                   </span>
-                                  {notification.mention && (
-                                    <Badge variant="secondary" className="h-4 text-[10px] px-1.5 bg-blue-50 text-blue-600 border-blue-100">
-                                      @mention
+                                  {notification.type && (
+                                    <Badge variant="secondary" className="h-4 text-[10px] px-1.5 bg-slate-50 text-slate-500 border-slate-100">
+                                      {notification.type}
                                     </Badge>
                                   )}
                                 </div>

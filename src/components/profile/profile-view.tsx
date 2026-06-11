@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
 import { motion } from 'framer-motion'
 import {
   User,
@@ -81,6 +82,19 @@ function planBadgeStyle(plan: string | null | undefined): string {
   }
 }
 
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return 'N/A'
+  try {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+  } catch {
+    return dateStr
+  }
+}
+
 // ─── Animation Variants ───────────────────────────────────────────────────────
 
 const fadeUp = {
@@ -139,7 +153,7 @@ const defaultAccounts: ConnectedAccount[] = [
     provider: 'google',
     label: 'Google',
     connected: true,
-    email: 'alex.johnson@gmail.com',
+    email: '',
     icon: Globe,
     color: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',
   },
@@ -152,28 +166,54 @@ const defaultAccounts: ConnectedAccount[] = [
   },
 ]
 
+// ─── API Response Type ────────────────────────────────────────────────────────
+
+interface UserProfile {
+  id: string
+  email: string
+  name: string
+  company: string | null
+  role: string
+  avatar: string | null
+  credits: number
+  planId: string | null
+  status: string
+  agencyId: string | null
+  lastLoginAt: string | null
+  loginIp: string | null
+  createdAt: string
+  updatedAt: string
+  plan: {
+    id: string
+    name: string
+    description: string
+    price: number
+    credits: number
+    features: string
+    maxLeads: number
+    maxSearches: number
+    maxExports: number
+  } | null
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function ProfileView() {
   const { user, setUser } = useAppStore()
   const { toast } = useToast()
 
-  // Pre-fill from store, with realistic demo fallbacks
-  const displayName = user?.name || 'Alex Johnson'
-  const displayEmail = user?.email || 'alex.johnson@agency.com'
-  const displayCompany = user?.company || 'Digital Growth Agency'
-  const displayRole = user?.role || 'agency_owner'
-  const displayPlan = user?.planName || 'Pro'
-  const displayCredits = user?.credits ?? 250
+  // Profile data from API
+  const [profileData, setProfileData] = useState<UserProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
 
   // Personal info form
   const [personalForm, setPersonalForm] = useState({
-    name: displayName,
-    email: displayEmail,
-    phone: '+1 (555) 842-3190',
-    company: displayCompany,
-    jobTitle: 'Lead Generation Manager',
-    location: 'San Francisco, CA',
+    name: '',
+    email: '',
+    phone: '',
+    company: '',
+    jobTitle: '',
+    location: '',
   })
   const [personalLoading, setPersonalLoading] = useState(false)
 
@@ -198,12 +238,96 @@ export function ProfileView() {
   // Delete account confirmation
   const [deleteConfirm, setDeleteConfirm] = useState('')
 
+  // ── Fetch profile on mount ──
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const userId = user?.id
+      if (!userId) {
+        setProfileLoading(false)
+        return
+      }
+
+      try {
+        const res = await fetch(`/api/user/profile?userId=${userId}`)
+        if (!res.ok) {
+          throw new Error('Failed to fetch profile')
+        }
+        const data = await res.json()
+        const profile: UserProfile = data.user
+        setProfileData(profile)
+
+        // Pre-fill form fields from API response
+        setPersonalForm({
+          name: profile.name || '',
+          email: profile.email || '',
+          phone: '',
+          company: profile.company || '',
+          jobTitle: '',
+          location: '',
+        })
+
+        // Update connected accounts with real email
+        setAccounts((prev) =>
+          prev.map((a) =>
+            a.provider === 'google'
+              ? { ...a, email: profile.email }
+              : a
+          )
+        )
+      } catch {
+        toast({
+          title: 'Error',
+          description: 'Failed to load profile data. Please refresh the page.',
+          variant: 'destructive',
+        })
+      } finally {
+        setProfileLoading(false)
+      }
+    }
+
+    fetchProfile()
+  }, [user?.id, toast])
+
+  // ── Derived display values ──
+  const displayName = profileData?.name || user?.name || 'User'
+  const displayEmail = profileData?.email || user?.email || ''
+  const displayCompany = profileData?.company || user?.company || ''
+  const displayRole = profileData?.role || user?.role || 'user'
+  const displayPlan = profileData?.plan?.name || user?.planName || ''
+  const displayCredits = profileData?.credits ?? user?.credits ?? 0
+
   // ── Handlers ──
 
   const handleSavePersonal = async () => {
+    const userId = user?.id
+    if (!userId) return
+
     setPersonalLoading(true)
     try {
-      await new Promise((r) => setTimeout(r, 800))
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          name: personalForm.name,
+          email: personalForm.email,
+          company: personalForm.company,
+          phone: personalForm.phone,
+          jobTitle: personalForm.jobTitle,
+          location: personalForm.location,
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to update profile')
+      }
+
+      const data = await res.json()
+      const updatedProfile: UserProfile = data.user
+      setProfileData(updatedProfile)
+
+      // Update Zustand store
       if (user) {
         setUser({
           ...user,
@@ -212,14 +336,15 @@ export function ProfileView() {
           company: personalForm.company || null,
         })
       }
+
       toast({
         title: 'Profile Updated',
         description: 'Your personal information has been saved successfully.',
       })
-    } catch {
+    } catch (err) {
       toast({
         title: 'Error',
-        description: 'Failed to update profile. Please try again.',
+        description: err instanceof Error ? err.message : 'Failed to update profile. Please try again.',
         variant: 'destructive',
       })
     } finally {
@@ -247,6 +372,9 @@ export function ProfileView() {
   }
 
   const handleChangePassword = async () => {
+    const userId = user?.id
+    if (!userId) return
+
     if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
       toast({
         title: 'Missing Fields',
@@ -273,16 +401,30 @@ export function ProfileView() {
     }
     setPasswordLoading(true)
     try {
-      await new Promise((r) => setTimeout(r, 800))
+      const res = await fetch('/api/user/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          currentPassword: passwordForm.current,
+          newPassword: passwordForm.new,
+        }),
+      })
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || 'Failed to change password')
+      }
+
       setPasswordForm({ current: '', new: '', confirm: '' })
       toast({
         title: 'Password Changed',
         description: 'Your password has been updated successfully.',
       })
-    } catch {
+    } catch (err) {
       toast({
         title: 'Error',
-        description: 'Failed to change password. Please try again.',
+        description: err instanceof Error ? err.message : 'Failed to change password. Please try again.',
         variant: 'destructive',
       })
     } finally {
@@ -334,8 +476,49 @@ export function ProfileView() {
 
   // ── Render ──
 
-  const initials = getInitials(personalForm.name || 'U')
-  const joinDate = 'January 15, 2024'
+  const initials = getInitials(personalForm.name || displayName || 'U')
+  const joinDate = formatDate(profileData?.createdAt)
+
+  // ── Loading skeleton ──
+  if (profileLoading) {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Profile</h1>
+          <p className="text-muted-foreground">Manage your personal information and account preferences</p>
+        </div>
+        <Card className="border-0 shadow-sm overflow-hidden">
+          <Skeleton className="h-28 w-full" />
+          <CardContent className="relative px-6 pb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
+              <Skeleton className="h-24 w-24 rounded-full" />
+              <div className="space-y-2 flex-1">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-64" />
+                <Skeleton className="h-4 w-32" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-sm">
+          <CardHeader>
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-11 w-full" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -349,7 +532,7 @@ export function ProfileView() {
       <motion.div {...fadeUp} transition={{ duration: 0.3 }}>
         <Card className="border-0 shadow-sm overflow-hidden">
           <div className="h-28 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 relative">
-            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMS41IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMTUpIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCBmaWxsPSJ1cmwoI2cpIiB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIi8+PC9zdmc+')] opacity-50" />
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMS41IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMTUpIi8+PC9kZWZzPjxyZWN0IGZpbGw9InVybCgjZykiIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiLz48L3N2Zz4=')] opacity-50" />
           </div>
           <CardContent className="relative px-6 pb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
@@ -369,7 +552,7 @@ export function ProfileView() {
               <div className="flex-1 min-w-0 pt-1 sm:pt-0 sm:pb-1">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                   <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">
-                    {personalForm.name || 'User'}
+                    {personalForm.name || displayName}
                   </h2>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge
@@ -390,7 +573,7 @@ export function ProfileView() {
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1.5">
                   <span className="text-sm text-muted-foreground flex items-center gap-1.5">
                     <Mail className="h-3.5 w-3.5" />
-                    {personalForm.email}
+                    {personalForm.email || displayEmail}
                   </span>
                   <span className="hidden sm:inline text-muted-foreground/40">&bull;</span>
                   <span className="text-sm text-muted-foreground flex items-center gap-1.5">
