@@ -18,6 +18,7 @@ import { ApiDocsView } from '@/components/api-docs/api-docs-view'
 import { AuditView } from '@/components/audit/audit-view'
 import { ProposalView } from '@/components/proposal/proposal-view'
 import { ExportView } from '@/components/export/export-view'
+import { AdminView } from '@/components/admin/admin-view'
 import { Button } from '@/components/ui/button'
 import { Menu } from 'lucide-react'
 
@@ -47,6 +48,8 @@ function ViewRenderer({ view }: { view: string }) {
       return <ServicesView />
     case 'export':
       return <ExportView />
+    case 'admin':
+      return <AdminView />
     case 'api-docs':
       return <ApiDocsView />
     case 'settings':

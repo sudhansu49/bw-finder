@@ -870,6 +870,161 @@ export async function POST() {
       console.error('CRM seed error:', crmSeedError)
     }
 
+    // Seed Plans, Subscriptions, Credits & extra users for Admin Panel
+    try {
+      // Create Plans
+      const plansData = [
+        { name: 'Free', description: 'Get started with basic features', price: 0, credits: 50, features: JSON.stringify(['5 searches/day', '20 leads', 'Basic audit', 'Email support']), popular: false, maxLeads: 20, maxSearches: 5, maxExports: 5 },
+        { name: 'Starter', description: 'Perfect for freelancers and small teams', price: 29, credits: 200, features: JSON.stringify(['50 searches/day', '100 leads', 'Full audit', 'Proposal builder', 'CSV export', 'Priority support']), popular: false, maxLeads: 100, maxSearches: 50, maxExports: 20 },
+        { name: 'Pro', description: 'For growing agencies and power users', price: 79, credits: 1000, features: JSON.stringify(['Unlimited searches', '500 leads', 'Full audit + scoring', 'Proposal builder', 'All exports', 'CRM pipeline', 'WhatsApp & Email AI', 'API access']), popular: true, maxLeads: 500, maxSearches: 200, maxExports: 100 },
+        { name: 'Enterprise', description: 'Unlimited access for large organizations', price: 199, credits: 5000, features: JSON.stringify(['Unlimited everything', 'Unlimited leads', 'Advanced analytics', 'White-label proposals', 'Custom integrations', 'Dedicated support', 'SLA guarantee']), popular: false, maxLeads: 9999, maxSearches: 9999, maxExports: 9999 },
+      ]
+
+      const plans = []
+      for (const planData of plansData) {
+        const existing = await db.plan.findFirst({ where: { name: planData.name } })
+        if (existing) {
+          plans.push(existing)
+        } else {
+          const plan = await db.plan.create({ data: planData })
+          plans.push(plan)
+        }
+      }
+
+      // Assign Pro plan to demo user
+      const proPlan = plans.find(p => p.name === 'Pro')
+      if (proPlan && !demoUser.planId) {
+        await db.user.update({
+          where: { id: demoUser.id },
+          data: { planId: proPlan.id, credits: 850 },
+        })
+      }
+
+      // Create demo user subscription
+      if (proPlan) {
+        const existingSub = await db.subscription.findFirst({
+          where: { userId: demoUser.id, planId: proPlan.id },
+        })
+        if (!existingSub) {
+          await db.subscription.create({
+            data: {
+              userId: demoUser.id,
+              planId: proPlan.id,
+              status: 'active',
+              currentPeriodStart: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+              currentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+            },
+          })
+        }
+      }
+
+      // Create additional demo users
+      const extraUsers = [
+        { name: 'Priya Sharma', email: 'priya@agency.com', company: 'Digital Solutions', role: 'user', credits: 450, planName: 'Starter' },
+        { name: 'Rahul Patel', email: 'rahul@webpro.com', company: 'WebPro India', role: 'user', credits: 1200, planName: 'Pro' },
+        { name: 'Anita Desai', email: 'anita@marketguru.in', company: 'Market Guru', role: 'user', credits: 3200, planName: 'Enterprise' },
+        { name: 'Vikram Singh', email: 'vikram@freelance.dev', company: null, role: 'user', credits: 30, planName: 'Free' },
+        { name: 'Meera Joshi', email: 'meera@socialsmart.com', company: 'SocialSmart', role: 'user', credits: 180, planName: 'Starter' },
+        { name: 'Arjun Reddy', email: 'arjun@leadfactory.in', company: 'Lead Factory', role: 'user', credits: 750, planName: 'Pro' },
+        { name: 'Sneha Kapoor', email: 'sneka@designhub.co', company: 'DesignHub', role: 'admin', credits: 2000, planName: 'Enterprise' },
+      ]
+
+      for (const userData of extraUsers) {
+        const existingUser = await db.user.findUnique({ where: { email: userData.email } })
+        if (!existingUser) {
+          const hashedPassword = createHashedPassword('demo123')
+          const plan = plans.find(p => p.name === userData.planName)
+          const newUser = await db.user.create({
+            data: {
+              name: userData.name,
+              email: userData.email,
+              password: hashedPassword,
+              company: userData.company,
+              role: userData.role,
+              credits: userData.credits,
+              planId: plan?.id || null,
+              lastLoginAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+            },
+          })
+
+          // Create subscription for non-Free plan users
+          if (plan && userData.planName !== 'Free') {
+            const statuses = ['active', 'active', 'active', 'active', 'canceled', 'expired']
+            const subStatus = statuses[Math.floor(Math.random() * statuses.length)]
+            await db.subscription.create({
+              data: {
+                userId: newUser.id,
+                planId: plan.id,
+                status: subStatus,
+                currentPeriodStart: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+                currentPeriodEnd: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+                cancelAtPeriodEnd: subStatus === 'canceled',
+              },
+            })
+          }
+        }
+      }
+
+      // Create credit transactions for demo user
+      const creditTxs = [
+        { amount: 1000, type: 'plan_credits', description: 'Pro plan monthly credits' },
+        { amount: -50, type: 'usage', description: 'Business search - Mumbai restaurants' },
+        { amount: -30, type: 'usage', description: 'Lead export to CSV' },
+        { amount: -25, type: 'usage', description: 'Audit report - Mario\'s Pizza Palace' },
+        { amount: 500, type: 'purchase', description: 'Credit pack purchase - 500 credits' },
+        { amount: -100, type: 'usage', description: 'Bulk lead scoring' },
+        { amount: 200, type: 'bonus', description: 'Referral bonus - invited priya@agency.com' },
+        { amount: -45, type: 'usage', description: 'Proposal generation - Spa Serenity' },
+        { amount: 50, type: 'refund', description: 'Refund for failed audit' },
+        { amount: -200, type: 'usage', description: 'Email outreach campaign - 20 leads' },
+      ]
+
+      let balance = 0
+      for (const tx of creditTxs) {
+        balance += tx.amount
+        const existingTx = await db.creditTransaction.findFirst({
+          where: { userId: demoUser.id, description: tx.description },
+        })
+        if (!existingTx) {
+          await db.creditTransaction.create({
+            data: {
+              userId: demoUser.id,
+              amount: tx.amount,
+              balance,
+              type: tx.type,
+              description: tx.description,
+              createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
+            },
+          })
+        }
+      }
+
+      // Create credit transactions for other users
+      const allUsers = await db.user.findMany({ where: { email: { not: 'demo@finder.com' } } })
+      for (const user of allUsers) {
+        const txCount = Math.floor(Math.random() * 5) + 2
+        let userBalance = 0
+        for (let i = 0; i < txCount; i++) {
+          const txTypes = ['plan_credits', 'usage', 'purchase', 'bonus', 'usage']
+          const type = txTypes[i % txTypes.length]
+          const amount = type === 'usage' ? -(Math.floor(Math.random() * 50) + 10) : Math.floor(Math.random() * 500) + 50
+          userBalance += amount
+          await db.creditTransaction.create({
+            data: {
+              userId: user.id,
+              amount,
+              balance: userBalance,
+              type,
+              description: type === 'plan_credits' ? `${user.planId ? 'Plan' : 'Free'} credits` : type === 'usage' ? `Service usage` : type === 'purchase' ? 'Credit purchase' : 'Bonus credits',
+              createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
+            },
+          })
+        }
+      }
+    } catch (adminSeedError) {
+      console.error('Admin seed error:', adminSeedError)
+    }
+
     return NextResponse.json({
       message: 'Database seeded successfully',
       data: {

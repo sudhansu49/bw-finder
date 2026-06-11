@@ -21,6 +21,7 @@ import {
   Kanban,
   BookOpen,
   Download,
+  Shield,
 } from 'lucide-react'
 
 const navItems: { view: View; label: string; icon: React.ElementType }[] = [
@@ -37,6 +38,7 @@ const navItems: { view: View; label: string; icon: React.ElementType }[] = [
   { view: 'services', label: 'Services', icon: Briefcase },
   { view: 'export', label: 'Export', icon: Download },
   { view: 'api-docs', label: 'API Docs', icon: BookOpen },
+  { view: 'admin', label: 'Admin Panel', icon: Shield },
   { view: 'settings', label: 'Settings', icon: Settings },
 ]
 

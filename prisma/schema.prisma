@@ -8,22 +8,31 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  company   String?
-  role      String   @default("user")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  password        String
+  company         String?
+  role            String   @default("user")
+  avatar          String?
+  credits         Int      @default(0)
+  planId          String?
+  stripeCustomerId String?
+  status          String   @default("active") // active, suspended, banned
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  leads      Lead[]
-  outreach   Outreach[]
-  searchJobs SearchJob[]
-  leadNotes  LeadNote[]
-  leadTasks  LeadTask[]
-  reminders  Reminder[]
-  activities ActivityLog[]
+  plan               Plan?    @relation(fields: [planId], references: [id])
+  leads              Lead[]
+  outreach           Outreach[]
+  searchJobs         SearchJob[]
+  leadNotes          LeadNote[]
+  leadTasks          LeadTask[]
+  reminders          Reminder[]
+  activities         ActivityLog[]
+  creditTransactions CreditTransaction[]
+  subscriptions      Subscription[]
 }
 
 model Business {
@@ -181,6 +190,52 @@ model SearchJob {
   sources      String?   // JSON array of sources used
   createdAt    DateTime  @default(now())
   completedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  price       Float     // monthly price in USD
+  credits     Int       // credits included per month
+  features    String    // JSON array of feature strings
+  popular     Boolean  @default(false)
+  maxLeads    Int      @default(100)
+  maxSearches Int      @default(50)
+  maxExports  Int      @default(20)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users         User[]
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String
+  planId            String
+  status            String   @default("active") // active, canceled, expired, past_due
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+  plan Plan @relation(fields: [planId], references: [id])
+}
+
+model CreditTransaction {
+  id          String   @id @default(cuid())
+  userId      String
+  amount      Int      // positive = credit added, negative = credit used
+  balance     Int      // balance after transaction
+  type        String   // purchase, usage, bonus, refund, plan_credits
+  description String
+  referenceId String?  // ID of the related entity (lead, search, export, etc.)
+  createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
 }
