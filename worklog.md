@@ -57,3 +57,41 @@ Stage Summary:
 - Export endpoint at /api/export supporting CSV and JSON formats for 4 data types
 - Swagger-like API documentation UI integrated into the app
 - All endpoints for /search, /leads, /audit, /proposal, /crm, /export documented and functional
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Phase 12 - Export with CSV, Excel, and PDF formats
+
+Work Log:
+- Installed xlsx, jspdf, jspdf-autotable packages for client-side Excel/PDF generation
+- Initially attempted server-side PDF generation with pdfkit but encountered font path issues in Next.js bundled environment (ENOENT: no such file or directory for Helvetica.afm)
+- Redesigned architecture: CSV generated server-side, Excel and PDF generated client-side to avoid server-side library compatibility issues
+- Rewrote /api/export/route.ts with enhanced data fetchers for all 4 types (leads, businesses, audits, pipeline)
+- API supports CSV (server-side) and JSON (for client-side Excel/PDF generation) formats
+- Added POST endpoint for record count preview
+- Created export-view.tsx component with:
+  - Data type selection (Leads, Businesses, Audit Reports, Pipeline) with visual cards
+  - Format selection (CSV, Excel, PDF) with visual cards and descriptions
+  - Status filter dropdown for leads/pipeline data types
+  - Export summary panel with record count, selected format, and export button
+  - Format guide explaining when to use each format
+  - Export history tracking recent downloads
+  - Client-side Excel generation using xlsx library with auto-sized columns
+  - Client-side PDF generation using jspdf + jspdf-autotable with branded tables, header bar, and pagination
+  - Framer Motion animations for smooth transitions
+- Added 'export' View type to app-store.ts
+- Added Download icon + Export nav item to app-sidebar.tsx
+- Added ExportView import and route case to page.tsx
+- All lint checks pass
+- API endpoints verified via curl: CSV, JSON, and count endpoints all functional
+- Comprehensive testing: 4 data types x 2 server formats + count endpoints + error handling + status filtering
+
+Stage Summary:
+- /api/export route supports CSV (server-side) and JSON (for client-side Excel/PDF) with 4 data types
+- Record count preview via POST /api/export
+- Export UI with visual format/type selection, filters, and download functionality
+- Client-side Excel generation with auto-sized columns via xlsx library
+- Client-side PDF generation with branded tables via jspdf + jspdf-autotable
+- Export history tracking and format guide in the UI
+- Server stability issues in sandbox environment prevented browser verification but all API tests pass
