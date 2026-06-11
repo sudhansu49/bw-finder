@@ -138,7 +138,7 @@ export function AdminSidebar() {
     setSidebarMobileOpen,
     user,
     setUser,
-    setActivePanel,
+    setAuthMode,
   } = useAppStore()
 
   const handleNavClick = (view: AdminView) => {
@@ -148,7 +148,7 @@ export function AdminSidebar() {
 
   const handleLogout = () => {
     setUser(null)
-    setActivePanel('user')
+    setAuthMode('admin')
   }
 
   const initials = user?.name ? getInitials(user.name) : 'A'
@@ -168,14 +168,14 @@ export function AdminSidebar() {
                 transition-all duration-200 group relative
                 ${
                   isActive
-                    ? 'bg-amber-500/20 text-amber-400'
+                    ? 'bg-red-600/20 text-red-400'
                     : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                 }
               `}
             >
-              <Icon className={`h-5 w-5 ${isActive ? 'text-amber-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+              <Icon className={`h-5 w-5 ${isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-amber-500" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-red-500" />
               )}
             </button>
           </TooltipTrigger>
@@ -195,15 +195,15 @@ export function AdminSidebar() {
           transition-all duration-200 group relative
           ${
             isActive
-              ? 'bg-amber-500/15 text-amber-400'
+              ? 'bg-red-600/15 text-red-400'
               : 'text-slate-300 hover:bg-slate-800 hover:text-white'
           }
         `}
       >
-        <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-amber-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+        <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
         <span className="truncate">{item.label}</span>
         {isActive && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-amber-500" />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-red-500" />
         )}
       </button>
     )
@@ -214,15 +214,15 @@ export function AdminSidebar() {
       {/* Header / Logo */}
       <div className="flex items-center justify-between px-4 h-16 shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
             <Shield className="h-5 w-5" />
           </div>
           {!sidebarCollapsed && (
             <div className="overflow-hidden">
               <span className="text-lg font-bold tracking-tight text-white block truncate">
-                Admin Panel
+                Admin Console
               </span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider">BW Finder</span>
+              <span className="text-[10px] text-red-400/60 uppercase tracking-wider">BW Finder</span>
             </div>
           )}
         </div>
@@ -282,7 +282,7 @@ export function AdminSidebar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Avatar className="h-9 w-9 cursor-pointer">
-                  <AvatarFallback className="bg-amber-500/20 text-amber-400 text-xs font-bold">
+                  <AvatarFallback className="bg-red-600/20 text-red-400 text-xs font-bold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
@@ -312,7 +312,7 @@ export function AdminSidebar() {
           <div className="space-y-2">
             <div className="flex items-center gap-3 px-2 py-1.5">
               <Avatar className="h-9 w-9">
-                <AvatarFallback className="bg-amber-500/20 text-amber-400 text-xs font-bold">
+                <AvatarFallback className="bg-red-600/20 text-red-400 text-xs font-bold">
                   {initials}
                 </AvatarFallback>
               </Avatar>

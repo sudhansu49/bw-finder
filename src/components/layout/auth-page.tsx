@@ -4,12 +4,14 @@ import { useState } from 'react'
 import { LoginForm } from '@/components/auth/login-form'
 import { SignupForm } from '@/components/auth/signup-form'
 import { Search, CheckCircle2, Zap, Globe, BarChart3, MessageSquare, Shield } from 'lucide-react'
+import { useAppStore } from '@/store/app-store'
 
 export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
+  const { setAuthMode } = useAppStore()
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
+    <div className="min-h-screen flex flex-col lg:flex-row relative">
       {/* Left side - Marketing */}
       <div className="flex-1 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-8 lg:p-16 flex flex-col justify-center relative overflow-hidden">
         {/* Background decoration */}
@@ -41,7 +43,6 @@ export function AuthPage() {
               { icon: Globe, label: 'Website Status Detection' },
               { icon: BarChart3, label: 'Lead Pipeline Management' },
               { icon: MessageSquare, label: 'Outreach Tracking' },
-              { icon: Shield, label: 'Multi-Panel Admin & User Dashboards' },
             ].map((feature) => (
               <div key={feature.label} className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 shrink-0">
@@ -57,21 +58,31 @@ export function AuthPage() {
               <CheckCircle2 className="h-4 w-4 text-emerald-400" />
               <span>Free to start &bull; No credit card required</span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-amber-400/80">
-              <Shield className="h-4 w-4" />
-              <span>Demo: demo@finder.com / demo123 (Admin access)</span>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Right side - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-slate-50 dark:bg-slate-950">
-        {isLogin ? (
-          <LoginForm onSwitchToSignup={() => setIsLogin(false)} />
-        ) : (
-          <SignupForm onSwitchToLogin={() => setIsLogin(true)} />
-        )}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-16 bg-slate-50 dark:bg-slate-950 relative">
+        <div className="w-full max-w-md">
+          {isLogin ? (
+            <LoginForm onSwitchToSignup={() => setIsLogin(false)} />
+          ) : (
+            <SignupForm onSwitchToLogin={() => setIsLogin(true)} />
+          )}
+
+          {/* Admin access link - subtle, at bottom */}
+          <div className="mt-6 text-center">
+            <button
+              type="button"
+              onClick={() => setAuthMode('admin')}
+              className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <Shield className="h-3 w-3" />
+              Admin Console
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )

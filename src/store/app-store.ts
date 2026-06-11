@@ -51,7 +51,8 @@ export type UserView =
   | 'user-notifications'
   | 'user-help'
 
-export type ActivePanel = 'user' | 'admin'
+// Which auth screen to show: 'user' login or 'admin' login
+export type AuthMode = 'user' | 'admin'
 
 interface AppUser {
   id: string
@@ -70,10 +71,12 @@ interface AppState {
   // Auth
   user: AppUser | null
   setUser: (user: AppUser | null) => void
+  authMode: AuthMode
+  setAuthMode: (mode: AuthMode) => void
 
-  // Panel
-  activePanel: ActivePanel
-  setActivePanel: (panel: ActivePanel) => void
+  // Panel (derived from role after login - NO manual switching)
+  activePanel: 'user' | 'admin'
+  setActivePanel: (panel: 'user' | 'admin') => void
 
   // User Panel views
   currentView: UserView
@@ -111,8 +114,10 @@ export const useAppStore = create<AppState>()(
       // Auth
       user: null,
       setUser: (user) => set({ user }),
+      authMode: 'user',
+      setAuthMode: (mode) => set({ authMode: mode }),
 
-      // Panel
+      // Panel - set automatically based on login
       activePanel: 'user',
       setActivePanel: (panel) => set({
         activePanel: panel,
@@ -153,6 +158,7 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         activePanel: state.activePanel,
         sidebarCollapsed: state.sidebarCollapsed,
+        authMode: state.authMode,
       }),
     }
   )

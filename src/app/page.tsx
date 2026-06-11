@@ -3,11 +3,12 @@
 import { useEffect } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { AuthPage } from '@/components/layout/auth-page'
+import { AdminLoginPage } from '@/components/auth/admin-login-page'
 import { UserLayout } from '@/components/user/user-layout'
 import { AdminLayout } from '@/components/admin/admin-layout'
 
 export default function Home() {
-  const { user, activePanel } = useAppStore()
+  const { user, activePanel, authMode } = useAppStore()
 
   // Auto-seed database on first load
   useEffect(() => {
@@ -46,16 +47,21 @@ export default function Home() {
     }
   }, [user])
 
-  // Not authenticated - show auth page
+  // ─── Routing Logic ─────────────────────────────────────────────────────────
+
+  // Not authenticated - show auth page based on mode
   if (!user) {
+    if (authMode === 'admin') {
+      return <AdminLoginPage />
+    }
     return <AuthPage />
   }
 
-  // Admin panel
+  // Authenticated - route to the correct panel
+  // Admin panel and User panel are COMPLETELY SEPARATE
   if (activePanel === 'admin') {
     return <AdminLayout />
   }
 
-  // User panel
   return <UserLayout />
 }

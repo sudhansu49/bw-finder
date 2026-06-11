@@ -56,9 +56,7 @@ import {
   Bell,
   Search,
   Moon,
-  Sun,
   Menu,
-  ArrowLeftRight,
   LogOut,
   User,
   Settings,
@@ -198,10 +196,10 @@ export function AdminLayout() {
   const {
     currentAdminView,
     user,
-    setActivePanel,
     sidebarMobileOpen,
     setSidebarMobileOpen,
     setUser,
+    setAuthMode,
   } = useAppStore()
   const { theme, setTheme } = useTheme()
   const mountedRef = useRef(false)
@@ -239,17 +237,8 @@ export function AdminLayout() {
                 <Breadcrumb>
                   <BreadcrumbList>
                     <BreadcrumbItem>
-                      <BreadcrumbLink
-                        className="cursor-pointer text-muted-foreground hover:text-amber-600"
-                        onClick={() => setActivePanel('user')}
-                      >
-                        BW Finder
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
                       <BreadcrumbLink className="text-muted-foreground">
-                        Admin
+                        Admin Console
                       </BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
@@ -320,20 +309,7 @@ export function AdminLayout() {
                   <TooltipContent>{notifications} notifications</TooltipContent>
                 </Tooltip>
 
-                {/* Panel switcher */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 text-muted-foreground hover:text-amber-600"
-                      onClick={() => setActivePanel('user')}
-                    >
-                      <ArrowLeftRight className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Switch to User Panel</TooltipContent>
-                </Tooltip>
+                {/* NO panel switcher - Admin is completely separate from User */}
 
                 <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
 
@@ -342,7 +318,7 @@ export function AdminLayout() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="h-9 px-2 gap-2 hover:bg-slate-100">
                       <Avatar className="h-7 w-7">
-                        <AvatarFallback className="bg-amber-100 text-amber-700 text-xs font-bold">
+                        <AvatarFallback className="bg-red-100 text-red-700 text-xs font-bold">
                           {user?.name ? getInitials(user.name) : 'A'}
                         </AvatarFallback>
                       </Avatar>
@@ -375,16 +351,11 @@ export function AdminLayout() {
                       Settings
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => setActivePanel('user')}>
-                      <ArrowLeftRight className="h-4 w-4 mr-2" />
-                      Switch to User Panel
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-red-600 focus:text-red-600"
                       onClick={() => {
                         setUser(null)
-                        setActivePanel('user')
+                        setAuthMode('admin')
                       }}
                     >
                       <LogOut className="h-4 w-4 mr-2" />
@@ -405,10 +376,10 @@ export function AdminLayout() {
           <footer className="border-t bg-white py-3 px-4 lg:px-6 shrink-0">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded bg-amber-500 flex items-center justify-center">
+                <div className="h-5 w-5 rounded bg-red-600 flex items-center justify-center">
                   <Shield className="h-3 w-3 text-white" />
                 </div>
-                <span>BW Finder Admin &copy; {new Date().getFullYear()}</span>
+                <span>Admin Console &copy; {new Date().getFullYear()}</span>
               </div>
               <p>Enterprise Management Console</p>
             </div>

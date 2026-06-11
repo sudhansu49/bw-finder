@@ -117,6 +117,7 @@ export function UserSidebar() {
     user,
     setUser,
     setActivePanel,
+    setAuthMode,
   } = useAppStore()
 
   const handleNavClick = (view: UserView) => {
@@ -126,15 +127,8 @@ export function UserSidebar() {
 
   const handleLogout = () => {
     setUser(null)
-    setActivePanel('user')
+    setAuthMode('user')
   }
-
-  const handleSwitchToAdmin = () => {
-    setActivePanel('admin')
-    setSidebarMobileOpen(false)
-  }
-
-  const canSeeAdmin = user?.role === 'super_admin' || user?.role === 'admin'
   const initials = user?.name ? getInitials(user.name) : 'U'
   const planLabel = user?.planId || 'free'
 
@@ -254,40 +248,7 @@ export function UserSidebar() {
 
       <Separator className="bg-slate-700/50" />
 
-      {/* Switch to Admin Panel button */}
-      {canSeeAdmin && (
-        <>
-          <div className="px-3 pt-3">
-            {sidebarCollapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="w-full h-10 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-                    onClick={handleSwitchToAdmin}
-                  >
-                    <Shield className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">Switch to Admin</TooltipContent>
-              </Tooltip>
-            ) : (
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-3 border-amber-500/30 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300"
-                onClick={handleSwitchToAdmin}
-              >
-                <Shield className="h-4 w-4" />
-                <span className="text-sm">Switch to Admin</span>
-              </Button>
-            )}
-          </div>
-          <Separator className="bg-slate-700/50 mt-3" />
-        </>
-      )}
-
-      {/* User section */}
+      {/* User section - NO admin switch, admin is completely separate */}
       <div className="p-3 shrink-0">
         {sidebarCollapsed ? (
           <div className="flex flex-col items-center gap-2">

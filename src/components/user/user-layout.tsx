@@ -43,7 +43,6 @@ import {
   Bell,
   Moon,
   Menu,
-  ArrowLeftRight,
   LogOut,
   User,
   Settings,
@@ -52,7 +51,6 @@ import {
   CreditCard,
   BarChart3,
   LifeBuoy,
-  Shield,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -267,7 +265,7 @@ export function UserLayout() {
   const {
     currentView,
     user,
-    setActivePanel,
+    setAuthMode,
     sidebarMobileOpen,
     setSidebarMobileOpen,
     setUser,
@@ -278,7 +276,6 @@ export function UserLayout() {
 
   const viewLabel = viewLabels[currentView] || 'Dashboard'
   const viewGroup = viewGroups[currentView] || 'Overview'
-  const canSeeAdmin = user?.role === 'super_admin' || user?.role === 'admin'
   const initials = user?.name ? getInitials(user.name) : 'U'
 
   return (
@@ -378,23 +375,6 @@ export function UserLayout() {
                   <TooltipContent>{notificationCount} notifications</TooltipContent>
                 </Tooltip>
 
-                {/* Switch to Admin Panel - only for admin/super_admin */}
-                {canSeeAdmin && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 text-muted-foreground hover:text-amber-600"
-                        onClick={() => setActivePanel('admin')}
-                      >
-                        <Shield className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Switch to Admin Panel</TooltipContent>
-                  </Tooltip>
-                )}
-
                 <div className="h-6 w-px bg-border mx-1 hidden sm:block" />
 
                 {/* User dropdown */}
@@ -443,21 +423,12 @@ export function UserLayout() {
                       <Crown className="h-4 w-4 mr-2" />
                       Subscription
                     </DropdownMenuItem>
-                    {canSeeAdmin && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setActivePanel('admin')}>
-                          <ArrowLeftRight className="h-4 w-4 mr-2" />
-                          Switch to Admin Panel
-                        </DropdownMenuItem>
-                      </>
-                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-red-600 focus:text-red-600"
                       onClick={() => {
                         setUser(null)
-                        setActivePanel('user')
+                        setAuthMode('user')
                       }}
                     >
                       <LogOut className="h-4 w-4 mr-2" />
