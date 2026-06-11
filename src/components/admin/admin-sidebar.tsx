@@ -37,7 +37,9 @@ import {
   LogOut,
   Search,
   X,
+  ArrowLeftRight,
 } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 interface NavItem {
   view: AdminView
@@ -83,7 +85,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'SUPPORT',
     items: [
-      { view: 'admin-support', label: 'Support Tickets', icon: LifeBuoy },
+      { view: 'admin-support', label: 'Support', icon: LifeBuoy },
       { view: 'admin-announcements', label: 'Announcements', icon: Megaphone },
     ],
   },
@@ -91,7 +93,7 @@ const navGroups: NavGroup[] = [
     title: 'MARKETING',
     items: [
       { view: 'admin-email-broadcast', label: 'Email Broadcast', icon: Mail },
-      { view: 'admin-whatsapp-broadcast', label: 'WhatsApp Broadcast', icon: Smartphone },
+      { view: 'admin-whatsapp-broadcast', label: 'WhatsApp', icon: Smartphone },
       { view: 'admin-marketing', label: 'Marketing', icon: TrendingUp },
     ],
   },
@@ -178,7 +180,11 @@ export function AdminSidebar() {
             >
               <Icon className={`h-5 w-5 ${isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
               {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-red-500" />
+                <motion.div
+                  layoutId="admin-sidebar-indicator-collapsed"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-red-500"
+                  transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                />
               )}
             </button>
           </TooltipTrigger>
@@ -206,15 +212,19 @@ export function AdminSidebar() {
         <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
         <span className="truncate">{item.label}</span>
         {isActive && (
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-red-500" />
+          <motion.div
+            layoutId="admin-sidebar-indicator-expanded"
+            className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-red-500"
+            transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+          />
         )}
       </button>
     )
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full">
-      {/* Header / Logo */}
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header / Logo - fixed height */}
       <div className="flex items-center justify-between px-4 h-16 shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
@@ -241,14 +251,14 @@ export function AdminSidebar() {
         )}
       </div>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator className="bg-slate-700/50 shrink-0" />
 
-      {/* Search */}
+      {/* Search bar */}
       {!sidebarCollapsed && (
-        <div className="px-3 pt-3">
+        <div className="px-3 pt-3 shrink-0">
           <button
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 text-slate-500 text-sm hover:bg-slate-800 transition-colors"
-            onClick={() => {}}
+            onClick={() => useAppStore.getState().setCommandPaletteOpen(true)}
           >
             <Search className="h-4 w-4" />
             <span>Search...</span>
@@ -257,8 +267,8 @@ export function AdminSidebar() {
         </div>
       )}
 
-      {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-3">
+      {/* Navigation - scrollable area */}
+      <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="space-y-4">
           {navGroups.map((group) => (
             <div key={group.title}>
@@ -276,9 +286,9 @@ export function AdminSidebar() {
         </div>
       </ScrollArea>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator className="bg-slate-700/50 shrink-0" />
 
-      {/* User section */}
+      {/* User section - compact */}
       <div className="p-3 shrink-0">
         {sidebarCollapsed ? (
           <div className="flex flex-col items-center gap-2">
@@ -302,6 +312,22 @@ export function AdminSidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  className="h-8 w-8 text-slate-500 hover:text-amber-400 hover:bg-slate-800"
+                  onClick={() => {
+                    setActivePanel('user')
+                    setCurrentView('user-dashboard')
+                  }}
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">User Panel</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   className="h-8 w-8 text-slate-500 hover:text-red-400 hover:bg-slate-800"
                   onClick={handleLogout}
                 >
@@ -312,9 +338,9 @@ export function AdminSidebar() {
             </Tooltip>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex items-center gap-3 px-2 py-1.5">
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-red-600/20 text-red-400 text-xs font-bold">
                   {initials}
                 </AvatarFallback>
@@ -329,35 +355,39 @@ export function AdminSidebar() {
                 </Badge>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 hover:bg-slate-800"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
-              onClick={() => {
-                setActivePanel('user')
-                setCurrentView('user-dashboard')
-              }}
-            >
-              <Search className="h-4 w-4" />
-              User Panel
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 justify-start gap-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 h-8 text-xs"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                Logout
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-1 justify-start gap-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 h-8 text-xs"
+                onClick={() => {
+                  setActivePanel('user')
+                  setCurrentView('user-dashboard')
+                }}
+              >
+                <Search className="h-3.5 w-3.5" />
+                User Panel
+              </Button>
+            </div>
           </div>
         )}
       </div>
 
       {/* Collapse toggle - desktop only */}
-      <div className="hidden lg:block p-3 pt-0">
+      <div className="hidden lg:flex p-3 pt-0 shrink-0">
         <Button
           variant="ghost"
           size="sm"
-          className="w-full text-slate-500 hover:text-white hover:bg-slate-800"
+          className="w-full text-slate-500 hover:text-white hover:bg-slate-800 h-8"
           onClick={toggleSidebar}
         >
           {sidebarCollapsed ? (
@@ -377,7 +407,10 @@ export function AdminSidebar() {
     <>
       {/* Mobile overlay */}
       {sidebarMobileOpen && (
-        <div
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
           onClick={() => setSidebarMobileOpen(false)}
         />
@@ -386,9 +419,9 @@ export function AdminSidebar() {
       {/* Mobile sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-50 h-full w-[320px] bg-slate-900 text-white
+          fixed top-0 left-0 z-50 h-full w-[280px] bg-slate-900 text-white
           transform transition-transform duration-300 ease-in-out lg:hidden
-          flex flex-col
+          flex flex-col overflow-hidden
           ${sidebarMobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -399,8 +432,8 @@ export function AdminSidebar() {
       <aside
         className={`
           hidden lg:flex flex-col h-screen sticky top-0 bg-slate-900 text-white
-          transition-all duration-300 ease-in-out shrink-0
-          ${sidebarCollapsed ? 'w-20' : 'w-[320px]'}
+          transition-all duration-300 ease-in-out shrink-0 overflow-hidden
+          ${sidebarCollapsed ? 'w-20' : 'w-[280px]'}
         `}
       >
         {sidebarContent}

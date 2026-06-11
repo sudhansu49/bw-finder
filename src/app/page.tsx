@@ -27,7 +27,6 @@ export default function Home() {
   }, [])
 
   // Persist user session in localStorage
-  // Only restore user on initial mount, not after explicit logout
   useEffect(() => {
     const savedUser = localStorage.getItem('bw-finder-user')
     const explicitLogout = sessionStorage.getItem('bw-finder-logged-out')
@@ -39,11 +38,10 @@ export default function Home() {
         localStorage.removeItem('bw-finder-user')
       }
     }
-    // Clear the logout flag after checking
     if (explicitLogout) {
       sessionStorage.removeItem('bw-finder-logged-out')
     }
-  }, []) // Only run on mount
+  }, [])
 
   useEffect(() => {
     if (user) {
@@ -55,6 +53,8 @@ export default function Home() {
   }, [user])
 
   // ─── Routing Logic ─────────────────────────────────────────────────────────
+  // COMPLETELY SEPARATE: Admin and User panels render independently
+  // No shared state between panels beyond auth
 
   // Not authenticated - show auth page based on mode
   if (!user) {

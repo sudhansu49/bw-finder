@@ -42,6 +42,7 @@ import {
   Search,
   Bell,
   Moon,
+  Sun,
   Menu,
   LogOut,
   User,
@@ -285,15 +286,15 @@ export function UserLayout() {
   const initials = user?.name ? getInitials(user.name) : 'U'
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950">
-      <div className="flex flex-1">
+    <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
+      <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         <UserSidebar />
 
         {/* Main area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 min-h-0">
           {/* Fixed header */}
-          <header className="sticky top-0 z-30 bg-white dark:bg-slate-900 border-b h-16 shrink-0">
+          <header className="bg-white dark:bg-slate-900 border-b h-16 shrink-0 z-30">
             <div className="flex items-center justify-between h-full px-4 lg:px-6">
               {/* Left: Mobile menu + Breadcrumb */}
               <div className="flex items-center gap-3">
@@ -355,7 +356,7 @@ export function UserLayout() {
                       className="h-9 w-9 text-muted-foreground hover:text-foreground"
                       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                     >
-                      <Moon className="h-4 w-4" />
+                      {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>Toggle theme</TooltipContent>
@@ -463,22 +464,23 @@ export function UserLayout() {
           </header>
 
           {/* Main content */}
-          <main className="flex-1 p-4 lg:p-6 overflow-auto">
-            <ViewRenderer view={currentView} />
-          </main>
-
-          {/* Footer */}
-          <footer className="border-t bg-white dark:bg-slate-900 py-3 px-4 lg:px-6 shrink-0">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="h-5 w-5 rounded bg-amber-500 flex items-center justify-center">
-                  <Search className="h-3 w-3 text-white" />
-                </div>
-                <span>BW Finder &copy; {new Date().getFullYear()}</span>
-              </div>
-              <p>Find businesses without websites &bull; Close deals faster</p>
+          <main className="flex-1 min-h-0 overflow-auto">
+            <div className="p-4 lg:p-6">
+              <ViewRenderer view={currentView} />
             </div>
-          </footer>
+            {/* Footer inside scroll area */}
+            <footer className="border-t bg-white dark:bg-slate-900 py-3 px-4 lg:px-6 mt-auto">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <div className="h-5 w-5 rounded bg-amber-500 flex items-center justify-center">
+                    <Search className="h-3 w-3 text-white" />
+                  </div>
+                  <span>BW Finder &copy; {new Date().getFullYear()}</span>
+                </div>
+                <p>Find businesses without websites &bull; Close deals faster</p>
+              </div>
+            </footer>
+          </main>
         </div>
       </div>
     </div>

@@ -201,8 +201,8 @@ export function UserSidebar() {
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full">
-      {/* Header / Logo */}
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Header / Logo - fixed height */}
       <div className="flex items-center justify-between px-4 h-16 shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
@@ -229,10 +229,10 @@ export function UserSidebar() {
         )}
       </div>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator className="bg-slate-700/50 shrink-0" />
 
-      {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-3">
+      {/* Navigation - scrollable area takes all available space */}
+      <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="space-y-4">
           {navGroups.map((group) => (
             <div key={group.title}>
@@ -250,9 +250,9 @@ export function UserSidebar() {
         </div>
       </ScrollArea>
 
-      <Separator className="bg-slate-700/50" />
+      <Separator className="bg-slate-700/50 shrink-0" />
 
-      {/* User section - NO admin switch, admin is completely separate */}
+      {/* User section - compact, fixed at bottom */}
       <div className="p-3 shrink-0">
         {sidebarCollapsed ? (
           <div className="flex flex-col items-center gap-2">
@@ -271,6 +271,24 @@ export function UserSidebar() {
                 </div>
               </TooltipContent>
             </Tooltip>
+            {isAdmin && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-slate-500 hover:text-amber-400 hover:bg-slate-800"
+                    onClick={() => {
+                      setActivePanel('admin')
+                      setCurrentAdminView('admin-dashboard')
+                    }}
+                  >
+                    <Shield className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">Admin Panel</TooltipContent>
+              </Tooltip>
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -286,9 +304,9 @@ export function UserSidebar() {
             </Tooltip>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex items-center gap-3 px-2 py-1.5">
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-8 w-8">
                 <AvatarFallback className="bg-amber-500/20 text-amber-400 text-xs font-bold">
                   {initials}
                 </AvatarFallback>
@@ -309,37 +327,41 @@ export function UserSidebar() {
                 </div>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 hover:bg-slate-800"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
-            {isAdmin && (
+            <div className="flex gap-1">
               <Button
                 variant="ghost"
-                className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                onClick={() => {
-                  setActivePanel('admin')
-                  setCurrentAdminView('admin-dashboard')
-                }}
+                size="sm"
+                className="flex-1 justify-start gap-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 h-8 text-xs"
+                onClick={handleLogout}
               >
-                <Shield className="h-4 w-4" />
-                Admin Panel
+                <LogOut className="h-3.5 w-3.5" />
+                Logout
               </Button>
-            )}
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 justify-start gap-2 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 h-8 text-xs"
+                  onClick={() => {
+                    setActivePanel('admin')
+                    setCurrentAdminView('admin-dashboard')
+                  }}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                  Admin
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* Collapse toggle - desktop only */}
-      <div className="hidden lg:block p-3 pt-0">
+      <div className="hidden lg:flex p-3 pt-0 shrink-0">
         <Button
           variant="ghost"
           size="sm"
-          className="w-full text-slate-500 hover:text-white hover:bg-slate-800"
+          className="w-full text-slate-500 hover:text-white hover:bg-slate-800 h-8"
           onClick={toggleSidebar}
         >
           {sidebarCollapsed ? (
@@ -373,7 +395,7 @@ export function UserSidebar() {
         className={`
           fixed top-0 left-0 z-50 h-full w-[280px] bg-slate-900 text-white
           transform transition-transform duration-300 ease-in-out lg:hidden
-          flex flex-col
+          flex flex-col overflow-hidden
           ${sidebarMobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -384,7 +406,7 @@ export function UserSidebar() {
       <aside
         className={`
           hidden lg:flex flex-col h-screen sticky top-0 bg-slate-900 text-white
-          transition-all duration-300 ease-in-out shrink-0
+          transition-all duration-300 ease-in-out shrink-0 overflow-hidden
           ${sidebarCollapsed ? 'w-20' : 'w-[280px]'}
         `}
       >
