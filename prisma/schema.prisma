@@ -235,7 +235,7 @@ model Service {
 
 model SearchJob {
   id           String    @id @default(cuid())
-  userId       String
+  userId       String?
   query        String
   location     String
   category     String?
@@ -248,7 +248,7 @@ model SearchJob {
   createdAt    DateTime  @default(now())
   completedAt  DateTime?
 
-  user User @relation(fields: [userId], references: [id])
+  user User? @relation(fields: [userId], references: [id])
 }
 
 // ─── SUBSCRIPTIONS & BILLING ─────────────────────────────────────────────────

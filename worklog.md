@@ -80,3 +80,27 @@ Stage Summary:
 - Fixed critical Prisma/SQLite compatibility issue affecting business saving
 - Better UX with clear feedback for fallback, errors, and empty states
 - Search results include real businesses with phone, email, address, ratings
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix leads finding functionality - "Leads find nahi kar parehe he" (Leads are not being found, it's failing)
+
+Work Log:
+- Analyzed uploaded screenshot showing BW Finder app with 0 results for "Salon" in "Angul, Odisha, India"
+- Explored project structure to understand the Lead Discovery Engine
+- Found critical error in dev.log: `PrismaClientKnownRequestError: Foreign key constraint violated on the foreign key` at `db.searchJob.create()` line 128
+- Root cause: SearchJob.userId had a required foreign key to User table, but the search route passed `userId || 'anonymous'` and the frontend passed `user?.id || 'demo'` — neither of which exist in the User table
+- Fixed Prisma schema: Made SearchJob.userId nullable (`String?`) and relation optional (`User?`)
+- Fixed search route: Added userId validation against DB before creating SearchJob record
+- Fixed LLM prompt: Changed `role: 'assistant'` to `role: 'system'` for the system prompt
+- Improved JSON parsing: Added robust extraction of JSON array from LLM response (finds first `[` and last `]`)
+- Fixed internal scoring URL: Used `request.url` instead of hardcoded `http://localhost:3000`
+- Added more search queries for better business discovery (directory sites, India-specific)
+- Updated frontend: Changed `user?.id || 'demo'` to `user?.id || ''` (3 occurrences)
+- Pushed schema changes with `bun run db:push`
+- Verified with agent browser: Search now works - found 20 businesses in Angul, Odisha, India for Salon category
+
+Stage Summary:
+- Core bug was FK constraint violation on SearchJob.userId - FIXED
+- All search-related fixes verified working
+- 20 businesses successfully found in test search

@@ -174,7 +174,7 @@ export function SearchView() {
           state: state.trim(),
           city: city.trim(),
           category: effectiveCategory,
-          userId: user?.id || 'demo',
+          userId: user?.id || '',
         }),
       })
 
@@ -263,7 +263,7 @@ export function SearchView() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             businessId,
-            userId: user?.id || 'demo',
+            userId: user?.id || '',
             status: 'New',
             priority: business.hasWebsite ? 'low' : 'medium',
             estimatedValue: business.hasWebsite ? 800 : 1500,
@@ -302,7 +302,7 @@ export function SearchView() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             businessId: business.id,
-            userId: user?.id || 'demo',
+            userId: user?.id || '',
             status: 'New',
             priority: 'medium',
             estimatedValue: 1500,

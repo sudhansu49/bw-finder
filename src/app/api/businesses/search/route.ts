@@ -124,10 +124,23 @@ export async function POST(request: NextRequest) {
     const locationParts = [city, state, country].filter(Boolean)
     const locationString = locationParts.join(', ')
 
+    // Validate userId exists in database before using it (to avoid FK constraint violation)
+    let validUserId: string | null = null
+    if (userId) {
+      try {
+        const existingUser = await db.user.findUnique({ where: { id: userId } })
+        if (existingUser) {
+          validUserId = userId
+        }
+      } catch {
+        // If user lookup fails, proceed without userId
+      }
+    }
+
     // Create a search job record
     const searchJob = await db.searchJob.create({
       data: {
-        userId: userId || 'anonymous',
+        userId: validUserId,
         query: `${category} businesses in ${locationString}`,
         location: locationString,
         category,
@@ -149,12 +162,16 @@ export async function POST(request: NextRequest) {
       // Execute SEQUENTIALLY with delays to avoid rate limiting
       const searchQueries = [
         `${category} businesses in ${locationString} phone number address contact`,
+        `${category} in ${locationString} list directory reviews`,
       ]
 
-      // Only add extra queries if first one is needed (keeps it simple and avoids rate limits)
-      // The second query is more specific
+      // Add location-specific search queries for better discovery
       if (city || state) {
-        searchQueries.push(`${category} in ${city || state} reviews ratings website`)
+        const subLocation = city || state
+        searchQueries.push(`${category} ${subLocation} justdial sulekha yellow pages`)
+      }
+      if (country === 'India') {
+        searchQueries.push(`${category} in ${locationString} google maps address phone`)
       }
 
       // Execute searches sequentially with delays between them
@@ -219,7 +236,7 @@ export async function POST(request: NextRequest) {
           zai.chat.completions.create({
             messages: [
               {
-                role: 'assistant',
+                role: 'system',
                 content: `You are a data extraction assistant specializing in finding business information from web search results. Extract business data from the search results below. For each business found, provide a JSON object with these exact fields:
 - name: Business name (string, required)
 - category: Business category/type (string, use "${category}" if unclear)
@@ -274,15 +291,23 @@ IMPORTANT RULES:
       }
       cleanedContent = cleanedContent.trim()
 
+      // Robust JSON extraction: find the first [ and last ] to extract the array
       let extractedBusinesses: ExtractedBusiness[] = []
       try {
-        extractedBusinesses = JSON.parse(cleanedContent)
+        const firstBracket = cleanedContent.indexOf('[')
+        const lastBracket = cleanedContent.lastIndexOf(']')
+        if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+          const jsonStr = cleanedContent.slice(firstBracket, lastBracket + 1)
+          extractedBusinesses = JSON.parse(jsonStr)
+        } else {
+          extractedBusinesses = JSON.parse(cleanedContent)
+        }
         if (!Array.isArray(extractedBusinesses)) {
           extractedBusinesses = []
         }
       } catch (parseError) {
         console.error('Failed to parse LLM response as JSON:', parseError)
-        console.error('LLM content:', llmContent)
+        console.error('LLM content (first 500 chars):', llmContent.slice(0, 500))
         extractedBusinesses = []
       }
 
@@ -417,7 +442,8 @@ IMPORTANT RULES:
 
       // Auto-score all discovered businesses
       try {
-        const scoringUrl = new URL('/api/businesses/score', 'http://localhost:3000')
+        // Use relative URL with request header for internal scoring
+        const scoringUrl = new URL('/api/businesses/score', request.url || 'http://localhost:3000')
         await fetch(scoringUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
