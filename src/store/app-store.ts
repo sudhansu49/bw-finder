@@ -162,6 +162,8 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         authMode: state.authMode,
       }),
+      // Skip hydration to avoid SSR/client mismatch — rehydrate after mount
+      skipHydration: true,
     }
   )
 )

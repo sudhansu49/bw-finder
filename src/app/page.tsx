@@ -10,6 +10,11 @@ import { AdminLayout } from '@/components/admin/admin-layout'
 export default function Home() {
   const { user, activePanel, authMode } = useAppStore()
 
+  // Rehydrate Zustand persisted store after mount (skipHydration is enabled)
+  useEffect(() => {
+    useAppStore.persist.rehydrate()
+  }, [])
+
   // Auto-seed database on first load
   useEffect(() => {
     const seedIfNeeded = async () => {
