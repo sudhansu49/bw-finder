@@ -1,0 +1,719 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Card, CardContent } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import {
+    10→  Select,
+    11→  SelectContent,
+    12→  SelectItem,
+    13→  SelectTrigger,
+    14→  SelectValue,
+    15→} from '@/components/ui/select'
+    16→import {
+    17→  Table,
+    18→  TableBody,
+    19→  TableCell,
+    20→  TableHead,
+    21→  TableHeader,
+    22→  TableRow,
+    23→} from '@/components/ui/table'
+    24→import {
+    25→  Dialog,
+    26→  DialogContent,
+    27→  DialogHeader,
+    28→  DialogTitle,
+    29→} from '@/components/ui/dialog'
+    30→import {
+    31→  DropdownMenu,
+    32→  DropdownMenuContent,
+    33→  DropdownMenuItem,
+    34→  DropdownMenuTrigger,
+    35→} from '@/components/ui/dropdown-menu'
+    36→import { ScrollArea } from '@/components/ui/scroll-area'
+    37→import { Separator } from '@/components/ui/separator'
+    38→import { motion, AnimatePresence } from 'framer-motion'
+    39→import {
+    40→  Search,
+    41→  Building2,
+    42→  Globe,
+    43→  Unplug,
+    44→  Phone,
+    45→  MapPin,
+    46→  Star,
+    47→  Plus,
+    48→  ChevronLeft,
+    49→  ChevronRight,
+    50→  Mail,
+    51→  Facebook,
+    52→  Instagram,
+    53→  Linkedin,
+    54→  ExternalLink,
+    55→  CheckCircle2,
+    56→  Eye,
+    57→  ArrowUpDown,
+    58→  TrendingUp,
+    59→  DollarSign,
+    60→  Target,
+    61→  ClipboardCheck,
+    62→  Sparkles,
+    63→  Loader2,
+    64→} from 'lucide-react'
+    65→import { useToast } from '@/hooks/use-toast'
+    66→
+    67→const categories = ['All', 'Restaurant', 'Salon', 'Beauty Parlour', 'Spa', 'Gym', 'Mechanic', 'Plumber', 'Electrician', 'Bakery', 'Dentist', 'Lawyer', 'Accountant', 'Real Estate', 'Hotel', 'Clinic', 'School', 'Other']
+    68→
+    69→interface Business {
+    70→  id: string
+    71→  name: string
+    72→  category: string
+    73→  address?: string
+    74→  city?: string
+    75→  state?: string
+    76→  country?: string
+    77→  phone?: string
+    78→  email?: string
+    79→  website?: string | null
+    80→  hasWebsite: boolean
+    81→  websiteStatus?: string | null
+    82→  googleRating?: number | null
+    83→  googleReviews?: number | null
+    84→  reviewCount?: number | null
+    85→  facebookUrl?: string | null
+    86→  instagramUrl?: string | null
+    87→  linkedinUrl?: string | null
+    88→  socialPresence?: number
+    89→  leadScore?: number | null
+    90→  opportunityScore?: number | null
+    91→  estimatedMonthlyRevenue?: number | null
+    92→  auditScore?: number | null
+    93→  source?: string
+    94→  sourceDetail?: string | null
+    95→  rating?: number
+    96→}
+    97→
+    98→// ── Score helper functions ──────────────────────────────────────────
+    99→
+   100→const getScoreColor = (score: number | null | undefined) => {
+   101→  if (score == null) return 'text-slate-400'
+   102→  if (score >= 70) return 'text-emerald-600'
+   103→  if (score >= 40) return 'text-amber-600'
+   104→  return 'text-red-500'
+   105→}
+   106→
+   107→const getScoreBg = (score: number | null | undefined) => {
+   108→  if (score == null) return 'bg-slate-50'
+   109→  if (score >= 70) return 'bg-emerald-50'
+   110→  if (score >= 40) return 'bg-amber-50'
+   111→  return 'bg-red-50'
+   112→}
+   113→
+   114→const getScoreRingColor = (score: number | null | undefined) => {
+   115→  if (score == null) return 'border-slate-200'
+   116→  if (score >= 70) return 'border-emerald-500'
+   117→  if (score >= 40) return 'border-amber-500'
+   118→  return 'border-red-400'
+   119→}
+   120→
+   121→const WebsiteBadge = ({ status }: { status?: string | null }) => {
+   122→  if (status === 'HAS_WEBSITE') {
+   123→    return (
+   124→      <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200">
+   125→        <Globe className="h-3 w-3 mr-1" />
+   126→        Website
+   127→      </Badge>
+   128→    )
+   129→  }
+   130→  if (status === 'SOCIAL_ONLY') {
+   131→    return (
+   132→      <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-xs font-semibold border border-red-200">
+   133→        <Unplug className="h-3 w-3 mr-1" />
+   134→        Social Only
+   135→      </Badge>
+   136→    )
+   137→  }
+   138→  return (
+   139→    <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-xs font-semibold border border-red-200">
+   140→      <Unplug className="h-3 w-3 mr-1" />
+   141→      No Website
+   142→    </Badge>
+   143→  )
+   144→}
+   145→
+   146→const formatRevenue = (revenue: number | null | undefined) => {
+   147→  if (revenue == null) return '-'
+   148→  if (revenue >= 1000) {
+   149→    return `$${(revenue / 1000).toFixed(revenue >= 10000 ? 0 : 1)}k`
+   150→  }
+   151→  return `$${revenue}`
+   152→}
+   153→
+   154→const sortOptions = [
+   155→  { value: 'default', label: 'Default' },
+   156→  { value: 'leadScore', label: 'Lead Score' },
+   157→  { value: 'opportunityScore', label: 'Opportunity' },
+   158→  { value: 'revenue', label: 'Revenue' },
+   159→] as const
+   160→
+   161→export function BusinessesView() {
+   162→  const { user } = useAppStore()
+   163→  const { toast } = useToast()
+   164→  const [businesses, setBusinesses] = useState<Business[]>([])
+   165→  const [loading, setLoading] = useState(true)
+   166→  const [searchTerm, setSearchTerm] = useState('')
+   167→  const [categoryFilter, setCategoryFilter] = useState('All')
+   168→  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
+   169→  const [detailOpen, setDetailOpen] = useState(false)
+   170→  const [page, setPage] = useState(1)
+   171→  const [addedLeads, setAddedLeads] = useState<Set<string>>(new Set())
+   172→  const [sortBy, setSortBy] = useState<string>('default')
+   173→  const [auditingId, setAuditingId] = useState<string | null>(null)
+   174→  const pageSize = 10
+   175→
+   176→  useEffect(() => {
+   177→    const fetchBusinesses = async () => {
+   178→      try {
+   179→        const params = new URLSearchParams()
+   180→        if (categoryFilter && categoryFilter !== 'All') params.set('category', categoryFilter)
+   181→        if (searchTerm) params.set('search', searchTerm)
+   182→        params.set('limit', '200')
+   183→
+   184→        const res = await fetch(`/api/businesses?${params.toString()}`)
+   185→        if (res.ok) {
+   186→          const data = await res.json()
+   187→          setBusinesses(data.businesses || [])
+   188→        } else {
+   189→          setBusinesses([])
+   190→        }
+   191→      } catch {
+   192→        setBusinesses([])
+   193→      } finally {
+   194→        setLoading(false)
+   195→      }
+   196→    }
+   197→    fetchBusinesses()
+   198→  }, [categoryFilter, searchTerm, user?.id])
+   199→
+   200→  const filteredBusinesses = businesses.filter((b) => {
+   201→    const matchesSearch = !searchTerm ||
+   202→      b.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+   203→      b.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+   204→      b.country?.toLowerCase().includes(searchTerm.toLowerCase())
+   205→    const matchesCategory = categoryFilter === 'All' || b.category === categoryFilter
+   206→    return matchesSearch && matchesCategory
+   207→  }).sort((a, b) => {
+   208→    if (sortBy === 'leadScore') return (b.leadScore || 0) - (a.leadScore || 0)
+   209→    if (sortBy === 'opportunityScore') return (b.opportunityScore || 0) - (a.opportunityScore || 0)
+   210→    if (sortBy === 'revenue') return (b.estimatedMonthlyRevenue || 0) - (a.estimatedMonthlyRevenue || 0)
+   211→    return 0
+   212→  })
+   213→
+   214→  const totalPages = Math.ceil(filteredBusinesses.length / pageSize)
+   215→  const paginatedBusinesses = filteredBusinesses.slice(
+   216→    (page - 1) * pageSize,
+   217→    page * pageSize
+   218→  )
+   219→
+   220→  const handleAddToLeads = async (business: Business) => {
+   221→    if (addedLeads.has(business.id)) return
+   222→    try {
+   223→      await fetch('/api/leads', {
+   224→        method: 'POST',
+   225→        headers: { 'Content-Type': 'application/json' },
+   226→        body: JSON.stringify({
+   227→          businessId: business.id,
+   228→          userId: user?.id || 'demo',
+   229→          status: 'New',
+   230→          priority: business.hasWebsite ? 'low' : 'medium',
+   231→          estimatedValue: business.hasWebsite ? 800 : 1500,
+   232→          notes: `Lead from business directory: ${business.name}`,
+   233→        }),
+   234→      })
+   235→      setAddedLeads(prev => new Set([...prev, business.id]))
+   236→      toast({
+   237→        title: 'Added to Leads!',
+   238→        description: `${business.name} has been added to your leads pipeline.`,
+   239→      })
+   240→    } catch {
+   241→      toast({
+   242→        title: 'Error',
+   243→        description: 'Failed to add lead.',
+   244→        variant: 'destructive',
+   245→      })
+   246→    }
+   247→  }
+   248→
+   249→  const openDetail = (business: Business) => {
+   250→    setSelectedBusiness(business)
+   251→    setDetailOpen(true)
+   252→  }
+   253→
+   254→  const handleAudit = async (business: Business) => {
+   255→    setAuditingId(business.id)
+   256→    try {
+   257→      const res = await fetch('/api/businesses/audit', {
+   258→        method: 'POST',
+   259→        headers: { 'Content-Type': 'application/json' },
+   260→        body: JSON.stringify({ businessIds: [business.id], useAI: true }),
+   261→      })
+   262→      if (res.ok) {
+   263→        toast({
+   264→          title: 'Audit Complete!',
+   265→          description: `Audit report generated for ${business.name}. View it in the Audit tab.`,
+   266→        })
+   267→        // Refresh businesses to get updated audit score
+   268→        const params = new URLSearchParams()
+   269→        if (categoryFilter && categoryFilter !== 'All') params.set('category', categoryFilter)
+   270→        if (searchTerm) params.set('search', searchTerm)
+   271→        params.set('limit', '200')
+   272→        const bizRes = await fetch(`/api/businesses?${params.toString()}`)
+   273→        if (bizRes.ok) {
+   274→          const bizData = await bizRes.json()
+   275→          setBusinesses(bizData.businesses || [])
+   276→        }
+   277→      } else {
+   278→        toast({ title: 'Audit Failed', variant: 'destructive' })
+   279→      }
+   280→    } catch {
+   281→      toast({ title: 'Audit Failed', variant: 'destructive' })
+   282→    } finally {
+   283→      setAuditingId(null)
+   284→    }
+   285→  }
+   286→
+   287→  if (loading) {
+   288→    return (
+   289→      <div className="flex items-center justify-center h-64">
+   290→        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+   291→      </div>
+   292→    )
+   293→  }
+   294→
+   295→  return (
+   296→    <div className="space-y-6">
+   297→      <div>
+   298→        <h1 className="text-2xl font-bold text-slate-900">Businesses</h1>
+   299→        <p className="text-muted-foreground">{filteredBusinesses.length} businesses in directory</p>
+   300→      </div>
+   301→
+   302→      {/* Filters */}
+   303→      <Card className="border-0 shadow-sm">
+   304→        <CardContent className="p-4">
+   305→          <div className="flex flex-col sm:flex-row gap-4">
+   306→            <div className="flex-1 relative">
+   307→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   308→              <Input
+   309→                placeholder="Search by name, city, or country..."
+   310→                value={searchTerm}
+   311→                onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+   312→                className="pl-10 h-10"
+   313→              />
+   314→            </div>
+   315→            <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1) }}>
+   316→              <SelectTrigger className="w-full sm:w-48 h-10">
+   317→                <SelectValue placeholder="Category" />
+   318→              </SelectTrigger>
+   319→              <SelectContent>
+   320→                {categories.map((cat) => (
+   321→                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+   322→                ))}
+   323→              </SelectContent>
+   324→            </Select>
+   325→            <DropdownMenu>
+   326→              <DropdownMenuTrigger asChild>
+   327→                <Button variant="outline" className="w-full sm:w-44 h-10 justify-between">
+   328→                  <span className="flex items-center gap-2">
+   329→                    <ArrowUpDown className="h-4 w-4 text-amber-500" />
+   330→                    <span className="text-sm">
+   331→                      {sortOptions.find(o => o.value === sortBy)?.label || 'Sort By'}
+   332→                    </span>
+   333→                  </span>
+   334→                </Button>
+   335→              </DropdownMenuTrigger>
+   336→              <DropdownMenuContent align="end" className="w-44">
+   337→                {sortOptions.map((option) => (
+   338→                  <DropdownMenuItem
+   339→                    key={option.value}
+   340→                    onClick={() => { setSortBy(option.value); setPage(1) }}
+   341→                    className={sortBy === option.value ? 'bg-amber-50 text-amber-700 font-medium' : ''}
+   342→                  >
+   343→                    {option.label}
+   344→                  </DropdownMenuItem>
+   345→                ))}
+   346→              </DropdownMenuContent>
+   347→            </DropdownMenu>
+   348→          </div>
+   349→        </CardContent>
+   350→      </Card>
+   351→
+   352→      {/* Table */}
+   353→      <Card className="border-0 shadow-sm">
+   354→        <CardContent className="p-0">
+   355→          <ScrollArea className="w-full">
+   356→            <div className="min-w-[960px]">
+   357→              <Table>
+   358→                <TableHeader>
+   359→                  <TableRow className="bg-slate-50/50">
+   360→                    <TableHead>Name</TableHead>
+   361→                    <TableHead>Category</TableHead>
+   362→                    <TableHead>City</TableHead>
+   363→                    <TableHead>Country</TableHead>
+   364→                    <TableHead>Website</TableHead>
+   365→                    <TableHead className="text-center">Lead</TableHead>
+   366→                    <TableHead className="text-center">Opp.</TableHead>
+   367→                    <TableHead className="text-right">Revenue</TableHead>
+   368→                    <TableHead>Social</TableHead>
+   369→                    <TableHead>Source</TableHead>
+   370→                    <TableHead className="text-right">Actions</TableHead>
+   371→                  </TableRow>
+   372→                </TableHeader>
+   373→                <TableBody>
+   374→                  <AnimatePresence>
+   375→                    {paginatedBusinesses.map((business) => (
+   376→                      <motion.tr
+   377→                        key={business.id}
+   378→                        initial={{ opacity: 0 }}
+   379→                        animate={{ opacity: 1 }}
+   380→                        exit={{ opacity: 0 }}
+   381→                        className="group cursor-pointer hover:bg-slate-50"
+   382→                        onClick={() => openDetail(business)}
+   383→                      >
+   384→                        <TableCell>
+   385→                          <div className="flex items-center gap-2">
+   386→                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${business.leadScore != null ? getScoreBg(business.leadScore) : business.hasWebsite ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+   387→                              <Building2 className={`h-4 w-4 ${business.leadScore != null ? getScoreColor(business.leadScore) : business.hasWebsite ? 'text-emerald-600' : 'text-amber-600'}`} />
+   388→                            </div>
+   389→                            <span className="font-medium text-sm max-w-[160px] truncate">{business.name}</span>
+   390→                          </div>
+   391→                        </TableCell>
+   392→                        <TableCell>
+   393→                          <Badge variant="secondary" className="text-xs">{business.category}</Badge>
+   394→                        </TableCell>
+   395→                        <TableCell className="text-sm text-muted-foreground">{business.city || '-'}</TableCell>
+   396→                        <TableCell className="text-sm text-muted-foreground">{business.country || '-'}</TableCell>
+   397→                        <TableCell>
+   398→                          <WebsiteBadge status={business.websiteStatus} />
+   399→                        </TableCell>
+   400→                        <TableCell className="text-center">
+   401→                          {business.leadScore != null ? (
+   402→                            <span className={`inline-flex items-center justify-center h-7 w-7 rounded-full border-2 text-xs font-bold ${getScoreRingColor(business.leadScore)} ${getScoreColor(business.leadScore)}`}>
+   403→                              {business.leadScore}
+   404→                            </span>
+   405→                          ) : (
+   406→                            <span className="text-xs text-muted-foreground">-</span>
+   407→                          )}
+   408→                        </TableCell>
+   409→                        <TableCell className="text-center">
+   410→                          {business.opportunityScore != null ? (
+   411→                            <span className={`inline-flex items-center justify-center h-7 w-7 rounded-full border-2 text-xs font-bold ${getScoreRingColor(business.opportunityScore)} ${getScoreColor(business.opportunityScore)}`}>
+   412→                              {business.opportunityScore}
+   413→                            </span>
+   414→                          ) : (
+   415→                            <span className="text-xs text-muted-foreground">-</span>
+   416→                          )}
+   417→                        </TableCell>
+   418→                        <TableCell className="text-right">
+   419→                          <span className={`text-sm font-semibold ${business.estimatedMonthlyRevenue != null ? getScoreColor(business.leadScore || business.opportunityScore) : 'text-muted-foreground'}`}>
+   420→                            {formatRevenue(business.estimatedMonthlyRevenue)}
+   421→                          </span>
+   422→                        </TableCell>
+   423→                        <TableCell>
+   424→                          <div className="flex items-center gap-1">
+   425→                            {business.facebookUrl && <Facebook className="h-3.5 w-3.5 text-blue-600" />}
+   426→                            {business.instagramUrl && <Instagram className="h-3.5 w-3.5 text-pink-600" />}
+   427→                            {business.linkedinUrl && <Linkedin className="h-3.5 w-3.5 text-blue-700" />}
+   428→                            {!business.facebookUrl && !business.instagramUrl && !business.linkedinUrl && (
+   429→                              <span className="text-xs text-muted-foreground">-</span>
+   430→                            )}
+   431→                          </div>
+   432→                        </TableCell>
+   433→                        <TableCell>
+   434→                          <Badge variant="outline" className="text-[10px] font-normal">
+   435→                            {business.sourceDetail || business.source || 'manual'}
+   436→                          </Badge>
+   437→                        </TableCell>
+   438→                        <TableCell className="text-right">
+   439→                          <div className="flex items-center justify-end gap-1">
+   440→                            <Button
+   441→                              size="sm"
+   442→                              variant="ghost"
+   443→                              className="h-7 w-7 p-0"
+   444→                              onClick={(e) => { e.stopPropagation(); openDetail(business) }}
+   445→                            >
+   446→                              <Eye className="h-3.5 w-3.5" />
+   447→                            </Button>
+   448→                            <Button
+   449→                              size="sm"
+   450→                              variant="ghost"
+   451→                              className="h-7 w-7 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+   452→                              disabled={auditingId === business.id}
+   453→                              onClick={(e) => { e.stopPropagation(); handleAudit(business) }}
+   454→                              title="Generate AI Audit"
+   455→                            >
+   456→                              {auditingId === business.id ? (
+   457→                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+   458→                              ) : business.auditScore != null ? (
+   459→                                <ClipboardCheck className="h-3.5 w-3.5" />
+   460→                              ) : (
+   461→                                <Sparkles className="h-3.5 w-3.5" />
+   462→                              )}
+   463→                            </Button>
+   464→                            {!addedLeads.has(business.id) && (
+   465→                              <Button
+   466→                                size="sm"
+   467→                                variant="outline"
+   468→                                className="text-xs border-amber-200 text-amber-700 hover:bg-amber-50"
+   469→                                onClick={(e) => { e.stopPropagation(); handleAddToLeads(business) }}
+   470→                              >
+   471→                                <Plus className="h-3 w-3 mr-1" />
+   472→                                Lead
+   473→                              </Button>
+   474→                            )}
+   475→                            {addedLeads.has(business.id) && (
+   476→                              <Badge variant="secondary" className="text-xs bg-emerald-50 text-emerald-700">
+   477→                                <CheckCircle2 className="h-3 w-3 mr-1" />
+   478→                                Added
+   479→                              </Badge>
+   480→                            )}
+   481→                          </div>
+   482→                        </TableCell>
+   483→                      </motion.tr>
+   484→                    ))}
+   485→                  </AnimatePresence>
+   486→                </TableBody>
+   487→              </Table>
+   488→            </div>
+   489→          </ScrollArea>
+   490→
+   491→          {paginatedBusinesses.length === 0 && (
+   492→            <div className="text-center py-12">
+   493→              <Building2 className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+   494→              <p className="text-muted-foreground">No businesses found</p>
+   495→            </div>
+   496→          )}
+   497→        </CardContent>
+   498→      </Card>
+   499→
+   500→      {/* Pagination */}
+   501→      {totalPages > 1 && (
+   502→        <div className="flex items-center justify-between">
+   503→          <p className="text-sm text-muted-foreground">
+   504→            Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, filteredBusinesses.length)} of {filteredBusinesses.length}
+   505→          </p>
+   506→          <div className="flex items-center gap-2">
+   507→            <Button
+   508→              variant="outline"
+   509→              size="icon"
+   510→              className="h-8 w-8"
+   511→              onClick={() => setPage(Math.max(1, page - 1))}
+   512→              disabled={page === 1}
+   513→            >
+   514→              <ChevronLeft className="h-4 w-4" />
+   515→            </Button>
+   516→            {Array.from({ length: totalPages }).map((_, i) => (
+   517→              <Button
+   518→                key={i}
+   519→                variant={page === i + 1 ? 'default' : 'outline'}
+   520→                size="icon"
+   521→                className={`h-8 w-8 ${page === i + 1 ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
+   522→                onClick={() => setPage(i + 1)}
+   523→              >
+   524→                {i + 1}
+   525→              </Button>
+   526→            ))}
+   527→            <Button
+   528→              variant="outline"
+   529→              size="icon"
+   530→              className="h-8 w-8"
+   531→              onClick={() => setPage(Math.min(totalPages, page + 1))}
+   532→              disabled={page === totalPages}
+   533→            >
+   534→              <ChevronRight className="h-4 w-4" />
+   535→            </Button>
+   536→          </div>
+   537→        </div>
+   538→      )}
+   539→
+   540→      {/* Business Detail Dialog */}
+   541→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+   542→        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+   543→          {selectedBusiness && (
+   544→            <>
+   545→              <DialogHeader>
+   546→                <DialogTitle className="flex items-center gap-2">
+   547→                  <Building2 className="h-5 w-5 text-amber-500" />
+   548→                  {selectedBusiness.name}
+   549→                </DialogTitle>
+   550→              </DialogHeader>
+   551→              <div className="space-y-4">
+   552→                {/* Status badges */}
+   553→                <div className="flex items-center gap-2 flex-wrap">
+   554→                  <WebsiteBadge status={selectedBusiness.websiteStatus} />
+   555→                  <Badge variant="secondary">{selectedBusiness.category}</Badge>
+   556→                  {selectedBusiness.sourceDetail && (
+   557→                    <Badge variant="outline" className="text-xs">via {selectedBusiness.sourceDetail}</Badge>
+   558→                  )}
+   559→                </div>
+   560→
+   561→                {/* Score Cards */}
+   562→                <div className="grid grid-cols-3 gap-3">
+   563→                  {/* Lead Score Card */}
+   564→                  <div className={`rounded-xl border p-3 text-center ${getScoreBg(selectedBusiness.leadScore)}`}>
+   565→                    <div className="flex items-center justify-center gap-1 mb-1">
+   566→                      <Target className="h-3.5 w-3.5 text-amber-500" />
+   567→                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Lead</span>
+   568→                    </div>
+   569→                    <div className={`text-2xl font-bold ${getScoreColor(selectedBusiness.leadScore)}`}>
+   570→                      {selectedBusiness.leadScore ?? '-'}
+   571→                    </div>
+   572→                    {selectedBusiness.leadScore != null && (
+   573→                      <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/60 overflow-hidden">
+   574→                        <div
+   575→                          className={`h-full rounded-full ${selectedBusiness.leadScore >= 70 ? 'bg-emerald-500' : selectedBusiness.leadScore >= 40 ? 'bg-amber-500' : 'bg-red-400'}`}
+   576→                          style={{ width: `${selectedBusiness.leadScore}%` }}
+   577→                        />
+   578→                      </div>
+   579→                    )}
+   580→                  </div>
+   581→
+   582→                  {/* Opportunity Score Card */}
+   583→                  <div className={`rounded-xl border p-3 text-center ${getScoreBg(selectedBusiness.opportunityScore)}`}>
+   584→                    <div className="flex items-center justify-center gap-1 mb-1">
+   585→                      <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+   586→                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Opp.</span>
+   587→                    </div>
+   588→                    <div className={`text-2xl font-bold ${getScoreColor(selectedBusiness.opportunityScore)}`}>
+   589→                      {selectedBusiness.opportunityScore ?? '-'}
+   590→                    </div>
+   591→                    {selectedBusiness.opportunityScore != null && (
+   592→                      <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/60 overflow-hidden">
+   593→                        <div
+   594→                          className={`h-full rounded-full ${selectedBusiness.opportunityScore >= 70 ? 'bg-emerald-500' : selectedBusiness.opportunityScore >= 40 ? 'bg-amber-500' : 'bg-red-400'}`}
+   595→                          style={{ width: `${selectedBusiness.opportunityScore}%` }}
+   596→                        />
+   597→                      </div>
+   598→                    )}
+   599→                  </div>
+   600→
+   601→                  {/* Revenue Card */}
+   602→                  <div className="rounded-xl border p-3 text-center bg-amber-50">
+   603→                    <div className="flex items-center justify-center gap-1 mb-1">
+   604→                      <DollarSign className="h-3.5 w-3.5 text-amber-500" />
+   605→                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Rev/mo</span>
+   606→                    </div>
+   607→                    <div className="text-2xl font-bold text-amber-600">
+   608→                      {formatRevenue(selectedBusiness.estimatedMonthlyRevenue)}
+   609→                    </div>
+   610→                    {selectedBusiness.estimatedMonthlyRevenue != null && (
+   611→                      <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/60 overflow-hidden">
+   612→                        <div
+   613→                          className="h-full rounded-full bg-amber-500"
+   614→                          style={{ width: `${Math.min(100, (selectedBusiness.estimatedMonthlyRevenue / 50000) * 100)}%` }}
+   615→                        />
+   616→                      </div>
+   617→                    )}
+   618→                  </div>
+   619→                </div>
+   620→
+   621→                {/* Google Rating */}
+   622→                {selectedBusiness.googleRating && (
+   623→                  <div className="flex items-center gap-1">
+   624→                    {Array.from({ length: 5 }).map((_, i) => (
+   625→                      <Star key={i} className={`h-4 w-4 ${i < Math.floor(selectedBusiness.googleRating!) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+   626→                    ))}
+   627→                    <span className="font-medium ml-1">{selectedBusiness.googleRating}</span>
+   628→                    <span className="text-sm text-muted-foreground">
+   629→                      ({selectedBusiness.googleReviews || selectedBusiness.reviewCount || 0} reviews)
+   630→                    </span>
+   631→                  </div>
+   632→                )}
+   633→
+   634→                <Separator />
+   635→
+   636→                {/* Contact Details */}
+   637→                <div className="space-y-2">
+   638→                  {selectedBusiness.phone && (
+   639→                    <div className="flex items-center gap-2 text-sm">
+   640→                      <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+   641→                      {selectedBusiness.phone}
+   642→                    </div>
+   643→                  )}
+   644→                  {selectedBusiness.email && (
+   645→                    <div className="flex items-center gap-2 text-sm">
+   646→                      <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+   647→                      {selectedBusiness.email}
+   648→                    </div>
+   649→                  )}
+   650→                  {(selectedBusiness.address || selectedBusiness.city) && (
+   651→                    <div className="flex items-center gap-2 text-sm">
+   652→                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+   653→                      {[selectedBusiness.address, selectedBusiness.city, selectedBusiness.state, selectedBusiness.country].filter(Boolean).join(', ')}
+   654→                    </div>
+   655→                  )}
+   656→                  {selectedBusiness.website && (
+   657→                    <div className="flex items-center gap-2 text-sm">
+   658→                      <Globe className="h-4 w-4 text-emerald-600 shrink-0" />
+   659→                      <a href={selectedBusiness.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+   660→                        {selectedBusiness.website}
+   661→                        <ExternalLink className="h-3 w-3" />
+   662→                      </a>
+   663→                    </div>
+   664→                  )}
+   665→                </div>
+   666→
+   667→                {/* Social Media */}
+   668→                {(selectedBusiness.facebookUrl || selectedBusiness.instagramUrl || selectedBusiness.linkedinUrl) && (
+   669→                  <>
+   670→                    <Separator />
+   671→                    <div className="space-y-2">
+   672→                      <p className="text-xs font-medium text-muted-foreground">Social Media</p>
+   673→                      {selectedBusiness.facebookUrl && (
+   674→                        <a href={selectedBusiness.facebookUrl} target="_blank" rel="noopener noreferrer"
+   675→                          className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+   676→                          <Facebook className="h-4 w-4" /> {selectedBusiness.facebookUrl}
+   677→                        </a>
+   678→                      )}
+   679→                      {selectedBusiness.instagramUrl && (
+   680→                        <a href={selectedBusiness.instagramUrl} target="_blank" rel="noopener noreferrer"
+   681→                          className="flex items-center gap-2 text-sm text-pink-600 hover:underline">
+   682→                          <Instagram className="h-4 w-4" /> {selectedBusiness.instagramUrl}
+   683→                        </a>
+   684→                      )}
+   685→                      {selectedBusiness.linkedinUrl && (
+   686→                        <a href={selectedBusiness.linkedinUrl} target="_blank" rel="noopener noreferrer"
+   687→                          className="flex items-center gap-2 text-sm text-blue-700 hover:underline">
+   688→                          <Linkedin className="h-4 w-4" /> {selectedBusiness.linkedinUrl}
+   689→                        </a>
+   690→                      )}
+   691→                    </div>
+   692→                  </>
+   693→                )}
+   694→
+   695→                <Separator />
+   696→
+   697→                {/* Add to Leads */}
+   698→                {!selectedBusiness.hasWebsite && (
+   699→                  <Button
+   700→                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+   701→                    onClick={() => { handleAddToLeads(selectedBusiness); setDetailOpen(false) }}
+   702→                    disabled={addedLeads.has(selectedBusiness.id)}
+   703→                  >
+   704→                    {addedLeads.has(selectedBusiness.id) ? (
+   705→                      <><CheckCircle2 className="mr-2 h-4 w-4" /> Already Added as Lead</>
+   706→                    ) : (
+   707→                      <><Plus className="mr-2 h-4 w-4" /> Add to Leads Pipeline</>
+   708→                    )}
+   709→                  </Button>
+   710→                )}
+   711→              </div>
+   712→            </>
+   713→          )}
+   714→        </DialogContent>
+   715→      </Dialog>
+   716→    </div>
+   717→  )
+   718→}
+   719→

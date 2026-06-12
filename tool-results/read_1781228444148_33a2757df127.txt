@@ -1,0 +1,1007 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState } from 'react'
+     4→     4→import { useAppStore } from '@/store/app-store'
+     5→     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→     6→import { Button } from '@/components/ui/button'
+     7→     7→import { Input } from '@/components/ui/input'
+     8→     8→import { Label } from '@/components/ui/label'
+     9→     9→import { Badge } from '@/components/ui/badge'
+    10→    10→import { Checkbox } from '@/components/ui/checkbox'
+    11→    11→import {
+    12→    12→  Select,
+    13→    13→  SelectContent,
+    14→    14→  SelectItem,
+    15→    15→  SelectTrigger,
+    16→    16→  SelectValue,
+    17→    17→} from '@/components/ui/select'
+    18→    18→import {
+    19→    19→  Table,
+    20→    20→  TableBody,
+    21→    21→  TableCell,
+    22→    22→  TableHead,
+    23→    23→  TableHeader,
+    24→    24→  TableRow,
+    25→    25→} from '@/components/ui/table'
+    26→    26→import {
+    27→    27→  Dialog,
+    28→    28→  DialogContent,
+    29→    29→  DialogHeader,
+    30→    30→  DialogTitle,
+    31→    31→} from '@/components/ui/dialog'
+    32→    32→import { ScrollArea } from '@/components/ui/scroll-area'
+    33→    33→import { Separator } from '@/components/ui/separator'
+    34→    34→import { motion, AnimatePresence } from 'framer-motion'
+    35→    35→import {
+    36→    36→  Search,
+    37→    37→  Loader2,
+    38→    38→  Plus,
+    39→    39→  MapPin,
+    40→    40→  Phone,
+    41→    41→  Building2,
+    42→    42→  Filter,
+    43→    43→  Globe,
+    44→    44→  Unplug,
+    45→    45→  Star,
+    46→    46→  Mail,
+    47→    47→  Facebook,
+    48→    48→  Instagram,
+    49→    49→  Linkedin,
+    50→    50→  ExternalLink,
+    51→    51→  CheckCircle2,
+    52→    52→  AlertCircle,
+    53→    53→  Download,
+    54→    54→  ListFilter,
+    55→    55→  Eye,
+    56→    56→} from 'lucide-react'
+    57→    57→import { useToast } from '@/hooks/use-toast'
+    58→    58→
+    59→    59→const categories = [
+    60→    60→  'Salon',
+    61→    61→  'Beauty Parlour',
+    62→    62→  'Spa',
+    63→    63→  'Gym',
+    64→    64→  'Restaurant',
+    65→    65→  'Clinic',
+    66→    66→  'Hotel',
+    67→    67→  'Real Estate',
+    68→    68→  'Dentist',
+    69→    69→  'Lawyer',
+    70→    70→  'School',
+    71→    71→  'Mechanic',
+    72→    72→  'Plumber',
+    73→    73→  'Electrician',
+    74→    74→  'Bakery',
+    75→    75→  'Accountant',
+    76→    76→  'Other',
+    77→    77→]
+    78→    78→
+    79→    79→const countries = [
+    80→    80→  'India',
+    81→    81→  'United States',
+    82→    82→  'United Kingdom',
+    83→    83→  'Canada',
+    84→    84→  'Australia',
+    85→    85→  'UAE',
+    86→    86→  'Singapore',
+    87→    87→  'Germany',
+    88→    88→  'France',
+    89→    89→  'Brazil',
+    90→    90→  'Mexico',
+    91→    91→  'South Africa',
+    92→    92→  'Nigeria',
+    93→    93→  'Kenya',
+    94→    94→  'Other',
+    95→    95→]
+    96→    96→
+    97→    97→interface Business {
+    98→    98→  id?: string
+    99→    99→  name: string
+   100→   100→  category: string
+   101→   101→  address?: string
+   102→   102→  city?: string
+   103→   103→  state?: string
+   104→   104→  country?: string
+   105→   105→  phone?: string
+   106→   106→  email?: string
+   107→   107→  website?: string | null
+   108→   108→  hasWebsite: boolean
+   109→   109→  websiteStatus?: string | null
+   110→   110→  googleRating?: number | null
+   111→   111→  googleReviews?: number | null
+   112→   112→  reviewCount?: number | null
+   113→   113→  facebookUrl?: string | null
+   114→   114→  instagramUrl?: string | null
+   115→   115→  linkedinUrl?: string | null
+   116→   116→  socialPresence?: number
+   117→   117→  leadScore?: number | null
+   118→   118→  opportunityScore?: number | null
+   119→   119→  estimatedMonthlyRevenue?: number | null
+   120→   120→  source?: string
+   121→   121→  sourceDetail?: string | null
+   122→   122→}
+   123→   123→
+   124→   124→interface SearchJobInfo {
+   125→   125→  id: string
+   126→   126→  status: string
+   127→   127→  resultsCount: number
+   128→   128→  duplicatesFound: number
+   129→   129→  sourcesUsed: string
+   130→   130→}
+   131→   131→
+   132→   132→export function SearchView() {
+   133→   133→  const { user, setCurrentView } = useAppStore()
+   134→   134→  const { toast } = useToast()
+   135→   135→  const [country, setCountry] = useState('')
+   136→   136→  const [state, setState] = useState('')
+   137→   137→  const [city, setCity] = useState('')
+   138→   138→  const [category, setCategory] = useState('')
+   139→   139→  const [customCountry, setCustomCountry] = useState('')
+   140→   140→  const [customCategory, setCustomCategory] = useState('')
+   141→   141→  const [loading, setLoading] = useState(false)
+   142→   142→  const [results, setResults] = useState<Business[]>([])
+   143→   143→  const [showNoWebsiteOnly, setShowNoWebsiteOnly] = useState(false)
+   144→   144→  const [searched, setSearched] = useState(false)
+   145→   145→  const [searchJobInfo, setSearchJobInfo] = useState<SearchJobInfo | null>(null)
+   146→   146→  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
+   147→   147→  const [detailOpen, setDetailOpen] = useState(false)
+   148→   148→  const [addedLeads, setAddedLeads] = useState<Set<string>>(new Set())
+   149→   149→  const [addingLead, setAddingLead] = useState<string | null>(null)
+   150→   150→
+   151→   151→  const effectiveCountry = country === 'Other' ? customCountry : country
+   152→   152→  const effectiveCategory = category === 'Other' ? customCategory : category
+   153→   153→
+   154→   154→  const handleSearch = async () => {
+   155→   155→    if (!effectiveCountry && !customCountry) {
+   156→   156→      toast({ title: 'Please select or enter a country', variant: 'destructive' })
+   157→   157→      return
+   158→   158→    }
+   159→   159→    if (!effectiveCategory && !customCategory) {
+   160→   160→      toast({ title: 'Please select or enter a business category', variant: 'destructive' })
+   161→   161→      return
+   162→   162→    }
+   163→   163→
+   164→   164→    setLoading(true)
+   165→   165→    setSearched(true)
+   166→   166→    setSearchJobInfo(null)
+   167→   167→
+   168→   168→    try {
+   169→   169→      const res = await fetch('/api/businesses/search', {
+   170→   170→        method: 'POST',
+   171→   171→        headers: { 'Content-Type': 'application/json' },
+   172→   172→        body: JSON.stringify({
+   173→   173→          country: effectiveCountry,
+   174→   174→          state: state.trim(),
+   175→   175→          city: city.trim(),
+   176→   176→          category: effectiveCategory,
+   177→   177→          userId: user?.id || 'demo',
+   178→   178→        }),
+   179→   179→      })
+   180→   180→
+   181→   181→      if (res.ok) {
+   182→   182→        const data = await res.json()
+   183→   183→        setResults(data.businesses || [])
+   184→   184→        setSearchJobInfo(data.searchJob || null)
+   185→   185→        toast({
+   186→   186→          title: 'Search Complete!',
+   187→   187→          description: `Found ${data.businesses?.length || 0} businesses. ${data.searchJob?.duplicatesFound || 0} duplicates were merged.`,
+   188→   188→        })
+   189→   189→      } else {
+   190→   190→        toast({
+   191→   191→          title: 'Search Failed',
+   192→   192→          description: 'Could not complete the search. Please try again.',
+   193→   193→          variant: 'destructive',
+   194→   194→        })
+   195→   195→        setResults([])
+   196→   196→      }
+   197→   197→    } catch {
+   198→   198→      toast({
+   199→   199→        title: 'Search Failed',
+   200→   200→        description: 'Network error. Please try again.',
+   201→   201→        variant: 'destructive',
+   202→   202→      })
+   203→   203→      setResults([])
+   204→   204→    } finally {
+   205→   205→      setLoading(false)
+   206→   206→    }
+   207→   207→  }
+   208→   208→
+   209→   209→  const handleAddAsLead = async (business: Business) => {
+   210→   210→    if (!business.id || addedLeads.has(business.id)) return
+   211→   211→
+   212→   212→    setAddingLead(business.id || business.name)
+   213→   213→    try {
+   214→   214→      let businessId = business.id
+   215→   215→
+   216→   216→      if (!businessId) {
+   217→   217→        const businessRes = await fetch('/api/businesses', {
+   218→   218→          method: 'POST',
+   219→   219→          headers: { 'Content-Type': 'application/json' },
+   220→   220→          body: JSON.stringify({
+   221→   221→            name: business.name,
+   222→   222→            category: business.category,
+   223→   223→            address: business.address || '',
+   224→   224→            city: business.city || '',
+   225→   225→            state: business.state || '',
+   226→   226→            country: business.country || '',
+   227→   227→            phone: business.phone || '',
+   228→   228→            email: business.email || '',
+   229→   229→            website: business.website || null,
+   230→   230→            hasWebsite: business.hasWebsite,
+   231→   231→            facebookUrl: business.facebookUrl || null,
+   232→   232→            instagramUrl: business.instagramUrl || null,
+   233→   233→            linkedinUrl: business.linkedinUrl || null,
+   234→   234→          }),
+   235→   235→        })
+   236→   236→        if (businessRes.ok) {
+   237→   237→          const businessData = await businessRes.json()
+   238→   238→          businessId = businessData.business?.id || businessData.id
+   239→   239→        }
+   240→   240→      }
+   241→   241→
+   242→   242→      if (businessId) {
+   243→   243→        await fetch('/api/leads', {
+   244→   244→          method: 'POST',
+   245→   245→          headers: { 'Content-Type': 'application/json' },
+   246→   246→          body: JSON.stringify({
+   247→   247→            businessId,
+   248→   248→            userId: user?.id || 'demo',
+   249→   249→            status: 'New',
+   250→   250→            priority: business.hasWebsite ? 'low' : 'medium',
+   251→   251→            estimatedValue: business.hasWebsite ? 800 : 1500,
+   252→   252→            notes: `Lead from discovery search: ${business.name} in ${business.city || ''}, ${business.country || ''}`,
+   253→   253→          }),
+   254→   254→        })
+   255→   255→      }
+   256→   256→
+   257→   257→      if (business.id) {
+   258→   258→        setAddedLeads(prev => new Set([...prev, business.id!]))
+   259→   259→      }
+   260→   260→
+   261→   261→      toast({
+   262→   262→        title: 'Lead Added!',
+   263→   263→        description: `${business.name} has been added to your leads pipeline.`,
+   264→   264→      })
+   265→   265→    } catch {
+   266→   266→      toast({
+   267→   267→        title: 'Error',
+   268→   268→        description: `Failed to add ${business.name} as lead.`,
+   269→   269→        variant: 'destructive',
+   270→   270→      })
+   271→   271→    } finally {
+   272→   272→      setAddingLead(null)
+   273→   273→    }
+   274→   274→  }
+   275→   275→
+   276→   276→  const handleAddAllNoWebsiteAsLeads = async () => {
+   277→   277→    const noWebsiteBusinesses = filteredResults.filter(b => !b.hasWebsite && b.id && !addedLeads.has(b.id))
+   278→   278→    let added = 0
+   279→   279→
+   280→   280→    for (const business of noWebsiteBusinesses) {
+   281→   281→      try {
+   282→   282→        await fetch('/api/leads', {
+   283→   283→          method: 'POST',
+   284→   284→          headers: { 'Content-Type': 'application/json' },
+   285→   285→          body: JSON.stringify({
+   286→   286→            businessId: business.id,
+   287→   287→            userId: user?.id || 'demo',
+   288→   288→            status: 'New',
+   289→   289→            priority: 'medium',
+   290→   290→            estimatedValue: 1500,
+   291→   291→            notes: `Bulk lead from discovery: ${business.name}`,
+   292→   292→          }),
+   293→   293→        })
+   294→   294→        if (business.id) {
+   295→   295→          setAddedLeads(prev => new Set([...prev, business.id!]))
+   296→   296→        }
+   297→   297→        added++
+   298→   298→      } catch {
+   299→   299→        // Skip failed ones
+   300→   300→      }
+   301→   301→    }
+   302→   302→
+   303→   303→    toast({
+   304→   304→      title: `${added} Leads Added!`,
+   305→   305→      description: `Added ${added} businesses without websites to your leads pipeline.`,
+   306→   306→    })
+   307→   307→  }
+   308→   308→
+   309→   309→  // Website status badge component
+   310→   310→  const WebsiteStatusBadge = ({ status, hasWebsite }: { status?: string | null, hasWebsite: boolean }) => {
+   311→   311→    if (status === 'HAS_WEBSITE') {
+   312→   312→      return (
+   313→   313→        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-xs font-semibold border border-emerald-200">
+   314→   314→          <Globe className="h-3 w-3 mr-1" />
+   315→   315→          Website Exists
+   316→   316→        </Badge>
+   317→   317→      )
+   318→   318→    }
+   319→   319→    if (status === 'SOCIAL_ONLY') {
+   320→   320→      return (
+   321→   321→        <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-xs font-semibold border border-red-200">
+   322→   322→          <Unplug className="h-3 w-3 mr-1" />
+   323→   323→          Social Only
+   324→   324→        </Badge>
+   325→   325→      )
+   326→   326→    }
+   327→   327→    // NO_WEBSITE or not detected yet
+   328→   328→    return (
+   329→   329→      <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-xs font-semibold border border-red-200">
+   330→   330→        <Unplug className="h-3 w-3 mr-1" />
+   331→   331→        No Website
+   332→   332→      </Badge>
+   333→   333→    )
+   334→   334→  }
+   335→   335→
+   336→   336→  // Lead score color
+   337→   337→  const getScoreColor = (score: number | null | undefined) => {
+   338→   338→    if (!score) return 'text-slate-400'
+   339→   339→    if (score >= 70) return 'text-emerald-600'
+   340→   340→    if (score >= 40) return 'text-amber-600'
+   341→   341→    return 'text-red-500'
+   342→   342→  }
+   343→   343→
+   344→   344→  const getScoreBg = (score: number | null | undefined) => {
+   345→   345→    if (!score) return 'bg-slate-50'
+   346→   346→    if (score >= 70) return 'bg-emerald-50'
+   347→   347→    if (score >= 40) return 'bg-amber-50'
+   348→   348→    return 'bg-red-50'
+   349→   349→  }
+   350→   350→
+   351→   351→  const filteredResults = showNoWebsiteOnly
+   352→   352→    ? results.filter((b) => b.websiteStatus !== 'HAS_WEBSITE')
+   353→   353→    : results
+   354→   354→
+   355→   355→  const noWebsiteCount = results.filter((b) => !b.hasWebsite).length
+   356→   356→  const withWebsiteCount = results.filter((b) => b.hasWebsite).length
+   357→   357→
+   358→   358→  const openDetail = (business: Business) => {
+   359→   359→    setSelectedBusiness(business)
+   360→   360→    setDetailOpen(true)
+   361→   361→  }
+   362→   362→
+   363→   363→  return (
+   364→   364→    <div className="space-y-6">
+   365→   365→      <div>
+   366→   366→        <h1 className="text-2xl font-bold text-slate-900">Lead Discovery Engine</h1>
+   367→   367→        <p className="text-muted-foreground">Find local businesses without websites across any location</p>
+   368→   368→      </div>
+   369→   369→
+   370→   370→      {/* Search Form */}
+   371→   371→      <Card className="border-0 shadow-sm">
+   372→   372→        <CardHeader className="pb-3">
+   373→   373→          <CardTitle className="text-base flex items-center gap-2">
+   374→   374→            <Search className="h-4 w-4 text-amber-500" />
+   375→   375→            Search Criteria
+   376→   376→          </CardTitle>
+   377→   377→        </CardHeader>
+   378→   378→        <CardContent className="p-6 pt-0">
+   379→   379→          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+   380→   380→            {/* Country */}
+   381→   381→            <div className="space-y-2">
+   382→   382→              <Label htmlFor="country" className="text-sm font-medium">
+   383→   383→                Country <span className="text-red-500">*</span>
+   384→   384→              </Label>
+   385→   385→              <Select value={country} onValueChange={setCountry}>
+   386→   386→                <SelectTrigger className="h-11">
+   387→   387→                  <SelectValue placeholder="Select country" />
+   388→   388→                </SelectTrigger>
+   389→   389→                <SelectContent>
+   390→   390→                  {countries.map((c) => (
+   391→   391→                    <SelectItem key={c} value={c}>
+   392→   392→                      {c}
+   393→   393→                    </SelectItem>
+   394→   394→                  ))}
+   395→   395→                </SelectContent>
+   396→   396→              </Select>
+   397→   397→              {country === 'Other' && (
+   398→   398→                <Input
+   399→   399→                  placeholder="Enter country name"
+   400→   400→                  value={customCountry}
+   401→   401→                  onChange={(e) => setCustomCountry(e.target.value)}
+   402→   402→                  className="h-10"
+   403→   403→                />
+   404→   404→              )}
+   405→   405→            </div>
+   406→   406→
+   407→   407→            {/* State */}
+   408→   408→            <div className="space-y-2">
+   409→   409→              <Label htmlFor="state" className="text-sm font-medium">State / Province</Label>
+   410→   410→              <div className="relative">
+   411→   411→                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   412→   412→                <Input
+   413→   413→                  id="state"
+   414→   414→                  placeholder="e.g. Maharashtra, California"
+   415→   415→                  value={state}
+   416→   416→                  onChange={(e) => setState(e.target.value)}
+   417→   417→                  className="pl-10 h-11"
+   418→   418→                />
+   419→   419→              </div>
+   420→   420→            </div>
+   421→   421→
+   422→   422→            {/* City */}
+   423→   423→            <div className="space-y-2">
+   424→   424→              <Label htmlFor="city" className="text-sm font-medium">City</Label>
+   425→   425→              <div className="relative">
+   426→   426→                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   427→   427→                <Input
+   428→   428→                  id="city"
+   429→   429→                  placeholder="e.g. Mumbai, New York"
+   430→   430→                  value={city}
+   431→   431→                  onChange={(e) => setCity(e.target.value)}
+   432→   432→                  className="pl-10 h-11"
+   433→   433→                />
+   434→   434→              </div>
+   435→   435→            </div>
+   436→   436→
+   437→   437→            {/* Category */}
+   438→   438→            <div className="space-y-2">
+   439→   439→              <Label className="text-sm font-medium">
+   440→   440→                Business Category <span className="text-red-500">*</span>
+   441→   441→              </Label>
+   442→   442→              <Select value={category} onValueChange={setCategory}>
+   443→   443→                <SelectTrigger className="h-11">
+   444→   444→                  <SelectValue placeholder="Select category" />
+   445→   445→                </SelectTrigger>
+   446→   446→                <SelectContent>
+   447→   447→                  {categories.map((cat) => (
+   448→   448→                    <SelectItem key={cat} value={cat}>
+   449→   449→                      {cat}
+   450→   450→                    </SelectItem>
+   451→   451→                  ))}
+   452→   452→                </SelectContent>
+   453→   453→              </Select>
+   454→   454→              {category === 'Other' && (
+   455→   455→                <Input
+   456→   456→                  placeholder="Enter business category"
+   457→   457→                  value={customCategory}
+   458→   458→                  onChange={(e) => setCustomCategory(e.target.value)}
+   459→   459→                  className="h-10"
+   460→   460→                />
+   461→   461→              )}
+   462→   462→            </div>
+   463→   463→          </div>
+   464→   464→
+   465→   465→          {/* Search Button */}
+   466→   466→          <div className="mt-5 flex items-center gap-3">
+   467→   467→            <Button
+   468→   468→              onClick={handleSearch}
+   469→   469→              disabled={loading || !effectiveCountry || !effectiveCategory}
+   470→   470→              className="h-11 px-8 bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+   471→   471→            >
+   472→   472→              {loading ? (
+   473→   473→                <>
+   474→   474→                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+   475→   475→                  Discovering Businesses...
+   476→   476→                </>
+   477→   477→              ) : (
+   478→   478→                <>
+   479→   479→                  <Search className="mr-2 h-4 w-4" />
+   480→   480→                  Discover Businesses
+   481→   481→                </>
+   482→   482→              )}
+   483→   483→            </Button>
+   484→   484→            {searched && !loading && (
+   485→   485→              <Button
+   486→   486→                variant="outline"
+   487→   487→                onClick={() => {
+   488→   488→                  setSearched(false)
+   489→   489→                  setResults([])
+   490→   490→                  setSearchJobInfo(null)
+   491→   491→                  setAddedLeads(new Set())
+   492→   492→                }}
+   493→   493→                className="h-11"
+   494→   494→              >
+   495→   495→                Clear Results
+   496→   496→              </Button>
+   497→   497→            )}
+   498→   498→          </div>
+   499→   499→        </CardContent>
+   500→   500→      </Card>
+   501→   501→
+   502→   502→      {/* Loading State */}
+   503→   503→      {loading && (
+   504→   504→        <motion.div
+   505→   505→          initial={{ opacity: 0 }}
+   506→   506→          animate={{ opacity: 1 }}
+   507→   507→          className="flex flex-col items-center justify-center py-16"
+   508→   508→        >
+   509→   509→          <div className="relative">
+   510→   510→            <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-500" />
+   511→   511→            <Search className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-amber-500" />
+   512→   512→          </div>
+   513→   513→          <p className="mt-4 text-muted-foreground font-medium">Discovering businesses...</p>
+   514→   514→          <p className="text-sm text-muted-foreground mt-1">Searching multiple directories and business listings</p>
+   515→   515→          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+   516→   516→            <div className="flex items-center gap-1">
+   517→   517→              <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+   518→   518→              Web Search
+   519→   519→            </div>
+   520→   520→            <div className="flex items-center gap-1">
+   521→   521→              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+   522→   522→              Directory Scan
+   523→   523→            </div>
+   524→   524→            <div className="flex items-center gap-1">
+   525→   525→              <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+   526→   526→              Data Extraction
+   527→   527→            </div>
+   528→   528→          </div>
+   529→   529→        </motion.div>
+   530→   530→      )}
+   531→   531→
+   532→   532→      {/* Results */}
+   533→   533→      {!loading && searched && (
+   534→   534→        <div className="space-y-4">
+   535→   535→          {/* Results Header & Stats */}
+   536→   536→          <div className="flex flex-col gap-4">
+   537→   537→            {/* Stats Row */}
+   538→   538→            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   539→   539→              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+   540→   540→                <p className="text-2xl font-bold text-slate-900">{results.length}</p>
+   541→   541→                <p className="text-xs text-muted-foreground">Total Found</p>
+   542→   542→              </div>
+   543→   543→              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+   544→   544→                <p className="text-2xl font-bold text-red-600">{noWebsiteCount}</p>
+   545→   545→                <p className="text-xs text-muted-foreground">No Website</p>
+   546→   546→              </div>
+   547→   547→              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+   548→   548→                <p className="text-2xl font-bold text-emerald-600">{withWebsiteCount}</p>
+   549→   549→                <p className="text-xs text-muted-foreground">Has Website</p>
+   550→   550→              </div>
+   551→   551→              <div className="bg-white rounded-xl border-0 shadow-sm p-4 text-center">
+   552→   552→                <p className="text-2xl font-bold text-amber-600">
+   553→   553→                  {searchJobInfo?.duplicatesFound || 0}
+   554→   554→                </p>
+   555→   555→                <p className="text-xs text-muted-foreground">Duplicates Merged</p>
+   556→   556→              </div>
+   557→   557→            </div>
+   558→   558→
+   559→   559→            {/* Search Job Info */}
+   560→   560→            {searchJobInfo && searchJobInfo.sourcesUsed && (
+   561→   561→              <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 rounded-lg px-4 py-2">
+   562→   562→                <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
+   563→   563→                <span>Sources searched: <span className="font-medium text-amber-700">{searchJobInfo.sourcesUsed}</span></span>
+   564→   564→              </div>
+   565→   565→            )}
+   566→   566→
+   567→   567→            {/* Actions Row */}
+   568→   568→            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+   569→   569→              <div className="flex items-center gap-3">
+   570→   570→                <h2 className="text-lg font-semibold">
+   571→   571→                  {filteredResults.length} result{filteredResults.length !== 1 ? 's' : ''}
+   572→   572→                </h2>
+   573→   573→                <div className="flex items-center gap-2">
+   574→   574→                  <Button
+   575→   575→                    variant={showNoWebsiteOnly ? 'default' : 'outline'}
+   576→   576→                    size="sm"
+   577→   577→                    onClick={() => setShowNoWebsiteOnly(!showNoWebsiteOnly)}
+   578→   578→                    className={showNoWebsiteOnly ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}
+   579→   579→                  >
+   580→   580→                    <Filter className="mr-1 h-3.5 w-3.5" />
+   581→   581→                    {showNoWebsiteOnly ? 'No Website Only' : 'Filter: No Website'}
+   582→   582→                  </Button>
+   583→   583→                </div>
+   584→   584→              </div>
+   585→   585→              <div className="flex items-center gap-2">
+   586→   586→                {noWebsiteCount > 0 && !showNoWebsiteOnly && (
+   587→   587→                  <Button
+   588→   588→                    size="sm"
+   589→   589→                    variant="outline"
+   590→   590→                    onClick={handleAddAllNoWebsiteAsLeads}
+   591→   591→                    className="border-amber-200 text-amber-700 hover:bg-amber-50"
+   592→   592→                  >
+   593→   593→                    <Plus className="mr-1 h-3.5 w-3.5" />
+   594→   594→                    Add All No-Website as Leads ({noWebsiteCount})
+   595→   595→                  </Button>
+   596→   596→                )}
+   597→   597→              </div>
+   598→   598→            </div>
+   599→   599→          </div>
+   600→   600→
+   601→   601→          {/* Results Table */}
+   602→   602→          <Card className="border-0 shadow-sm">
+   603→   603→            <CardContent className="p-0">
+   604→   604→              <ScrollArea className="w-full">
+   605→   605→                <div className="min-w-[900px]">
+   606→   606→                  <Table>
+   607→   607→                    <TableHeader>
+   608→   608→                      <TableRow className="bg-slate-50/50">
+   609→   609→                        <TableHead className="w-10"></TableHead>
+   610→   610→                        <TableHead>Business Name</TableHead>
+   611→   611→                        <TableHead>Category</TableHead>
+   612→   612→                        <TableHead>Phone</TableHead>
+   613→   613→                        <TableHead>Email</TableHead>
+   614→   614→                        <TableHead>Address</TableHead>
+   615→   615→                        <TableHead>City</TableHead>
+   616→   616→                        <TableHead>State</TableHead>
+   617→   617→                        <TableHead>Country</TableHead>
+   618→   618→                        <TableHead>Rating</TableHead>
+   619→   619→                        <TableHead>Reviews</TableHead>
+   620→   620→                        <TableHead>Website</TableHead>
+   621→   621→                        <TableHead>Social</TableHead>
+   622→   622→                        <TableHead>Lead Score</TableHead>
+   623→   623→                        <TableHead>Opp. Score</TableHead>
+   624→   624→                        <TableHead>Est. Revenue</TableHead>
+   625→   625→                        <TableHead>Source</TableHead>
+   626→   626→                        <TableHead className="text-right">Actions</TableHead>
+   627→   627→                      </TableRow>
+   628→   628→                    </TableHeader>
+   629→   629→                    <TableBody>
+   630→   630→                      <AnimatePresence>
+   631→   631→                        {filteredResults.map((business, index) => (
+   632→   632→                          <motion.tr
+   633→   633→                            key={business.id || business.name + index}
+   634→   634→                            initial={{ opacity: 0, y: 10 }}
+   635→   635→                            animate={{ opacity: 1, y: 0 }}
+   636→   636→                            exit={{ opacity: 0 }}
+   637→   637→                            transition={{ delay: index * 0.02 }}
+   638→   638→                            className={`group cursor-pointer hover:bg-slate-50/80 ${!business.hasWebsite ? 'bg-amber-50/30' : ''}`}
+   639→   639→                            onClick={() => openDetail(business)}
+   640→   640→                          >
+   641→   641→                            <TableCell className="w-10">
+   642→   642→                              <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${business.hasWebsite ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+   643→   643→                                <Building2 className={`h-4 w-4 ${business.hasWebsite ? 'text-emerald-600' : 'text-amber-600'}`} />
+   644→   644→                              </div>
+   645→   645→                            </TableCell>
+   646→   646→                            <TableCell>
+   647→   647→                              <span className="font-medium text-sm">{business.name}</span>
+   648→   648→                            </TableCell>
+   649→   649→                            <TableCell>
+   650→   650→                              <Badge variant="secondary" className="text-xs">{business.category}</Badge>
+   651→   651→                            </TableCell>
+   652→   652→                            <TableCell className="text-sm text-muted-foreground">
+   653→   653→                              {business.phone || '-'}
+   654→   654→                            </TableCell>
+   655→   655→                            <TableCell className="text-sm text-muted-foreground">
+   656→   656→                              {business.email ? (
+   657→   657→                                <span className="truncate max-w-[120px] block">{business.email}</span>
+   658→   658→                              ) : '-'}
+   659→   659→                            </TableCell>
+   660→   660→                            <TableCell className="text-sm text-muted-foreground">
+   661→   661→                              {business.address ? (
+   662→   662→                                <span className="truncate max-w-[150px] block">{business.address}</span>
+   663→   663→                              ) : '-'}
+   664→   664→                            </TableCell>
+   665→   665→                            <TableCell className="text-sm text-muted-foreground">{business.city || '-'}</TableCell>
+   666→   666→                            <TableCell className="text-sm text-muted-foreground">{business.state || '-'}</TableCell>
+   667→   667→                            <TableCell className="text-sm text-muted-foreground">{business.country || '-'}</TableCell>
+   668→   668→                            <TableCell>
+   669→   669→                              {business.googleRating ? (
+   670→   670→                                <div className="flex items-center gap-1">
+   671→   671→                                  <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
+   672→   672→                                  <span className="text-sm">{business.googleRating}</span>
+   673→   673→                                </div>
+   674→   674→                              ) : '-'}
+   675→   675→                            </TableCell>
+   676→   676→                            <TableCell className="text-sm text-muted-foreground">
+   677→   677→                              {business.googleReviews || business.reviewCount || '-'}
+   678→   678→                            </TableCell>
+   679→   679→                            <TableCell>
+   680→   680→                              <WebsiteStatusBadge status={business.websiteStatus} hasWebsite={business.hasWebsite} />
+   681→   681→                            </TableCell>
+   682→   682→                            <TableCell>
+   683→   683→                              <div className="flex items-center gap-1">
+   684→   684→                                {business.facebookUrl && (
+   685→   685→                                  <a href={business.facebookUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+   686→   686→                                    <Facebook className="h-3.5 w-3.5 text-blue-600 hover:text-blue-800" />
+   687→   687→                                  </a>
+   688→   688→                                )}
+   689→   689→                                {business.instagramUrl && (
+   690→   690→                                  <a href={business.instagramUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+   691→   691→                                    <Instagram className="h-3.5 w-3.5 text-pink-600 hover:text-pink-800" />
+   692→   692→                                  </a>
+   693→   693→                                )}
+   694→   694→                                {business.linkedinUrl && (
+   695→   695→                                  <a href={business.linkedinUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+   696→   696→                                    <Linkedin className="h-3.5 w-3.5 text-blue-700 hover:text-blue-900" />
+   697→   697→                                  </a>
+   698→   698→                                )}
+   699→   699→                                {!business.facebookUrl && !business.instagramUrl && !business.linkedinUrl && (
+   700→   700→                                  <span className="text-xs text-muted-foreground">-</span>
+   701→   701→                                )}
+   702→   702→                              </div>
+   703→   703→                            </TableCell>
+   704→   704→                            <TableCell>
+   705→   705→                              <div className="flex items-center gap-1">
+   706→   706→                                <div className={`h-7 w-7 rounded-full ${getScoreBg(business.leadScore)} flex items-center justify-center`}>
+   707→   707→                                  <span className={`text-xs font-bold ${getScoreColor(business.leadScore)}`}>
+   708→   708→                                    {business.leadScore ?? '-'}
+   709→   709→                                  </span>
+   710→   710→                                </div>
+   711→   711→                              </div>
+   712→   712→                            </TableCell>
+   713→   713→                            <TableCell>
+   714→   714→                              <div className="flex items-center gap-1">
+   715→   715→                                <div className={`h-7 w-7 rounded-full ${getScoreBg(business.opportunityScore)} flex items-center justify-center`}>
+   716→   716→                                  <span className={`text-xs font-bold ${getScoreColor(business.opportunityScore)}`}>
+   717→   717→                                    {business.opportunityScore ?? '-'}
+   718→   718→                                  </span>
+   719→   719→                                </div>
+   720→   720→                              </div>
+   721→   721→                            </TableCell>
+   722→   722→                            <TableCell className="text-sm font-medium">
+   723→   723→                              {business.estimatedMonthlyRevenue
+   724→   724→                                ? `$${business.estimatedMonthlyRevenue.toLocaleString()}`
+   725→   725→                                : '-'}
+   726→   726→                            </TableCell>
+   727→   727→                            <TableCell>
+   728→   728→                              <Badge variant="outline" className="text-[10px] font-normal">
+   729→   729→                                {business.sourceDetail || business.source || 'web'}
+   730→   730→                              </Badge>
+   731→   731→                            </TableCell>
+   732→   732→                            <TableCell className="text-right">
+   733→   733→                              <div className="flex items-center justify-end gap-1">
+   734→   734→                                <Button
+   735→   735→                                  size="sm"
+   736→   736→                                  variant="ghost"
+   737→   737→                                  className="h-7 w-7 p-0"
+   738→   738→                                  onClick={(e) => { e.stopPropagation(); openDetail(business) }}
+   739→   739→                                >
+   740→   740→                                  <Eye className="h-3.5 w-3.5" />
+   741→   741→                                </Button>
+   742→   742→                                {business.id && !business.hasWebsite && (
+   743→   743→                                  <Button
+   744→   744→                                    size="sm"
+   745→   745→                                    variant={addedLeads.has(business.id) ? 'ghost' : 'outline'}
+   746→   746→                                    className={`h-7 text-xs ${
+   747→   747→                                      addedLeads.has(business.id)
+   748→   748→                                        ? 'text-emerald-600'
+   749→   749→                                        : 'border-amber-200 text-amber-700 hover:bg-amber-50'
+   750→   750→                                    }`}
+   751→   751→                                    onClick={(e) => { e.stopPropagation(); handleAddAsLead(business) }}
+   752→   752→                                    disabled={addingLead === business.id || addedLeads.has(business.id || '')}
+   753→   753→                                  >
+   754→   754→                                    {addingLead === business.id ? (
+   755→   755→                                      <Loader2 className="h-3 w-3 animate-spin" />
+   756→   756→                                    ) : addedLeads.has(business.id || '') ? (
+   757→   757→                                      <CheckCircle2 className="h-3 w-3" />
+   758→   758→                                    ) : (
+   759→   759→                                      <Plus className="h-3 w-3" />
+   760→   760→                                    )}
+   761→   761→                                  </Button>
+   762→   762→                                )}
+   763→   763→                              </div>
+   764→   764→                            </TableCell>
+   765→   765→                          </motion.tr>
+   766→   766→                        ))}
+   767→   767→                      </AnimatePresence>
+   768→   768→                    </TableBody>
+   769→   769→                  </Table>
+   770→   770→                </div>
+   771→   771→              </ScrollArea>
+   772→   772→
+   773→   773→              {filteredResults.length === 0 && (
+   774→   774→                <div className="text-center py-12">
+   775→   775→                  <Search className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+   776→   776→                  <p className="text-muted-foreground">No businesses found. Try a different search.</p>
+   777→   777→                </div>
+   778→   778→              )}
+   779→   779→            </CardContent>
+   780→   780→          </Card>
+   781→   781→        </div>
+   782→   782→      )}
+   783→   783→
+   784→   784→      {/* Empty State */}
+   785→   785→      {!loading && !searched && (
+   786→   786→        <motion.div
+   787→   787→          initial={{ opacity: 0, y: 20 }}
+   788→   788→          animate={{ opacity: 1, y: 0 }}
+   789→   789→          className="text-center py-16"
+   790→   790→        >
+   791→   791→          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-amber-50">
+   792→   792→            <Search className="h-10 w-10 text-amber-500" />
+   793→   793→          </div>
+   794→   794→          <h2 className="text-xl font-semibold mb-2">Discover Businesses Without Websites</h2>
+   795→   795→          <p className="text-muted-foreground max-w-lg mx-auto mb-6">
+   796→   796→            Enter a country, state, city, and business category to discover local businesses from public directories.
+   797→   797→            Find potential clients who need your digital services.
+   798→   798→          </p>
+   799→   799→          <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+   800→   800→            {['Salon', 'Restaurant', 'Gym', 'Clinic', 'Dentist', 'Hotel', 'Real Estate', 'Spa'].map((cat) => (
+   801→   801→              <Badge
+   802→   802→                key={cat}
+   803→   803→                variant="outline"
+   804→   804→                className="cursor-pointer hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors py-1.5 px-3"
+   805→   805→                onClick={() => setCategory(cat)}
+   806→   806→              >
+   807→   807→                {cat}
+   808→   808→              </Badge>
+   809→   809→            ))}
+   810→   810→          </div>
+   811→   811→        </motion.div>
+   812→   812→      )}
+   813→   813→
+   814→   814→      {/* Business Detail Dialog */}
+   815→   815→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+   816→   816→        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+   817→   817→          {selectedBusiness && (
+   818→   818→            <>
+   819→   819→              <DialogHeader>
+   820→   820→                <DialogTitle className="flex items-center gap-2 text-lg">
+   821→   821→                  <Building2 className="h-5 w-5 text-amber-500" />
+   822→   822→                  {selectedBusiness.name}
+   823→   823→                </DialogTitle>
+   824→   824→              </DialogHeader>
+   825→   825→              <div className="space-y-4 mt-2">
+   826→   826→                {/* Status Row */}
+   827→   827→                <div className="flex items-center gap-2 flex-wrap">
+   828→   828→                  <WebsiteStatusBadge status={selectedBusiness.websiteStatus} hasWebsite={selectedBusiness.hasWebsite} />
+   829→   829→                  <Badge variant="secondary">{selectedBusiness.category}</Badge>
+   830→   830→                  {selectedBusiness.sourceDetail && (
+   831→   831→                    <Badge variant="outline" className="text-xs">via {selectedBusiness.sourceDetail}</Badge>
+   832→   832→                  )}
+   833→   833→                </div>
+   834→   834→
+   835→   835→                {/* Lead Scores */}
+   836→   836→                {(selectedBusiness.leadScore || selectedBusiness.opportunityScore) && (
+   837→   837→                  <div className="grid grid-cols-3 gap-3">
+   838→   838→                    <div className={`rounded-lg p-3 text-center ${getScoreBg(selectedBusiness.leadScore)}`}>
+   839→   839→                      <p className={`text-2xl font-bold ${getScoreColor(selectedBusiness.leadScore)}`}>
+   840→   840→                        {selectedBusiness.leadScore ?? '-'}
+   841→   841→                      </p>
+   842→   842→                      <p className="text-xs text-muted-foreground">Lead Score</p>
+   843→   843→                    </div>
+   844→   844→                    <div className={`rounded-lg p-3 text-center ${getScoreBg(selectedBusiness.opportunityScore)}`}>
+   845→   845→                      <p className={`text-2xl font-bold ${getScoreColor(selectedBusiness.opportunityScore)}`}>
+   846→   846→                        {selectedBusiness.opportunityScore ?? '-'}
+   847→   847→                      </p>
+   848→   848→                      <p className="text-xs text-muted-foreground">Opportunity</p>
+   849→   849→                    </div>
+   850→   850→                    <div className="rounded-lg p-3 text-center bg-slate-50">
+   851→   851→                      <p className="text-2xl font-bold text-slate-700">
+   852→   852→                        {selectedBusiness.estimatedMonthlyRevenue
+   853→   853→                          ? `$${(selectedBusiness.estimatedMonthlyRevenue / 1000).toFixed(0)}k`
+   854→   854→                          : '-'}
+   855→   855→                      </p>
+   856→   856→                      <p className="text-xs text-muted-foreground">Est. Revenue/mo</p>
+   857→   857→                    </div>
+   858→   858→                  </div>
+   859→   859→                )}
+   860→   860→
+   861→   861→                {/* Rating */}
+   862→   862→                {selectedBusiness.googleRating && (
+   863→   863→                  <div className="flex items-center gap-2">
+   864→   864→                    <div className="flex items-center gap-0.5">
+   865→   865→                      {Array.from({ length: 5 }).map((_, i) => (
+   866→   866→                        <Star
+   867→   867→                          key={i}
+   868→   868→                          className={`h-4 w-4 ${
+   869→   869→                            i < Math.floor(selectedBusiness.googleRating!)
+   870→   870→                              ? 'text-amber-400 fill-amber-400'
+   871→   871→                              : 'text-slate-200'
+   872→   872→                          }`}
+   873→   873→                        />
+   874→   874→                      ))}
+   875→   875→                    </div>
+   876→   876→                    <span className="font-medium">{selectedBusiness.googleRating}</span>
+   877→   877→                    <span className="text-sm text-muted-foreground">
+   878→   878→                      ({selectedBusiness.googleReviews || selectedBusiness.reviewCount || 0} reviews)
+   879→   879→                    </span>
+   880→   880→                  </div>
+   881→   881→                )}
+   882→   882→
+   883→   883→                <Separator />
+   884→   884→
+   885→   885→                {/* Contact Details */}
+   886→   886→                <div className="space-y-3">
+   887→   887→                  <h4 className="text-sm font-semibold text-slate-700">Contact Information</h4>
+   888→   888→
+   889→   889→                  {selectedBusiness.phone && (
+   890→   890→                    <div className="flex items-center gap-2 text-sm">
+   891→   891→                      <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
+   892→   892→                      <span>{selectedBusiness.phone}</span>
+   893→   893→                    </div>
+   894→   894→                  )}
+   895→   895→
+   896→   896→                  {selectedBusiness.email && (
+   897→   897→                    <div className="flex items-center gap-2 text-sm">
+   898→   898→                      <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
+   899→   899→                      <span>{selectedBusiness.email}</span>
+   900→   900→                    </div>
+   901→   901→                  )}
+   902→   902→
+   903→   903→                  {selectedBusiness.address && (
+   904→   904→                    <div className="flex items-center gap-2 text-sm">
+   905→   905→                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+   906→   906→                      <span>
+   907→   907→                        {selectedBusiness.address}
+   908→   908→                        {selectedBusiness.city && `, ${selectedBusiness.city}`}
+   909→   909→                        {selectedBusiness.state && `, ${selectedBusiness.state}`}
+   910→   910→                        {selectedBusiness.country && `, ${selectedBusiness.country}`}
+   911→   911→                      </span>
+   912→   912→                    </div>
+   913→   913→                  )}
+   914→   914→
+   915→   915→                  {selectedBusiness.website && (
+   916→   916→                    <div className="flex items-center gap-2 text-sm">
+   917→   917→                      <Globe className="h-4 w-4 text-emerald-600 shrink-0" />
+   918→   918→                      <a
+   919→   919→                        href={selectedBusiness.website}
+   920→   920→                        target="_blank"
+   921→   921→                        rel="noopener noreferrer"
+   922→   922→                        className="text-blue-600 hover:underline truncate max-w-[300px]"
+   923→   923→                      >
+   924→   924→                        {selectedBusiness.website}
+   925→   925→                      </a>
+   926→   926→                      <ExternalLink className="h-3 w-3 text-blue-400" />
+   927→   927→                    </div>
+   928→   928→                  )}
+   929→   929→                </div>
+   930→   930→
+   931→   931→                {/* Social Media */}
+   932→   932→                {(selectedBusiness.facebookUrl || selectedBusiness.instagramUrl || selectedBusiness.linkedinUrl) && (
+   933→   933→                  <>
+   934→   934→                    <Separator />
+   935→   935→                    <div className="space-y-3">
+   936→   936→                      <h4 className="text-sm font-semibold text-slate-700">Social Media</h4>
+   937→   937→                      <div className="flex flex-col gap-2">
+   938→   938→                        {selectedBusiness.facebookUrl && (
+   939→   939→                          <a href={selectedBusiness.facebookUrl} target="_blank" rel="noopener noreferrer"
+   940→   940→                            className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
+   941→   941→                            <Facebook className="h-4 w-4" />
+   942→   942→                            <span className="truncate max-w-[300px]">{selectedBusiness.facebookUrl}</span>
+   943→   943→                            <ExternalLink className="h-3 w-3 text-blue-400" />
+   944→   944→                          </a>
+   945→   945→                        )}
+   946→   946→                        {selectedBusiness.instagramUrl && (
+   947→   947→                          <a href={selectedBusiness.instagramUrl} target="_blank" rel="noopener noreferrer"
+   948→   948→                            className="flex items-center gap-2 text-sm text-pink-600 hover:underline">
+   949→   949→                            <Instagram className="h-4 w-4" />
+   950→   950→                            <span className="truncate max-w-[300px]">{selectedBusiness.instagramUrl}</span>
+   951→   951→                            <ExternalLink className="h-3 w-3 text-pink-400" />
+   952→   952→                          </a>
+   953→   953→                        )}
+   954→   954→                        {selectedBusiness.linkedinUrl && (
+   955→   955→                          <a href={selectedBusiness.linkedinUrl} target="_blank" rel="noopener noreferrer"
+   956→   956→                            className="flex items-center gap-2 text-sm text-blue-700 hover:underline">
+   957→   957→                            <Linkedin className="h-4 w-4" />
+   958→   958→                            <span className="truncate max-w-[300px]">{selectedBusiness.linkedinUrl}</span>
+   959→   959→                            <ExternalLink className="h-3 w-3 text-blue-500" />
+   960→   960→                          </a>
+   961→   961→                        )}
+   962→   962→                      </div>
+   963→   963→                    </div>
+   964→   964→                  </>
+   965→   965→                )}
+   966→   966→
+   967→   967→                <Separator />
+   968→   968→
+   969→   969→                {/* Action */}
+   970→   970→                {!selectedBusiness.hasWebsite && selectedBusiness.id && (
+   971→   971→                  <Button
+   972→   972→                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+   973→   973→                    onClick={() => {
+   974→   974→                      handleAddAsLead(selectedBusiness)
+   975→   975→                      setDetailOpen(false)
+   976→   976→                    }}
+   977→   977→                    disabled={addedLeads.has(selectedBusiness.id)}
+   978→   978→                  >
+   979→   979→                    {addedLeads.has(selectedBusiness.id) ? (
+   980→   980→                      <>
+   981→   981→                        <CheckCircle2 className="mr-2 h-4 w-4" />
+   982→   982→                        Already Added as Lead
+   983→   983→                      </>
+   984→   984→                    ) : (
+   985→   985→                      <>
+   986→   986→                        <Plus className="mr-2 h-4 w-4" />
+   987→   987→                        Add as Lead
+   988→   988→                      </>
+   989→   989→                    )}
+   990→   990→                  </Button>
+   991→   991→                )}
+   992→   992→
+   993→   993→                {selectedBusiness.hasWebsite && (
+   994→   994→                  <div className="bg-emerald-50 text-emerald-700 text-sm rounded-lg p-3 flex items-center gap-2">
+   995→   995→                    <Globe className="h-4 w-4" />
+   996→   996→                    This business already has a website. Consider offering SEO or redesign services.
+   997→   997→                  </div>
+   998→   998→                )}
+   999→   999→              </div>
+  1000→  1000→            </>
+  1001→  1001→          )}
+  1002→  1002→        </DialogContent>
+  1003→  1003→      </Dialog>
+  1004→  1004→    </div>
+  1005→  1005→  )
+  1006→  1006→}
+  1007→  1007→

@@ -19,19 +19,19 @@ export async function GET(request: NextRequest) {
     const where: Prisma.BusinessWhereInput = {}
 
     if (category) {
-      where.category = { contains: category, mode: 'insensitive' }
+      where.category = { contains: category }
     }
 
     if (city) {
-      where.city = { contains: city, mode: 'insensitive' }
+      where.city = { contains: city }
     }
 
     if (state) {
-      where.state = { contains: state, mode: 'insensitive' }
+      where.state = { contains: state }
     }
 
     if (country) {
-      where.country = { contains: country, mode: 'insensitive' }
+      where.country = { contains: country }
     }
 
     if (hasWebsite !== null && hasWebsite !== undefined && hasWebsite !== '') {
@@ -39,17 +39,17 @@ export async function GET(request: NextRequest) {
     }
 
     if (source) {
-      where.source = { contains: source, mode: 'insensitive' }
+      where.source = { contains: source }
     }
 
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } },
-        { phone: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-        { category: { contains: search, mode: 'insensitive' } },
-        { country: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search } },
+        { address: { contains: search } },
+        { phone: { contains: search } },
+        { email: { contains: search } },
+        { category: { contains: search } },
+        { country: { contains: search } },
       ]
     }
 

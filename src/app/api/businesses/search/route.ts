@@ -22,6 +22,92 @@ interface ExtractedBusiness {
   source: string
 }
 
+// Helper: delay for retry backoff
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Helper: retry a function with exponential backoff
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 2000
+): Promise<T> {
+  let lastError: any
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error: any) {
+      lastError = error
+      const is429 = error?.message?.includes('429') || error?.status === 429
+      if (!is429 || attempt === maxRetries) break
+      const waitTime = baseDelay * Math.pow(2, attempt) + Math.random() * 1000
+      console.log(`Rate limited (429), retrying in ${Math.round(waitTime)}ms (attempt ${attempt + 1}/${maxRetries})...`)
+      await delay(waitTime)
+    }
+  }
+  throw lastError
+}
+
+// Helper: sequential web search with delays between requests
+async function sequentialWebSearch(
+  zai: any,
+  queries: string[],
+  delayBetweenMs: number = 3000
+): Promise<{ url: string; name: string; snippet: string; host_name: string; source: string }[][]> {
+  const results: { url: string; name: string; snippet: string; host_name: string; source: string }[][] = []
+
+  for (let i = 0; i < queries.length; i++) {
+    try {
+      const searchResult = await withRetry(
+        () => zai.functions.invoke('web_search', { query: queries[i], num: 10 }),
+        2, // max 2 retries per query
+        2000 // base delay
+      )
+      results.push(
+        (searchResult || []).map((r: any) => ({
+          url: r.url,
+          name: r.name,
+          snippet: r.snippet,
+          host_name: r.host_name,
+          source: `search_query_${i + 1}`,
+        }))
+      )
+    } catch (queryError) {
+      console.error(`Search query ${i + 1} failed:`, queryError)
+      results.push([]) // Empty result for this query, continue with others
+    }
+
+    // Delay between queries to avoid rate limiting
+    if (i < queries.length - 1) {
+      await delay(delayBetweenMs)
+    }
+  }
+
+  return results
+}
+
+// Helper: get matching businesses from database as fallback
+async function getDatabaseFallback(category: string, city?: string, state?: string, country?: string) {
+  const where: any = {}
+
+  if (category) {
+    where.category = { contains: category }
+  }
+  if (city) {
+    where.city = { contains: city }
+  } else if (state) {
+    where.state = { contains: state }
+  }
+  if (country) {
+    where.country = { contains: country }
+  }
+
+  return db.business.findMany({
+    where,
+    orderBy: { leadScore: 'desc' },
+    take: 30,
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -52,45 +138,72 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    let savedBusinesses: any[] = []
+    let usedFallback = false
+    let searchError: string | null = null
+
     try {
       const zai = await ZAI.create()
 
       // Multi-strategy search: use multiple queries to maximize discovery
+      // Execute SEQUENTIALLY with delays to avoid rate limiting
       const searchQueries = [
-        `${category} businesses in ${locationString} phone number address`,
-        `${category} in ${city || state || country} contact details reviews`,
-        `best ${category} near ${locationString} ratings`,
+        `${category} businesses in ${locationString} phone number address contact`,
       ]
 
-      // Execute all searches in parallel
-      const searchPromises = searchQueries.map((query) =>
-        zai.functions.invoke('web_search', {
-          query,
-          num: 10,
-        })
-      )
+      // Only add extra queries if first one is needed (keeps it simple and avoids rate limits)
+      // The second query is more specific
+      if (city || state) {
+        searchQueries.push(`${category} in ${city || state} reviews ratings website`)
+      }
 
-      const searchResultsArrays = await Promise.all(searchPromises)
+      // Execute searches sequentially with delays between them
+      const searchResultsArrays = await sequentialWebSearch(zai, searchQueries, 3000)
 
       // Combine and deduplicate search results by URL
       const allResults: { url: string; name: string; snippet: string; host_name: string; source: string }[] = []
       const seenUrls = new Set<string>()
 
-      searchResultsArrays.forEach((results, index) => {
-        const source = `search_query_${index + 1}`
+      searchResultsArrays.forEach((results) => {
         for (const result of results) {
           if (!seenUrls.has(result.url)) {
             seenUrls.add(result.url)
-            allResults.push({
-              url: result.url,
-              name: result.name,
-              snippet: result.snippet,
-              host_name: result.host_name,
-              source,
-            })
+            allResults.push(result)
           }
         }
       })
+
+      if (allResults.length === 0) {
+        // No web search results - try database fallback
+        console.log('No web search results found, falling back to database...')
+        const dbBusinesses = await getDatabaseFallback(category, city, state, country)
+        if (dbBusinesses.length > 0) {
+          usedFallback = true
+          savedBusinesses = dbBusinesses
+        }
+
+        await db.searchJob.update({
+          where: { id: searchJob.id },
+          data: {
+            status: usedFallback ? 'completed_with_fallback' : 'completed',
+            resultsCount: savedBusinesses.length,
+            sources: usedFallback ? 'database_fallback' : 'none',
+            completedAt: new Date(),
+          },
+        })
+
+        return NextResponse.json({
+          businesses: savedBusinesses,
+          searchJob: {
+            id: searchJob.id,
+            status: usedFallback ? 'completed_with_fallback' : 'completed',
+            resultsCount: savedBusinesses.length,
+            duplicatesFound: 0,
+            sourcesUsed: usedFallback ? 'database_fallback' : 'none',
+            fallback: usedFallback,
+          },
+        })
+      }
 
       // Prepare search results text for LLM analysis
       const resultsText = allResults
@@ -101,11 +214,13 @@ export async function POST(request: NextRequest) {
         .join('\n\n')
 
       // Use LLM to extract structured business data from search results
-      const llmResponse = await zai.chat.completions.create({
-        messages: [
-          {
-            role: 'assistant',
-            content: `You are a data extraction assistant specializing in finding business information from web search results. Extract business data from the search results below. For each business found, provide a JSON object with these exact fields:
+      const llmResponse = await withRetry(
+        () =>
+          zai.chat.completions.create({
+            messages: [
+              {
+                role: 'assistant',
+                content: `You are a data extraction assistant specializing in finding business information from web search results. Extract business data from the search results below. For each business found, provide a JSON object with these exact fields:
 - name: Business name (string, required)
 - category: Business category/type (string, use "${category}" if unclear)
 - address: Full street address if available (string or null)
@@ -132,14 +247,17 @@ IMPORTANT RULES:
 5. If a business has no website URL, set hasWebsite to false and website to null.
 6. Social media URLs should be full URLs starting with https://.
 7. Be thorough - extract every business mentioned in the results.`,
-          },
-          {
-            role: 'user',
-            content: `Extract business information from these search results for "${category}" businesses in "${locationString}":\n\n${resultsText}`,
-          },
-        ],
-        thinking: { type: 'disabled' },
-      })
+              },
+              {
+                role: 'user',
+                content: `Extract business information from these search results for "${category}" businesses in "${locationString}":\n\n${resultsText}`,
+              },
+            ],
+            thinking: { type: 'disabled' },
+          }),
+        2,
+        3000
+      )
 
       // Parse LLM response
       const llmContent = llmResponse.choices?.[0]?.message?.content || '[]'
@@ -169,7 +287,6 @@ IMPORTANT RULES:
       }
 
       // Save extracted businesses to database with deduplication
-      const savedBusinesses = []
       const duplicateCount = { skipped: 0 }
 
       for (const biz of extractedBusinesses) {
@@ -177,16 +294,17 @@ IMPORTANT RULES:
 
         try {
           // Deduplication: Check by name + city + phone combination
+          // Note: SQLite doesn't support mode: "insensitive", use contains for case-insensitive matching
           const orConditions: any[] = [
             {
-              name: { equals: biz.name, mode: 'insensitive' },
-              city: biz.city ? { equals: biz.city, mode: 'insensitive' } : undefined,
+              name: { contains: biz.name },
+              city: biz.city ? { contains: biz.city } : undefined,
             },
           ]
 
           if (biz.phone && biz.phone.trim().length > 5) {
             orConditions.push({
-              phone: { equals: biz.phone, mode: 'insensitive' },
+              phone: { contains: biz.phone },
             })
           }
 
@@ -336,24 +454,87 @@ IMPORTANT RULES:
           resultsCount: savedBusinesses.length,
           duplicatesFound: duplicateCount.skipped,
           sourcesUsed: sourcesUsed,
+          fallback: false,
         },
       })
-    } catch (aiError) {
+    } catch (aiError: any) {
       console.error('AI search error:', aiError)
+      searchError = aiError?.message || 'Unknown error'
+
+      // FALLBACK: Try to return existing database businesses matching the criteria
+      try {
+        const dbBusinesses = await getDatabaseFallback(category, city, state, country)
+        if (dbBusinesses.length > 0) {
+          usedFallback = true
+          savedBusinesses = dbBusinesses
+
+          await db.searchJob.update({
+            where: { id: searchJob.id },
+            data: {
+              status: 'completed_with_fallback',
+              resultsCount: savedBusinesses.length,
+              sources: 'database_fallback',
+              completedAt: new Date(),
+            },
+          })
+
+          return NextResponse.json({
+            businesses: savedBusinesses,
+            searchJob: {
+              id: searchJob.id,
+              status: 'completed_with_fallback',
+              resultsCount: savedBusinesses.length,
+              duplicatesFound: 0,
+              sourcesUsed: 'database_fallback',
+              fallback: true,
+              fallbackReason: 'AI search rate limited, showing cached results',
+            },
+          })
+        }
+      } catch (fallbackError) {
+        console.error('Database fallback also failed:', fallbackError)
+      }
+
       // Update search job as failed
       await db.searchJob.update({
         where: { id: searchJob.id },
         data: {
           status: 'failed',
+          resultsCount: 0,
+          sources: null,
           completedAt: new Date(),
         },
       })
-      throw aiError
+
+      // Return a more helpful error response with empty results
+      return NextResponse.json({
+        businesses: [],
+        searchJob: {
+          id: searchJob.id,
+          status: 'failed',
+          resultsCount: 0,
+          duplicatesFound: 0,
+          sourcesUsed: '',
+          fallback: false,
+          error: 'Search temporarily unavailable. Please try again in a few seconds.',
+        },
+      })
     }
   } catch (error) {
     console.error('Business search error:', error)
     return NextResponse.json(
-      { error: 'Failed to search for businesses' },
+      {
+        businesses: [],
+        searchJob: {
+          id: '',
+          status: 'failed',
+          resultsCount: 0,
+          duplicatesFound: 0,
+          sourcesUsed: '',
+          fallback: false,
+          error: 'Failed to search for businesses',
+        },
+      },
       { status: 500 }
     )
   }

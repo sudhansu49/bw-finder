@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const where: Prisma.ServiceWhereInput = {}
 
     if (category) {
-      where.category = { contains: category, mode: 'insensitive' }
+      where.category = { contains: category }
     }
 
     const services = await db.service.findMany({

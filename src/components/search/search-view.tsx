@@ -178,21 +178,39 @@ export function SearchView() {
         }),
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        setResults(data.businesses || [])
-        setSearchJobInfo(data.searchJob || null)
+      const data = res.ok ? await res.json() : null
+      const businesses = data?.businesses || []
+      const jobInfo = data?.searchJob || null
+
+      setResults(businesses)
+      setSearchJobInfo(jobInfo)
+
+      if (businesses.length > 0) {
+        if (jobInfo?.fallback) {
+          toast({
+            title: 'Showing Cached Results',
+            description: `Found ${businesses.length} businesses from database. Live search is rate-limited — try again in 30s for fresh results.`,
+            duration: 6000,
+          })
+        } else {
+          toast({
+            title: 'Search Complete!',
+            description: `Found ${businesses.length} businesses. ${jobInfo?.duplicatesFound || 0} duplicates were merged.`,
+          })
+        }
+      } else if (jobInfo?.error) {
         toast({
-          title: 'Search Complete!',
-          description: `Found ${data.businesses?.length || 0} businesses. ${data.searchJob?.duplicatesFound || 0} duplicates were merged.`,
+          title: 'Search Temporarily Unavailable',
+          description: jobInfo.error || 'Please try again in a few seconds.',
+          variant: 'destructive',
+          duration: 5000,
         })
       } else {
         toast({
-          title: 'Search Failed',
-          description: 'Could not complete the search. Please try again.',
-          variant: 'destructive',
+          title: 'No Results Found',
+          description: 'Try a different category or location.',
+          duration: 4000,
         })
-        setResults([])
       }
     } catch {
       toast({
@@ -556,8 +574,14 @@ export function SearchView() {
               </div>
             </div>
 
-            {/* Search Job Info */}
-            {searchJobInfo && searchJobInfo.sourcesUsed && (
+            {/* Fallback / Search Info Banner */}
+            {searchJobInfo?.fallback && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span>Live search rate-limited — showing <span className="font-semibold">cached results</span> from your database. Try again in 30 seconds for fresh results.</span>
+              </div>
+            )}
+            {searchJobInfo && searchJobInfo.sourcesUsed && !searchJobInfo.fallback && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground bg-amber-50 rounded-lg px-4 py-2">
                 <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
                 <span>Sources searched: <span className="font-medium text-amber-700">{searchJobInfo.sourcesUsed}</span></span>
@@ -770,10 +794,47 @@ export function SearchView() {
                 </div>
               </ScrollArea>
 
-              {filteredResults.length === 0 && (
+              {filteredResults.length === 0 && results.length === 0 && searchJobInfo?.error && (
                 <div className="text-center py-12">
-                  <Search className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-                  <p className="text-muted-foreground">No businesses found. Try a different search.</p>
+                  <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50">
+                    <AlertCircle className="h-8 w-8 text-red-400" />
+                  </div>
+                  <p className="text-muted-foreground font-medium">Search temporarily unavailable</p>
+                  <p className="text-sm text-muted-foreground mt-1">{searchJobInfo.error}</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4 border-amber-200 text-amber-700 hover:bg-amber-50"
+                    onClick={handleSearch}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    Try Again
+                  </Button>
+                </div>
+              )}
+              {filteredResults.length === 0 && results.length === 0 && !searchJobInfo?.error && searched && (
+                <div className="text-center py-12">
+                  <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50">
+                    <Search className="h-8 w-8 text-slate-300" />
+                  </div>
+                  <p className="text-muted-foreground font-medium">No businesses found</p>
+                  <p className="text-sm text-muted-foreground mt-1">Try a different category or location</p>
+                </div>
+              )}
+              {filteredResults.length === 0 && results.length > 0 && showNoWebsiteOnly && (
+                <div className="text-center py-12">
+                  <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                  </div>
+                  <p className="text-muted-foreground font-medium">All found businesses have websites!</p>
+                  <p className="text-sm text-muted-foreground mt-1">Try a different location or category to find businesses without websites</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => setShowNoWebsiteOnly(false)}
+                  >
+                    Show All Results
+                  </Button>
                 </div>
               )}
             </CardContent>
