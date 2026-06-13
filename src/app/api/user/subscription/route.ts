@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireOwnerOrAdmin } from '@/lib/auth/jwt'
+import { applyRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting
+  const rl = applyRateLimit(request, RATE_LIMITS.api)
+  if (rl) return rateLimitResponse(rl)
+
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
@@ -11,6 +17,12 @@ export async function GET(request: NextRequest) {
         { error: 'userId query parameter is required' },
         { status: 400 }
       )
+    }
+
+    // Auth check - user can only access their own subscription, admins can access any
+    const authResult = await requireOwnerOrAdmin(request, userId)
+    if (!authResult.success) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
     const user = await db.user.findUnique({
@@ -39,10 +51,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Fetch active subscription
@@ -72,42 +81,19 @@ export async function GET(request: NextRequest) {
     const periodStart = subscription?.currentPeriodStart ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 
     const [leadsCount, searchesCount, exportsCount] = await Promise.all([
-      // Leads created in this period
-      db.lead.count({
-        where: {
-          userId,
-          createdAt: { gte: periodStart },
-        },
-      }),
-      // Searches performed in this period
-      db.searchJob.count({
-        where: {
-          userId,
-          createdAt: { gte: periodStart },
-        },
-      }),
-      // Exports performed in this period (tracked via credit transactions)
+      db.lead.count({ where: { userId, createdAt: { gte: periodStart } } }),
+      db.searchJob.count({ where: { userId, createdAt: { gte: periodStart } } }),
       db.creditTransaction.count({
-        where: {
-          userId,
-          type: 'usage',
-          description: { contains: 'export' },
-          createdAt: { gte: periodStart },
-        },
+        where: { userId, type: 'usage', description: { contains: 'export' }, createdAt: { gte: periodStart } },
       }),
     ])
 
     // Fetch all available plans
-    const allPlans = await db.plan.findMany({
-      orderBy: { price: 'asc' },
-    })
+    const allPlans = await db.plan.findMany({ orderBy: { price: 'asc' } })
 
     // Billing history from credit transactions
     const billingHistory = await db.creditTransaction.findMany({
-      where: {
-        userId,
-        type: { in: ['purchase', 'refund', 'subscription'] },
-      },
+      where: { userId, type: { in: ['purchase', 'refund', 'subscription'] } },
       orderBy: { createdAt: 'desc' },
       take: 24,
     })

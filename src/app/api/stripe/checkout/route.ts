@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getStripe, isStripeDemoMode, simulateCheckout, PLAN_CONFIGS } from '@/lib/stripe'
+import { requireOwnerOrAdmin } from '@/lib/auth/jwt'
+import { applyRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
+import { auditSubscriptionChange, getRequestInfo } from '@/lib/security/audit'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting
+  const rl = applyRateLimit(request, RATE_LIMITS.checkout)
+  if (rl) return rateLimitResponse(rl)
+
   try {
     const body = await request.json()
     const { userId, tier, interval } = body as {
@@ -16,6 +23,12 @@ export async function POST(request: NextRequest) {
         { error: 'userId, tier, and interval are required' },
         { status: 400 }
       )
+    }
+
+    // Auth check - user can only subscribe for themselves (or admin can do it)
+    const authResult = await requireOwnerOrAdmin(request, userId)
+    if (!authResult.success) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
     // Verify user exists
@@ -117,6 +130,8 @@ export async function POST(request: NextRequest) {
       })
 
       const demoResult = simulateCheckout(planConfig, interval)
+      const { ip } = getRequestInfo(request)
+      await auditSubscriptionChange(userId, 'Free', planConfig.name, authResult.payload.sub, ip)
 
       return NextResponse.json({
         demo: true,

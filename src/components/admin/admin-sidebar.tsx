@@ -153,7 +153,15 @@ export function AdminSidebar() {
     setSidebarMobileOpen(false)
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch {
+      // Continue even if API call fails
+    }
     sessionStorage.setItem('bw-finder-logged-out', 'true')
     setUser(null)
     setAuthMode('admin')

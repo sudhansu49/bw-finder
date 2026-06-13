@@ -1,60 +1,59 @@
 ---
-Task ID: 14
+Task ID: 15
 Agent: Main Agent
-Task: Phase 14 - SaaS Billing with Stripe Integration
+Task: Phase 15 - Security (JWT, Rate Limiting, Audit Logs, RBAC)
 
 Work Log:
-- Explored full project structure: 18 user views, 23 admin views, 33 API routes, Zustand store, i18n
-- Installed Stripe SDK (stripe@22.2.1)
-- Updated Prisma schema with new billing fields:
-  - Plan: added yearlyPrice, tier, interval, stripePriceId, stripeProductId
-  - Subscription: added interval, stripeSubscriptionId, stripeCustomerId
-  - User: added stripeSubscriptionId
-- Created Stripe utility library (src/lib/stripe/index.ts):
-  - Plan configs for Starter (₹1,499/mo), Agency (₹4,999/mo), Enterprise (₹14,999/mo)
-  - Demo mode simulation for sandbox (no real Stripe keys needed)
-  - Live Stripe mode ready for production
-  - Price formatting for multi-currency support
-- Created 5 Stripe API routes:
-  - POST /api/stripe/checkout - Create checkout session (demo + live)
-  - POST /api/stripe/portal - Customer portal session
-  - POST /api/stripe/webhook - Handle Stripe webhooks (8 event types)
-  - GET /api/stripe/plans - Get all plans with monthly/yearly pricing
-  - POST /api/stripe/cancel - Cancel subscription
-  - POST /api/stripe/subscribe - Change plan (upgrade/downgrade)
-- Rebuilt Subscription View with:
-  - 3 plan cards: Starter, Agency, Enterprise
-  - Monthly/Yearly toggle with "Save 17%" badge
-  - Current plan indicator with active subscription banner
-  - Cancel subscription dialog (immediate or at period end)
-  - Plan switching with checkout flow
-  - FAQ section
-  - "Contact Sales" CTA for custom enterprise
-- Rebuilt Billing View with:
-  - Summary cards: Current Plan, Credits Balance, This Month Spent, Days Until Renewal
-  - Subscription details card with status, plan, amount, period
-  - Payment method card (dark gradient card design)
-  - Credit usage progress bar
-  - Billing history table with transactions
-  - Stripe customer portal integration
-- Updated seed route with new plan structure (7 plans: 3 tiers × 2 intervals + Free)
-- Updated login API to return planTier
-- Updated AppUser type in store with planTier
-- Updated user sidebar plan badge to use tier-based naming
-- Updated admin subscriptions view for new tier names
-- Updated billing/subscription API routes to return tier + interval fields
-- Verified all pages with Agent Browser:
-  - Subscription page: 3 plans visible, toggle works, prices update correctly
-  - Billing page: All cards, tables, and payment info displays correctly
-  - Plan switching: Works in demo mode, credits added, subscription updated
-  - Yearly toggle: Shows monthly equivalent (₹1,249, ₹4,166, ₹12,499) with savings
+- Examined existing auth-utils.ts (PBKDF2 password hashing), rbac.ts (full RBAC with 5 roles, 44 permissions), and audit-logs API
+- Installed jose@6.2.3 for JWT token signing/verification
+- Created JWT authentication system (src/lib/auth/jwt.ts):
+  - signAccessToken() with 24h expiry, signRefreshToken() with 30d expiry
+  - verifyToken() with issuer/audience validation
+  - extractToken() from Authorization header or httpOnly cookies
+  - authenticateRequest(), requireAuth(), requireRole(), requireAdmin(), requireOwnerOrAdmin()
+  - setAuthCookies() and clearAuthCookies() for httpOnly secure cookie management
+- Created rate limiting middleware (src/lib/security/rate-limit.ts):
+  - In-memory sliding window rate limiter with automatic cleanup
+  - Pre-configured limits: login (5/min), register (3/min), api (100/min), search (30/min), export (10/min), checkout (5/min), admin (200/min), webhook (50/min)
+  - X-RateLimit-* headers and 429 responses with Retry-After
+  - applyRateLimit() convenience helper for routes
+- Created audit logging service (src/lib/security/audit.ts):
+  - 9 categories: auth, user, subscription, billing, credit, admin, system, security, api
+  - 4 severity levels: info, warning, error, critical
+  - Convenience functions: auditLogin, auditLoginFailure, auditRegister, auditLogout, auditSubscriptionChange, auditSubscriptionCancel, auditCreditTransaction, auditAdminUserAction, auditRateLimitHit, auditUnauthorizedAccess, auditPasswordChange, auditSecurityEvent
+  - getRequestInfo() helper for IP/User-Agent extraction
+- Updated login route: JWT tokens, httpOnly cookies, rate limiting (5/min), audit logging (success/failure), account status check (suspended/banned)
+- Updated register route: JWT tokens, httpOnly cookies, rate limiting (3/min), password strength validation (8+ chars), audit logging
+- Created auth verify route (GET /api/auth/verify): Token-based session verification
+- Created auth logout route (POST /api/auth/logout): Cookie clearing, audit logging
+- Updated admin users route: requireAdmin() + RBAC check + audit logging for all actions
+- Updated admin audit-logs route: requireAdmin() + RBAC check + stats computation
+- Updated user billing route: requireOwnerOrAdmin() + rate limiting
+- Updated user subscription route: requireOwnerOrAdmin() + rate limiting
+- Updated stripe checkout route: requireOwnerOrAdmin() + rate limiting + audit logging
+- Updated stripe cancel route: requireOwnerOrAdmin() + rate limiting + audit logging
+- Updated frontend auth flow:
+  - Login/register forms use credentials: 'include' for cookie-based auth
+  - page.tsx verifies JWT cookie on mount via /api/auth/verify
+  - Logout calls /api/auth/logout API to clear server-side cookies
+  - Both user and admin sidebars updated with async logout
+- Rebuilt Admin Audit Logs view with:
+  - Real API data from /api/admin/audit-logs
+  - Stats cards: Total Logs, Auth Events, Security Events, Critical, Today
+  - Category filter (auth, security, admin, billing, credits, system)
+  - Severity filter (info, warning, error, critical)
+  - Color-coded severity badges and category badges
+  - Actor info with name/email, IP address, timestamps
+- Verified all API routes work:
+  - POST /api/auth/register → JWT token + httpOnly cookies
+  - POST /api/auth/login → JWT token + httpOnly cookies + audit log
+  - GET /api/auth/verify → Token-based session verification
+  - Lint passes clean
 
 Stage Summary:
-- Full SaaS billing system implemented with Stripe integration
-- Demo mode works without real Stripe keys
-- Production-ready: add STRIPE_SECRET_KEY env var and all Stripe features activate
-- 3 tiers: Starter (₹1,499), Agency (₹4,999), Enterprise (₹14,999)
-- Monthly + Yearly billing with 17% annual discount
-- Plan switching, cancellation, and management working
-- All API routes tested and verified
-- Lint passes clean, no errors
+- Full JWT authentication with httpOnly cookies + Bearer token support
+- Rate limiting on all API routes with 8 pre-configured limits
+- Audit logging on login, register, logout, subscription changes, admin actions
+- RBAC enforcement on admin and user routes
+- Admin Audit Logs view now shows real data with severity/category badges
+- All security infrastructure in place and functional

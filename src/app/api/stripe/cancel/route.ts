@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getStripe, isStripeDemoMode } from '@/lib/stripe'
+import { requireOwnerOrAdmin } from '@/lib/auth/jwt'
+import { applyRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
+import { auditSubscriptionCancel, getRequestInfo } from '@/lib/security/audit'
 
 export async function POST(request: NextRequest) {
+  // Rate limiting
+  const rl = applyRateLimit(request, RATE_LIMITS.checkout)
+  if (rl) return rateLimitResponse(rl)
+
   try {
     const body = await request.json()
     const { userId, immediately } = body as { userId: string; immediately?: boolean }
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    // Auth check
+    const authResult = await requireOwnerOrAdmin(request, userId)
+    if (!authResult.success) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
     const user = await db.user.findUnique({ where: { id: userId } })
@@ -18,11 +31,14 @@ export async function POST(request: NextRequest) {
 
     const subscription = await db.subscription.findFirst({
       where: { userId, status: 'active' },
+      include: { plan: { select: { name: true } } },
     })
 
     if (!subscription) {
       return NextResponse.json({ error: 'No active subscription found' }, { status: 404 })
     }
+
+    const { ip } = getRequestInfo(request)
 
     if (isStripeDemoMode || !subscription.stripeSubscriptionId) {
       // Demo mode: cancel directly in DB
@@ -41,6 +57,8 @@ export async function POST(request: NextRequest) {
           data: { cancelAtPeriodEnd: true },
         })
       }
+
+      await auditSubscriptionCancel(userId, subscription.plan?.name || 'Unknown', authResult.payload.sub, ip)
 
       return NextResponse.json({
         demo: true,
@@ -65,6 +83,8 @@ export async function POST(request: NextRequest) {
         cancel_at_period_end: true,
       })
     }
+
+    await auditSubscriptionCancel(userId, subscription.plan?.name || 'Unknown', authResult.payload.sub, ip)
 
     return NextResponse.json({
       demo: false,

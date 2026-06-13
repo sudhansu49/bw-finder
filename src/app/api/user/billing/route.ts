@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireOwnerOrAdmin } from '@/lib/auth/jwt'
+import { applyRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting
+  const rl = applyRateLimit(request, RATE_LIMITS.api)
+  if (rl) return rateLimitResponse(rl)
+
   try {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
@@ -11,6 +17,12 @@ export async function GET(request: NextRequest) {
         { error: 'userId query parameter is required' },
         { status: 400 }
       )
+    }
+
+    // Auth check - user can only access their own billing, admins can access any
+    const authResult = await requireOwnerOrAdmin(request, userId)
+    if (!authResult.success) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
     const user = await db.user.findUnique({
@@ -35,10 +47,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Fetch recent credit transactions

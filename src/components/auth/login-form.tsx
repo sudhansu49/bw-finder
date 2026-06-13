@@ -29,6 +29,7 @@ export function LoginForm({ onSwitchToSignup }: LoginFormProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include', // Include cookies for JWT
       })
 
       const data = await res.json()

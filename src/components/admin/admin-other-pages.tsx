@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -800,78 +800,227 @@ export function AdminSystemHealth() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// AUDIT LOGS
+// AUDIT LOGS - Now backed by real data from /api/admin/audit-logs
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const mockAuditLogs = [
-  { id: '1', user: 'admin@bwfinder.com', action: 'user.role.update', target: 'john@example.com', ip: '192.168.1.1', date: '2025-03-01T10:30:00Z' },
-  { id: '2', user: 'admin@bwfinder.com', action: 'subscription.cancel', target: 'sarah@example.com', ip: '192.168.1.1', date: '2025-03-01T09:15:00Z' },
-  { id: '3', user: 'super@bwfinder.com', action: 'credits.add', target: 'mike@example.com', ip: '10.0.0.1', date: '2025-02-28T14:22:00Z' },
-  { id: '4', user: 'admin@bwfinder.com', action: 'user.ban', target: 'lisa@example.com', ip: '192.168.1.1', date: '2025-02-28T11:45:00Z' },
-  { id: '5', user: 'system', action: 'cron.cleanup', target: 'expired_sessions', ip: '127.0.0.1', date: '2025-02-27T00:00:00Z' },
-]
+interface AuditLogEntry {
+  id: string
+  action: string
+  category: string
+  details: string | null
+  ipAddress: string | null
+  userAgent: string | null
+  severity: string
+  createdAt: string
+  actor: {
+    id: string
+    name: string
+    email: string
+    role: string
+  } | null
+}
+
+function severityBadge(severity: string) {
+  switch (severity) {
+    case 'critical':
+      return <Badge className="bg-red-100 text-red-700 border-red-200 border text-xs">CRITICAL</Badge>
+    case 'error':
+      return <Badge className="bg-orange-100 text-orange-700 border-orange-200 border text-xs">ERROR</Badge>
+    case 'warning':
+      return <Badge className="bg-amber-100 text-amber-700 border-amber-200 border text-xs">WARN</Badge>
+    default:
+      return <Badge className="bg-slate-100 text-slate-600 border-slate-200 border text-xs">INFO</Badge>
+  }
+}
+
+function categoryBadge(category: string) {
+  switch (category) {
+    case 'auth':
+      return <Badge className="bg-blue-50 text-blue-600 border-blue-200 border text-xs">AUTH</Badge>
+    case 'security':
+      return <Badge className="bg-red-50 text-red-600 border-red-200 border text-xs">SECURITY</Badge>
+    case 'admin':
+      return <Badge className="bg-purple-50 text-purple-600 border-purple-200 border text-xs">ADMIN</Badge>
+    case 'subscription':
+      return <Badge className="bg-amber-50 text-amber-600 border-amber-200 border text-xs">BILLING</Badge>
+    case 'credit':
+      return <Badge className="bg-emerald-50 text-emerald-600 border-emerald-200 border text-xs">CREDITS</Badge>
+    default:
+      return <Badge className="bg-slate-50 text-slate-600 border-slate-200 border text-xs">{category.toUpperCase()}</Badge>
+  }
+}
 
 export function AdminAuditLogs() {
-  const [actionFilter, setActionFilter] = useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [severityFilter, setSeverityFilter] = useState('all')
+  const [logs, setLogs] = useState<AuditLogEntry[]>([])
+  const [stats, setStats] = useState<{ totalLogs: number; authLogs: number; securityLogs: number; criticalLogs: number; todayLogs: number } | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const filtered = actionFilter === 'all' ? mockAuditLogs : mockAuditLogs.filter((l) => l.action.startsWith(actionFilter))
+  const fetchLogs = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams()
+      if (categoryFilter !== 'all') params.set('category', categoryFilter)
+      if (severityFilter !== 'all') params.set('severity', severityFilter)
+      const res = await fetch(`/api/admin/audit-logs?${params.toString()}`, { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        setLogs(data.data || [])
+        if (data.stats) setStats(data.stats)
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false)
+    }
+  }, [categoryFilter, severityFilter])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
 
   return (
     <div className="space-y-6">
-      <PageHeader icon={FileText} title="Audit Logs" description="Track all administrative actions" color="slate" />
+      <PageHeader icon={FileText} title="Audit Logs" description="Track all system actions and security events" color="slate" />
 
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Total Logs</p>
+              <p className="text-2xl font-bold">{stats.totalLogs.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Auth Events</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.authLogs.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Security Events</p>
+              <p className="text-2xl font-bold text-red-600">{stats.securityLogs.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Critical</p>
+              <p className="text-2xl font-bold text-orange-600">{stats.criticalLogs.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground">Today</p>
+              <p className="text-2xl font-bold text-emerald-600">{stats.todayLogs.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Filters */}
       <Card className="border-0 shadow-sm">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
-            <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filter by action" />
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Actions</SelectItem>
-                <SelectItem value="user">User Actions</SelectItem>
-                <SelectItem value="subscription">Subscription</SelectItem>
-                <SelectItem value="credits">Credits</SelectItem>
-                <SelectItem value="cron">System</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="auth">Auth</SelectItem>
+                <SelectItem value="security">Security</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="subscription">Billing</SelectItem>
+                <SelectItem value="credit">Credits</SelectItem>
+                <SelectItem value="system">System</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={severityFilter} onValueChange={setSeverityFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Severity" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Severity</SelectItem>
+                <SelectItem value="info">Info</SelectItem>
+                <SelectItem value="warning">Warning</SelectItem>
+                <SelectItem value="error">Error</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex-1" />
+            <Button variant="outline" size="icon" onClick={fetchLogs} className="shrink-0">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
           </div>
         </CardContent>
       </Card>
 
+      {/* Logs Table */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Recent Logs</CardTitle>
-          <CardDescription>{filtered.length} log entries</CardDescription>
+          <CardTitle className="text-lg">Recent Activity</CardTitle>
+          <CardDescription>{logs.length} log entries</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <ScrollArea className="max-h-[600px]">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>User</TableHead>
+                  <TableHead>Severity</TableHead>
+                  <TableHead>Category</TableHead>
                   <TableHead>Action</TableHead>
-                  <TableHead className="hidden sm:table-cell">Target</TableHead>
+                  <TableHead className="hidden md:table-cell">Details</TableHead>
+                  <TableHead className="hidden sm:table-cell">Actor</TableHead>
                   <TableHead className="hidden lg:table-cell">IP</TableHead>
-                  <TableHead className="hidden md:table-cell">Date</TableHead>
+                  <TableHead className="hidden md:table-cell">Time</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="text-sm font-medium font-mono">{log.user}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-slate-50 text-slate-600 border-slate-200 font-mono text-xs">
-                        {log.action}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground font-mono">{log.target}</TableCell>
-                    <TableCell className="hidden lg:table-cell text-xs text-muted-foreground font-mono">{log.ip}</TableCell>
-                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                      {new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8">
+                      <Loader2 className="h-5 w-5 animate-spin mx-auto text-slate-400" />
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : logs.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No audit logs found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  logs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell>{severityBadge(log.severity)}</TableCell>
+                      <TableCell>{categoryBadge(log.category)}</TableCell>
+                      <TableCell>
+                        <span className="text-sm font-mono font-medium">{log.action}</span>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground max-w-[250px] truncate">
+                        {log.details || '-'}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell text-xs">
+                        {log.actor ? (
+                          <div>
+                            <p className="font-medium">{log.actor.name}</p>
+                            <p className="text-muted-foreground">{log.actor.email}</p>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">System</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell text-xs text-muted-foreground font-mono">
+                        {log.ipAddress || '-'}
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                        {new Date(log.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </ScrollArea>

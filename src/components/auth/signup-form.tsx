@@ -31,6 +31,7 @@ export function SignupForm({ onSwitchToLogin }: SignupFormProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name, password, company: company || null }),
+        credentials: 'include', // Include cookies for JWT
       })
 
       const data = await res.json()
