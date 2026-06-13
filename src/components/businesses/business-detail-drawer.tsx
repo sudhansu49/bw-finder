@@ -152,10 +152,10 @@ export function BusinessDetailDrawer() {
     try {
       const res = await fetch('/api/leads', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           businessId: business.id,
-          userId: user.id,
           status: 'new_lead',
           priority: leadPriority,
           estimatedValue: leadValue ? Number(leadValue) : null,

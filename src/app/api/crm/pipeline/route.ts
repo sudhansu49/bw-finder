@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAuth } from '@/lib/auth/jwt'
 
 // Pipeline stage definitions
 export const PIPELINE_STAGES = [
@@ -14,12 +15,13 @@ export const PIPELINE_STAGES = [
 
 // GET: Fetch all leads grouped by pipeline stage
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
 
-    const where: Record<string, unknown> = {}
-    if (userId) where.userId = userId
+  try {
+    const where: Record<string, unknown> = { userId: authResult.payload.sub }
 
     const leads = await db.lead.findMany({
       where,
@@ -117,9 +119,14 @@ export async function GET(request: NextRequest) {
 
 // PATCH: Update lead stage (move between pipeline columns)
 export async function PATCH(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
-    const { leadId, status, priority, estimatedValue, userId } = body
+    const { leadId, status, priority, estimatedValue } = body
 
     if (!leadId) {
       return NextResponse.json({ error: 'leadId is required' }, { status: 400 })
@@ -128,6 +135,12 @@ export async function PATCH(request: NextRequest) {
     const lead = await db.lead.findUnique({ where: { id: leadId } })
     if (!lead) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
+    }
+
+    // Ownership check
+    const isAdmin = ['super_admin', 'admin'].includes(authResult.payload.role)
+    if (!isAdmin && lead.userId !== authResult.payload.sub) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
     const updateData: Record<string, unknown> = {}
@@ -150,7 +163,7 @@ export async function PATCH(request: NextRequest) {
       await db.activityLog.create({
         data: {
           leadId,
-          userId: userId || lead.userId,
+          userId: authResult.payload.sub,
           action: 'status_change',
           details: JSON.stringify({
             from: oldStage?.label || lead.status,

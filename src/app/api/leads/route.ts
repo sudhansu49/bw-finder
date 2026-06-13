@@ -1,18 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { requireAuth } from '@/lib/auth/jwt'
+import { applyRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
 
 export async function GET(request: NextRequest) {
+  // Rate limiting
+  const rl = applyRateLimit(request, RATE_LIMITS.api)
+  if (rl) return rateLimitResponse(rl)
+
+  // Auth check
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const priority = searchParams.get('priority')
-    const userId = searchParams.get('userId')
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const skip = (page - 1) * limit
 
-    const where: Prisma.LeadWhereInput = {}
+    const where: Prisma.LeadWhereInput = { userId: authResult.payload.sub }
 
     if (status) {
       where.status = status
@@ -20,10 +31,6 @@ export async function GET(request: NextRequest) {
 
     if (priority) {
       where.priority = priority
-    }
-
-    if (userId) {
-      where.userId = userId
     }
 
     const [leads, total] = await Promise.all([
@@ -66,13 +73,24 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  // Rate limiting
+  const rl = applyRateLimit(request, RATE_LIMITS.api)
+  if (rl) return rateLimitResponse(rl)
+
+  // Auth check - get userId from JWT instead of request body
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
-    const { businessId, userId, status, priority, estimatedValue, notes } = body
+    const { businessId, status, priority, estimatedValue, notes } = body
+    const userId = authResult.payload.sub // Always use JWT subject as userId
 
-    if (!businessId || !userId) {
+    if (!businessId) {
       return NextResponse.json(
-        { error: 'businessId and userId are required' },
+        { error: 'businessId is required' },
         { status: 400 }
       )
     }
@@ -89,15 +107,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify user exists
-    const user = await db.user.findUnique({
-      where: { id: userId },
+    // Check for existing lead (same user + business)
+    const existingLead = await db.lead.findFirst({
+      where: { businessId, userId },
     })
 
-    if (!user) {
+    if (existingLead) {
       return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
+        { error: 'Lead already exists for this business', lead: existingLead },
+        { status: 409 }
       )
     }
 
@@ -105,7 +123,7 @@ export async function POST(request: NextRequest) {
       data: {
         businessId,
         userId,
-        status: status || 'new',
+        status: status || 'new_lead',
         priority: priority || 'medium',
         estimatedValue: estimatedValue ?? null,
         notes: notes || null,

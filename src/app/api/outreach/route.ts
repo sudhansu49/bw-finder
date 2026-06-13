@@ -1,25 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { requireAuth } from '@/lib/auth/jwt'
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const leadId = searchParams.get('leadId')
-    const userId = searchParams.get('userId')
     const type = searchParams.get('type')
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const skip = (page - 1) * limit
 
-    const where: Prisma.OutreachWhereInput = {}
+    const where: Prisma.OutreachWhereInput = { userId: authResult.payload.sub }
 
     if (leadId) {
       where.leadId = leadId
-    }
-
-    if (userId) {
-      where.userId = userId
     }
 
     if (type) {
@@ -70,13 +71,19 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
-    const { leadId, userId, type, subject, notes, outcome } = body
+    const { leadId, type, subject, notes, outcome } = body
+    const userId = authResult.payload.sub
 
-    if (!leadId || !userId) {
+    if (!leadId) {
       return NextResponse.json(
-        { error: 'leadId and userId are required' },
+        { error: 'leadId is required' },
         { status: 400 }
       )
     }
@@ -89,18 +96,6 @@ export async function POST(request: NextRequest) {
     if (!lead) {
       return NextResponse.json(
         { error: 'Lead not found' },
-        { status: 404 }
-      )
-    }
-
-    // Verify user exists
-    const user = await db.user.findUnique({
-      where: { id: userId },
-    })
-
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
         { status: 404 }
       )
     }

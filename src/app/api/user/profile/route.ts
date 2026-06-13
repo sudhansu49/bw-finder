@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
+import { requireAuth } from '@/lib/auth/jwt'
 
 export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId query parameter is required' },
-        { status: 400 }
-      )
-    }
+  try {
+    const userId = authResult.payload.sub
 
     const user = await db.user.findUnique({
       where: { id: userId },
@@ -65,16 +63,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
-    const { userId, name, email, company, avatar } = body
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      )
-    }
+    const { name, email, company, avatar } = body
+    const userId = authResult.payload.sub
 
     const user = await db.user.findUnique({ where: { id: userId } })
     if (!user) {

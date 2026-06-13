@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAuth } from '@/lib/auth/jwt'
 
 // GET: Fetch notes for a lead
 export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const leadId = searchParams.get('leadId')
@@ -28,12 +34,18 @@ export async function GET(request: NextRequest) {
 
 // POST: Add a note to a lead
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
-    const { leadId, userId, content } = body
+    const { leadId, content } = body
+    const userId = authResult.payload.sub
 
-    if (!leadId || !userId || !content?.trim()) {
-      return NextResponse.json({ error: 'leadId, userId, and content are required' }, { status: 400 })
+    if (!leadId || !content?.trim()) {
+      return NextResponse.json({ error: 'leadId and content are required' }, { status: 400 })
     }
 
     const note = await db.leadNote.create({
@@ -60,6 +72,11 @@ export async function POST(request: NextRequest) {
 
 // DELETE: Remove a note
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const noteId = searchParams.get('noteId')

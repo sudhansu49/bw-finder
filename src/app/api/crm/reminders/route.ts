@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAuth } from '@/lib/auth/jwt'
 
 // GET: Fetch reminders for a lead
 export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const leadId = searchParams.get('leadId')
@@ -28,12 +34,18 @@ export async function GET(request: NextRequest) {
 
 // POST: Add a reminder to a lead
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
-    const { leadId, userId, title, description, dueDate } = body
+    const { leadId, title, description, dueDate } = body
+    const userId = authResult.payload.sub
 
-    if (!leadId || !userId || !title?.trim() || !dueDate) {
-      return NextResponse.json({ error: 'leadId, userId, title, and dueDate are required' }, { status: 400 })
+    if (!leadId || !title?.trim() || !dueDate) {
+      return NextResponse.json({ error: 'leadId, title, and dueDate are required' }, { status: 400 })
     }
 
     const reminder = await db.reminder.create({
@@ -47,7 +59,6 @@ export async function POST(request: NextRequest) {
       include: { user: { select: { id: true, name: true } } },
     })
 
-    // Log activity
     await db.activityLog.create({
       data: {
         leadId,
@@ -66,6 +77,11 @@ export async function POST(request: NextRequest) {
 
 // PATCH: Update a reminder (toggle complete)
 export async function PATCH(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
     const { reminderId, completed } = body
@@ -88,6 +104,11 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE: Remove a reminder
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const reminderId = searchParams.get('reminderId')

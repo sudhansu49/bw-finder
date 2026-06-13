@@ -109,9 +109,21 @@ async function getDatabaseFallback(category: string, city?: string, state?: stri
 }
 
 export async function POST(request: NextRequest) {
+  // Try to extract userId from JWT for search tracking
+  let validUserId: string | null = null
+  try {
+    const { requireAuth } = await import('@/lib/auth/jwt')
+    const authResult = await requireAuth(request)
+    if (authResult.success) {
+      validUserId = authResult.payload.sub
+    }
+  } catch {
+    // Proceed without auth for search
+  }
+
   try {
     const body = await request.json()
-    const { country, state, city, category, userId } = body
+    const { country, state, city, category } = body
 
     if (!country || !category) {
       return NextResponse.json(
@@ -123,19 +135,6 @@ export async function POST(request: NextRequest) {
     // Build location string from components
     const locationParts = [city, state, country].filter(Boolean)
     const locationString = locationParts.join(', ')
-
-    // Validate userId exists in database before using it (to avoid FK constraint violation)
-    let validUserId: string | null = null
-    if (userId) {
-      try {
-        const existingUser = await db.user.findUnique({ where: { id: userId } })
-        if (existingUser) {
-          validUserId = userId
-        }
-      } catch {
-        // If user lookup fails, proceed without userId
-      }
-    }
 
     // Create a search job record
     const searchJob = await db.searchJob.create({

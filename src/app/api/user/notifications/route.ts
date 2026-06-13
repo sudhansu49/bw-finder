@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAuth } from '@/lib/auth/jwt'
 
 export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
+    const userId = authResult.payload.sub
     const { searchParams } = new URL(request.url)
-    const userId = searchParams.get('userId')
     const page = parseInt(searchParams.get('page') || '1', 10)
     const limit = parseInt(searchParams.get('limit') || '20', 10)
     const skip = (page - 1) * limit
     const unreadOnly = searchParams.get('unreadOnly') === 'true'
-
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId query parameter is required' },
-        { status: 400 }
-      )
-    }
 
     const where = {
       recipientId: userId,
@@ -60,19 +59,17 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { userId, notificationId, markAllRead } = body
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: 'userId is required' },
-        { status: 400 }
-      )
-    }
+  try {
+    const userId = authResult.payload.sub
+    const body = await request.json()
+    const { notificationId, markAllRead } = body
 
     if (markAllRead) {
-      // Mark all notifications as read for this user
       const result = await db.notification.updateMany({
         where: { recipientId: userId, read: false },
         data: { read: true },
@@ -85,7 +82,6 @@ export async function PUT(request: NextRequest) {
     }
 
     if (notificationId) {
-      // Mark a single notification as read
       const notification = await db.notification.findUnique({
         where: { id: notificationId },
       })

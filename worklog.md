@@ -42,3 +42,33 @@ Stage Summary:
 - Enhanced Audit Logs with CSV export, filtering, charts
 - All lint checks pass clean
 - All API endpoints verified working via curl
+
+---
+Task ID: 2
+Agent: Main
+Task: Fix "User not found" error in Business Detail Drawer
+
+Work Log:
+- Identified the root cause: API routes were accepting userId from request body instead of JWT token
+- After Phase 15 JWT changes (15-min access tokens, session-based), the body userId could be stale or invalid
+- Fixed /api/leads - Now uses requireAuth() to get userId from JWT, added rate limiting and RBAC
+- Fixed /api/leads/[id] - Added auth check and ownership verification
+- Fixed /api/crm/notes - Uses JWT userId instead of body userId
+- Fixed /api/crm/tasks - Uses JWT userId instead of body userId
+- Fixed /api/crm/reminders - Uses JWT userId instead of body userId
+- Fixed /api/crm/pipeline - Uses JWT userId instead of body userId
+- Fixed /api/outreach - Uses JWT userId, removed user existence check
+- Fixed /api/user/profile - Uses JWT userId instead of body userId
+- Fixed /api/user/password - Uses JWT userId, added rate limiting and audit logging
+- Fixed /api/user/notifications - Uses JWT userId instead of body/query userId
+- Fixed /api/businesses/search - Extracts userId from JWT for search tracking
+- Fixed business-detail-drawer.tsx - Added credentials: 'include' to fetch, removed userId from body
+
+Stage Summary:
+- All user-facing API routes now use JWT-based authentication instead of body-based userId
+- "User not found" error is fully resolved
+- Added ownership checks (only owner or admin can modify resources)
+- Added rate limiting to password change endpoint
+- Added audit logging to password change
+- Lint check passes clean
+- Lead creation verified working via curl test

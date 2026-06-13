@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireAuth } from '@/lib/auth/jwt'
 
 // GET: Fetch tasks for a lead
 export async function GET(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const leadId = searchParams.get('leadId')
@@ -28,12 +34,18 @@ export async function GET(request: NextRequest) {
 
 // POST: Add a task to a lead
 export async function POST(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
-    const { leadId, userId, title, description, dueDate } = body
+    const { leadId, title, description, dueDate } = body
+    const userId = authResult.payload.sub
 
-    if (!leadId || !userId || !title?.trim()) {
-      return NextResponse.json({ error: 'leadId, userId, and title are required' }, { status: 400 })
+    if (!leadId || !title?.trim()) {
+      return NextResponse.json({ error: 'leadId and title are required' }, { status: 400 })
     }
 
     const task = await db.leadTask.create({
@@ -47,7 +59,6 @@ export async function POST(request: NextRequest) {
       include: { user: { select: { id: true, name: true } } },
     })
 
-    // Log activity
     await db.activityLog.create({
       data: {
         leadId,
@@ -66,6 +77,11 @@ export async function POST(request: NextRequest) {
 
 // PATCH: Update a task (toggle complete, update fields)
 export async function PATCH(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const body = await request.json()
     const { taskId, completed, title, description, dueDate } = body
@@ -93,12 +109,11 @@ export async function PATCH(request: NextRequest) {
       data: updateData,
     })
 
-    // Log activity if completed
     if (completed && !existing.completed) {
       await db.activityLog.create({
         data: {
           leadId: existing.leadId,
-          userId: existing.userId,
+          userId: authResult.payload.sub,
           action: 'task_completed',
           details: JSON.stringify({ taskId, title: existing.title }),
         },
@@ -114,6 +129,11 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE: Remove a task
 export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
   try {
     const { searchParams } = new URL(request.url)
     const taskId = searchParams.get('taskId')

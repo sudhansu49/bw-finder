@@ -1,0 +1,696 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Separator } from '@/components/ui/separator'
+     8→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+     9→import { ScrollArea } from '@/components/ui/scroll-area'
+    10→import { Textarea } from '@/components/ui/textarea'
+    11→import { Input } from '@/components/ui/input'
+    12→import { Label } from '@/components/ui/label'
+    13→import {
+    14→  Select,
+    15→  SelectContent,
+    16→  SelectItem,
+    17→  SelectTrigger,
+    18→  SelectValue,
+    19→} from '@/components/ui/select'
+    20→import {
+    21→  Sheet,
+    22→  SheetContent,
+    23→  SheetHeader,
+    24→  SheetTitle,
+    25→} from '@/components/ui/sheet'
+    26→import {
+    27→  X,
+    28→  Building2,
+    29→  MapPin,
+    30→  Phone,
+    31→  Mail,
+    32→  Globe,
+    33→  Unplug,
+    34→  Star,
+    35→  ExternalLink,
+    36→  Facebook,
+    37→  Instagram,
+    38→  Linkedin,
+    39→  Target,
+    40→  Sparkles,
+    41→  Plus,
+    42→  CheckCircle2,
+    43→  AlertCircle,
+    44→  Loader2,
+    45→  ClipboardCheck,
+    46→  FileText,
+    47→  MessageSquare,
+    48→  ArrowRight,
+    49→  TrendingUp,
+    50→  Shield,
+    51→  BarChart3,
+    52→  CreditCard,
+    53→} from 'lucide-react'
+    54→import { motion, AnimatePresence } from 'framer-motion'
+    55→import { useToast } from '@/hooks/use-toast'
+    56→
+    57→// ─── Types ────────────────────────────────────────────────────────────────────
+    58→
+    59→interface BusinessData {
+    60→  id: string
+    61→  name: string
+    62→  category: string
+    63→  address?: string | null
+    64→  city?: string | null
+    65→  state?: string | null
+    66→  country?: string | null
+    67→  phone?: string | null
+    68→  email?: string | null
+    69→  website?: string | null
+    70→  hasWebsite: boolean
+    71→  websiteStatus?: string | null
+    72→  googleRating?: number | null
+    73→  googleReviews?: number | null
+    74→  reviewCount?: number | null
+    75→  facebookUrl?: string | null
+    76→  instagramUrl?: string | null
+    77→  linkedinUrl?: string | null
+    78→  socialPresence: number
+    79→  leadScore?: number | null
+    80→  opportunityScore?: number | null
+    81→  estimatedMonthlyRevenue?: number | null
+    82→  source?: string
+    83→  sourceDetail?: string | null
+    84→  notes?: string | null
+    85→  auditScore?: number | null
+    86→  auditDate?: string | null
+    87→  createdAt: string
+    88→}
+    89→
+    90→// ─── Helpers ──────────────────────────────────────────────────────────────────
+    91→
+    92→function getWebsiteStatusConfig(status: string | null | undefined) {
+    93→  switch (status) {
+    94→    case 'NO_WEBSITE':
+    95→      return { label: 'No Website', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200', icon: Unplug }
+    96→    case 'SOCIAL_ONLY':
+    97→      return { label: 'Social Only', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200', icon: Globe }
+    98→    case 'HAS_WEBSITE':
+    99→      return { label: 'Has Website', color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200', icon: Globe }
+   100→    default:
+   101→      return { label: 'Unknown', color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-slate-200', icon: Globe }
+   102→  }
+   103→}
+   104→
+   105→function getScoreColor(score: number | null | undefined): string {
+   106→  if (!score) return 'text-slate-400'
+   107→  if (score >= 80) return 'text-emerald-600'
+   108→  if (score >= 60) return 'text-amber-600'
+   109→  if (score >= 40) return 'text-orange-600'
+   110→  return 'text-red-600'
+   111→}
+   112→
+   113→function getScoreBg(score: number | null | undefined): string {
+   114→  if (!score) return 'bg-slate-100'
+   115→  if (score >= 80) return 'bg-emerald-50'
+   116→  if (score >= 60) return 'bg-amber-50'
+   117→  if (score >= 40) return 'bg-orange-50'
+   118→  return 'bg-red-50'
+   119→}
+   120→
+   121→// ─── Component ────────────────────────────────────────────────────────────────
+   122→
+   123→export function BusinessDetailDrawer() {
+   124→  const { selectedBusiness, businessDetailOpen, setBusinessDetailOpen, setSelectedBusiness, user, setCurrentView } = useAppStore()
+   125→  const { toast } = useToast()
+   126→
+   127→  const [addingLead, setAddingLead] = useState(false)
+   128→  const [leadAdded, setLeadAdded] = useState(false)
+   129→  const [leadPriority, setLeadPriority] = useState('medium')
+   130→  const [leadValue, setLeadValue] = useState('')
+   131→  const [leadNotes, setLeadNotes] = useState('')
+   132→  const [activeTab, setActiveTab] = useState('overview')
+   133→
+   134→  const business = selectedBusiness as BusinessData | null
+   135→
+   136→  // Reset state when business changes
+   137→  useEffect(() => {
+   138→    if (business) {
+   139→      setLeadAdded(false)
+   140→      setAddingLead(false)
+   141→      setLeadPriority('medium')
+   142→      setLeadValue('')
+   143→      setLeadNotes('')
+   144→      setActiveTab('overview')
+   145→    }
+   146→  }, [business?.id])
+   147→
+   148→  const handleAddToLeads = useCallback(async () => {
+   149→    if (!business || !user) return
+   150→    setAddingLead(true)
+   151→
+   152→    try {
+   153→      const res = await fetch('/api/leads', {
+   154→        method: 'POST',
+   155→        headers: { 'Content-Type': 'application/json' },
+   156→        body: JSON.stringify({
+   157→          businessId: business.id,
+   158→          userId: user.id,
+   159→          status: 'new_lead',
+   160→          priority: leadPriority,
+   161→          estimatedValue: leadValue ? Number(leadValue) : null,
+   162→          notes: leadNotes || `Added from business search - ${business.category} in ${business.city || business.state || business.country || 'Unknown'}`,
+   163→        }),
+   164→      })
+   165→
+   166→      if (res.ok) {
+   167→        setLeadAdded(true)
+   168→        toast({
+   169→          title: 'Added to Leads! 🎯',
+   170→          description: `${business.name} added to your pipeline`,
+   171→        })
+   172→      } else {
+   173→        const data = await res.json()
+   174→        // If lead already exists for this business
+   175→        if (data.error?.includes('already')) {
+   176→          setLeadAdded(true)
+   177→          toast({ title: 'Already in Pipeline', description: `${business.name} is already a lead` })
+   178→        } else {
+   179→          throw new Error(data.error || 'Failed to add lead')
+   180→        }
+   181→      }
+   182→    } catch (err: any) {
+   183→      toast({
+   184→        title: 'Error',
+   185→        description: err.message || 'Failed to add lead',
+   186→        variant: 'destructive',
+   187→      })
+   188→    } finally {
+   189→      setAddingLead(false)
+   190→    }
+   191→  }, [business, user, leadPriority, leadValue, leadNotes, toast])
+   192→
+   193→  const handleGoToCRM = useCallback(() => {
+   194→    setBusinessDetailOpen(false)
+   195→    setCurrentView('user-crm')
+   196→  }, [setBusinessDetailOpen, setCurrentView])
+   197→
+   198→  const handleClose = useCallback(() => {
+   199→    setBusinessDetailOpen(false)
+   200→  }, [setBusinessDetailOpen])
+   201→
+   202→  if (!business) return null
+   203→
+   204→  const wsConfig = getWebsiteStatusConfig(business.websiteStatus)
+   205→  const WsIcon = wsConfig.icon
+   206→
+   207→  return (
+   208→    <Sheet open={businessDetailOpen} onOpenChange={setBusinessDetailOpen}>
+   209→      <SheetContent className="w-full sm:max-w-xl p-0 overflow-hidden flex flex-col">
+   210→        {/* Header */}
+   211→        <SheetHeader className="p-6 pb-4 border-b bg-white dark:bg-slate-900 shrink-0">
+   212→          <div className="flex items-start justify-between">
+   213→            <div className="flex items-start gap-3 flex-1 min-w-0">
+   214→              <div className="h-11 w-11 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center shrink-0">
+   215→                <Building2 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+   216→              </div>
+   217→              <div className="min-w-0">
+   218→                <SheetTitle className="text-lg font-bold leading-tight truncate">
+   219→                  {business.name}
+   220→                </SheetTitle>
+   221→                <div className="flex items-center gap-2 mt-1">
+   222→                  <Badge variant="outline" className="text-[10px] h-5">
+   223→                    {business.category}
+   224→                  </Badge>
+   225→                  <Badge className={`text-[10px] h-5 ${wsConfig.bg} ${wsConfig.color} border ${wsConfig.border}`}>
+   226→                    <WsIcon className="h-2.5 w-2.5 mr-0.5" />
+   227→                    {wsConfig.label}
+   228→                  </Badge>
+   229→                </div>
+   230→              </div>
+   231→            </div>
+   232→          </div>
+   233→
+   234→          {/* Quick Actions Row */}
+   235→          <div className="flex items-center gap-2 mt-4">
+   236→            {leadAdded ? (
+   237→              <Button
+   238→                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+   239→                onClick={handleGoToCRM}
+   240→              >
+   241→                <CheckCircle2 className="h-4 w-4 mr-2" />
+   242→                View in CRM
+   243→                <ArrowRight className="h-4 w-4 ml-1" />
+   244→              </Button>
+   245→            ) : (
+   246→              <Button
+   247→                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white"
+   248→                onClick={handleAddToLeads}
+   249→                disabled={addingLead}
+   250→              >
+   251→                {addingLead ? (
+   252→                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+   253→                ) : (
+   254→                  <Plus className="h-4 w-4 mr-2" />
+   255→                )}
+   256→                Add to Leads
+   257→              </Button>
+   258→            )}
+   259→            <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setBusinessDetailOpen(false); setCurrentView('user-audit') }}>
+   260→              <TooltipWrap label="AI Audit">
+   261→                <ClipboardCheck className="h-4 w-4" />
+   262→              </TooltipWrap>
+   263→            </Button>
+   264→            <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setBusinessDetailOpen(false); setCurrentView('user-proposal') }}>
+   265→              <TooltipWrap label="Proposal">
+   266→                <FileText className="h-4 w-4" />
+   267→              </TooltipWrap>
+   268→            </Button>
+   269→            <Button variant="outline" size="icon" className="shrink-0" onClick={() => { setBusinessDetailOpen(false); setCurrentView('user-whatsapp') }}>
+   270→              <TooltipWrap label="WhatsApp">
+   271→                <MessageSquare className="h-4 w-4" />
+   272→              </TooltipWrap>
+   273→            </Button>
+   274→          </div>
+   275→
+   276→          {/* Add Lead Form (collapsible) */}
+   277→          {!leadAdded && (
+   278→            <AnimatePresence>
+   279→              <motion.div
+   280→                initial={{ opacity: 0, height: 0 }}
+   281→                animate={{ opacity: 1, height: 'auto' }}
+   282→                exit={{ opacity: 0, height: 0 }}
+   283→                className="overflow-hidden"
+   284→              >
+   285→                <div className="mt-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800 space-y-3">
+   286→                  <div className="grid grid-cols-2 gap-3">
+   287→                    <div className="space-y-1.5">
+   288→                      <Label className="text-xs">Priority</Label>
+   289→                      <Select value={leadPriority} onValueChange={setLeadPriority}>
+   290→                        <SelectTrigger className="h-8 text-xs">
+   291→                          <SelectValue />
+   292→                        </SelectTrigger>
+   293→                        <SelectContent>
+   294→                          <SelectItem value="high">High</SelectItem>
+   295→                          <SelectItem value="medium">Medium</SelectItem>
+   296→                          <SelectItem value="low">Low</SelectItem>
+   297→                        </SelectContent>
+   298→                      </Select>
+   299→                    </div>
+   300→                    <div className="space-y-1.5">
+   301→                      <Label className="text-xs">Est. Value (₹)</Label>
+   302→                      <Input
+   303→                        type="number"
+   304→                        placeholder="e.g. 15000"
+   305→                        className="h-8 text-xs"
+   306→                        value={leadValue}
+   307→                        onChange={(e) => setLeadValue(e.target.value)}
+   308→                      />
+   309→                    </div>
+   310→                  </div>
+   311→                  <div className="space-y-1.5">
+   312→                    <Label className="text-xs">Notes</Label>
+   313→                    <Textarea
+   314→                      placeholder="Add notes about this lead..."
+   315→                      className="text-xs min-h-[60px]"
+   316→                      value={leadNotes}
+   317→                      onChange={(e) => setLeadNotes(e.target.value)}
+   318→                    />
+   319→                  </div>
+   320→                </div>
+   321→              </motion.div>
+   322→            </AnimatePresence>
+   323→          )}
+   324→        </SheetHeader>
+   325→
+   326→        {/* Tabs Content */}
+   327→        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
+   328→          <div className="px-6 pt-2 border-b bg-white dark:bg-slate-900 shrink-0">
+   329→            <TabsList className="bg-transparent h-10 p-0 w-full justify-start gap-0">
+   330→              <TabsTrigger value="overview" className="text-xs data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none rounded-none px-3">
+   331→                Overview
+   332→              </TabsTrigger>
+   333→              <TabsTrigger value="contact" className="text-xs data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none rounded-none px-3">
+   334→                Contact
+   335→              </TabsTrigger>
+   336→              <TabsTrigger value="scoring" className="text-xs data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none rounded-none px-3">
+   337→                Scoring
+   338→              </TabsTrigger>
+   339→              <TabsTrigger value="social" className="text-xs data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-amber-500 data-[state=active]:shadow-none rounded-none px-3">
+   340→                Social
+   341→              </TabsTrigger>
+   342→            </TabsList>
+   343→          </div>
+   344→
+   345→          <ScrollArea className="flex-1 min-h-0">
+   346→            {/* Overview Tab */}
+   347→            <TabsContent value="overview" className="p-6 space-y-5 mt-0">
+   348→              {/* Score Cards */}
+   349→              <div className="grid grid-cols-3 gap-3">
+   350→                <div className={`rounded-xl p-3 text-center ${getScoreBg(business.leadScore)}`}>
+   351→                  <Target className={`h-4 w-4 mx-auto mb-1 ${getScoreColor(business.leadScore)}`} />
+   352→                  <p className={`text-xl font-bold ${getScoreColor(business.leadScore)}`}>
+   353→                    {business.leadScore ?? '—'}
+   354→                  </p>
+   355→                  <p className="text-[10px] text-muted-foreground">Lead Score</p>
+   356→                </div>
+   357→                <div className={`rounded-xl p-3 text-center ${getScoreBg(business.opportunityScore)}`}>
+   358→                  <TrendingUp className={`h-4 w-4 mx-auto mb-1 ${getScoreColor(business.opportunityScore)}`} />
+   359→                  <p className={`text-xl font-bold ${getScoreColor(business.opportunityScore)}`}>
+   360→                    {business.opportunityScore ?? '—'}
+   361→                  </p>
+   362→                  <p className="text-[10px] text-muted-foreground">Opportunity</p>
+   363→                </div>
+   364→                <div className="rounded-xl p-3 text-center bg-slate-50 dark:bg-slate-800">
+   365→                  <BarChart3 className="h-4 w-4 mx-auto mb-1 text-slate-500" />
+   366→                  <p className="text-xl font-bold text-slate-700 dark:text-slate-300">
+   367→                    {business.estimatedMonthlyRevenue
+   368→                      ? `₹${(business.estimatedMonthlyRevenue / 1000).toFixed(0)}k`
+   369→                      : '—'}
+   370→                  </p>
+   371→                  <p className="text-[10px] text-muted-foreground">Est. Revenue</p>
+   372→                </div>
+   373→              </div>
+   374→
+   375→              {/* Business Info */}
+   376→              <div className="space-y-3">
+   377→                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Business Information</h3>
+   378→                <div className="space-y-2.5">
+   379→                  {business.address && (
+   380→                    <div className="flex items-start gap-2.5">
+   381→                      <MapPin className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
+   382→                      <div>
+   383→                        <p className="text-sm text-slate-700 dark:text-slate-300">{business.address}</p>
+   384→                        <p className="text-xs text-muted-foreground">
+   385→                          {[business.city, business.state, business.country].filter(Boolean).join(', ')}
+   386→                        </p>
+   387→                      </div>
+   388→                    </div>
+   389→                  )}
+   390→                  {!business.address && (business.city || business.state || business.country) && (
+   391→                    <div className="flex items-center gap-2.5">
+   392→                      <MapPin className="h-4 w-4 text-slate-400 shrink-0" />
+   393→                      <p className="text-sm text-slate-700 dark:text-slate-300">
+   394→                        {[business.city, business.state, business.country].filter(Boolean).join(', ')}
+   395→                      </p>
+   396→                    </div>
+   397→                  )}
+   398→                  {business.phone && (
+   399→                    <div className="flex items-center gap-2.5">
+   400→                      <Phone className="h-4 w-4 text-slate-400 shrink-0" />
+   401→                      <a href={`tel:${business.phone}`} className="text-sm text-amber-600 hover:underline">{business.phone}</a>
+   402→                    </div>
+   403→                  )}
+   404→                  {business.email && (
+   405→                    <div className="flex items-center gap-2.5">
+   406→                      <Mail className="h-4 w-4 text-slate-400 shrink-0" />
+   407→                      <a href={`mailto:${business.email}`} className="text-sm text-amber-600 hover:underline">{business.email}</a>
+   408→                    </div>
+   409→                  )}
+   410→                  {business.website && (
+   411→                    <div className="flex items-center gap-2.5">
+   412→                      <Globe className="h-4 w-4 text-slate-400 shrink-0" />
+   413→                      <a href={business.website} target="_blank" rel="noopener noreferrer" className="text-sm text-amber-600 hover:underline flex items-center gap-1">
+   414→                        {business.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+   415→                        <ExternalLink className="h-3 w-3" />
+   416→                      </a>
+   417→                    </div>
+   418→                  )}
+   419→                </div>
+   420→              </div>
+   421→
+   422→              {/* Website Status */}
+   423→              <div className="space-y-2">
+   424→                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Website Status</h3>
+   425→                <div className={`rounded-xl p-4 border ${wsConfig.border} ${wsConfig.bg}`}>
+   426→                  <div className="flex items-center gap-3">
+   427→                    <WsIcon className={`h-5 w-5 ${wsConfig.color}`} />
+   428→                    <div>
+   429→                      <p className={`text-sm font-semibold ${wsConfig.color}`}>{wsConfig.label}</p>
+   430→                      <p className="text-xs text-muted-foreground">
+   431→                        {business.websiteStatus === 'NO_WEBSITE' && 'This business has no online presence - great opportunity!'}
+   432→                        {business.websiteStatus === 'SOCIAL_ONLY' && 'Only social media profiles found - needs a proper website'}
+   433→                        {business.websiteStatus === 'HAS_WEBSITE' && 'Business has a website - may need redesign/SEO services'}
+   434→                      </p>
+   435→                    </div>
+   436→                  </div>
+   437→                </div>
+   438→              </div>
+   439→
+   440→              {/* Google Rating */}
+   441→              {(business.googleRating || business.googleReviews) && (
+   442→                <div className="space-y-2">
+   443→                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Google Presence</h3>
+   444→                  <div className="flex items-center gap-4 p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10">
+   445→                    {business.googleRating && (
+   446→                      <div className="text-center">
+   447→                        <div className="flex items-center gap-1">
+   448→                          <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+   449→                          <span className="text-lg font-bold text-amber-700 dark:text-amber-400">{business.googleRating}</span>
+   450→                        </div>
+   451→                        <p className="text-[10px] text-muted-foreground">Rating</p>
+   452→                      </div>
+   453→                    )}
+   454→                    {business.googleReviews && (
+   455→                      <div className="text-center">
+   456→                        <span className="text-lg font-bold text-amber-700 dark:text-amber-400">{business.googleReviews}</span>
+   457→                        <p className="text-[10px] text-muted-foreground">Reviews</p>
+   458→                      </div>
+   459→                    )}
+   460→                  </div>
+   461→                </div>
+   462→              )}
+   463→
+   464→              {/* Source */}
+   465→              <div className="flex items-center justify-between text-xs text-muted-foreground">
+   466→                <span>Source: {business.sourceDetail || business.source || 'web_search'}</span>
+   467→                <span>Added {new Date(business.createdAt).toLocaleDateString()}</span>
+   468→              </div>
+   469→            </TabsContent>
+   470→
+   471→            {/* Contact Tab */}
+   472→            <TabsContent value="contact" className="p-6 space-y-5 mt-0">
+   473→              <div className="space-y-3">
+   474→                {business.phone && (
+   475→                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+   476→                    <div className="flex items-center gap-3">
+   477→                      <div className="h-9 w-9 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
+   478→                        <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   479→                      </div>
+   480→                      <div>
+   481→                        <p className="text-xs text-muted-foreground">Phone</p>
+   482→                        <p className="text-sm font-medium">{business.phone}</p>
+   483→                      </div>
+   484→                    </div>
+   485→                    <Button size="sm" variant="outline" className="text-xs" onClick={() => window.open(`tel:${business.phone}`)}>
+   486→                      <Phone className="h-3 w-3 mr-1" /> Call
+   487→                    </Button>
+   488→                  </div>
+   489→                )}
+   490→                {business.email && (
+   491→                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+   492→                    <div className="flex items-center gap-3">
+   493→                      <div className="h-9 w-9 rounded-lg bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
+   494→                        <Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   495→                      </div>
+   496→                      <div>
+   497→                        <p className="text-xs text-muted-foreground">Email</p>
+   498→                        <p className="text-sm font-medium">{business.email}</p>
+   499→                      </div>
+   500→                    </div>
+   501→                    <Button size="sm" variant="outline" className="text-xs" onClick={() => window.open(`mailto:${business.email}`)}>
+   502→                      <Mail className="h-3 w-3 mr-1" /> Email
+   503→                    </Button>
+   504→                  </div>
+   505→                )}
+   506→                {business.website && (
+   507→                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+   508→                    <div className="flex items-center gap-3">
+   509→                      <div className="h-9 w-9 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+   510→                        <Globe className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+   511→                      </div>
+   512→                      <div>
+   513→                        <p className="text-xs text-muted-foreground">Website</p>
+   514→                        <p className="text-sm font-medium">{business.website}</p>
+   515→                      </div>
+   516→                    </div>
+   517→                    <Button size="sm" variant="outline" className="text-xs" onClick={() => window.open(business.website!, '_blank')}>
+   518→                      <ExternalLink className="h-3 w-3 mr-1" /> Visit
+   519→                    </Button>
+   520→                  </div>
+   521→                )}
+   522→                {business.address && (
+   523→                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800">
+   524→                    <div className="flex items-center gap-3">
+   525→                      <div className="h-9 w-9 rounded-lg bg-red-50 dark:bg-red-500/10 flex items-center justify-center">
+   526→                        <MapPin className="h-4 w-4 text-red-600 dark:text-red-400" />
+   527→                      </div>
+   528→                      <div>
+   529→                        <p className="text-xs text-muted-foreground">Address</p>
+   530→                        <p className="text-sm font-medium">{business.address}</p>
+   531→                        <p className="text-xs text-muted-foreground">
+   532→                          {[business.city, business.state, business.country].filter(Boolean).join(', ')}
+   533→                        </p>
+   534→                      </div>
+   535→                    </div>
+   536→                  </div>
+   537→                )}
+   538→
+   539→                {!business.phone && !business.email && !business.website && (
+   540→                  <div className="flex flex-col items-center py-8 text-center">
+   541→                    <AlertCircle className="h-8 w-8 text-slate-300 mb-2" />
+   542→                    <p className="text-sm text-muted-foreground">No contact info available</p>
+   543→                    <p className="text-xs text-muted-foreground">Try searching for more details</p>
+   544→                  </div>
+   545→                )}
+   546→              </div>
+   547→            </TabsContent>
+   548→
+   549→            {/* Scoring Tab */}
+   550→            <TabsContent value="scoring" className="p-6 space-y-5 mt-0">
+   551→              {/* Lead Score Breakdown */}
+   552→              <div className="space-y-3">
+   553→                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Lead Score Breakdown</h3>
+   554→
+   555→                <div className={`rounded-xl p-5 text-center ${getScoreBg(business.leadScore)}`}>
+   556→                  <p className={`text-4xl font-bold ${getScoreColor(business.leadScore)}`}>
+   557→                    {business.leadScore ?? '—'}
+   558→                  </p>
+   559→                  <p className="text-sm text-muted-foreground mt-1">out of 100</p>
+   560→                  <div className="w-full bg-white/50 dark:bg-slate-700/50 rounded-full h-2 mt-3">
+   561→                    <div
+   562→                      className={`h-2 rounded-full transition-all ${
+   563→                        (business.leadScore ?? 0) >= 80 ? 'bg-emerald-500' :
+   564→                        (business.leadScore ?? 0) >= 60 ? 'bg-amber-500' :
+   565→                        (business.leadScore ?? 0) >= 40 ? 'bg-orange-500' : 'bg-red-500'
+   566→                      }`}
+   567→                      style={{ width: `${business.leadScore ?? 0}%` }}
+   568→                    />
+   569→                  </div>
+   570→                </div>
+   571→
+   572→                {/* Score Factors */}
+   573→                <div className="space-y-2">
+   574→                  {[
+   575→                    { label: 'No Website', value: !business.hasWebsite, points: 30 },
+   576→                    { label: 'Social Only', value: business.websiteStatus === 'SOCIAL_ONLY', points: 20 },
+   577→                    { label: 'Has Phone', value: !!business.phone, points: 10 },
+   578→                    { label: 'Has Email', value: !!business.email, points: 10 },
+   579→                    { label: 'Google Rating < 4', value: (business.googleRating ?? 5) < 4, points: 15 },
+   580→                    { label: 'Social Presence', value: business.socialPresence > 0, points: business.socialPresence * 5 },
+   581→                  ].map((factor) => (
+   582→                    <div key={factor.label} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800">
+   583→                      <div className="flex items-center gap-2">
+   584→                        {factor.value ? (
+   585→                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+   586→                        ) : (
+   587→                          <X className="h-4 w-4 text-slate-300" />
+   588→                        )}
+   589→                        <span className="text-sm">{factor.label}</span>
+   590→                      </div>
+   591→                      <Badge variant="secondary" className={`text-xs ${factor.value ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}`}>
+   592→                        +{factor.points}
+   593→                      </Badge>
+   594→                    </div>
+   595→                  ))}
+   596→                </div>
+   597→              </div>
+   598→
+   599→              <Separator />
+   600→
+   601→              {/* Opportunity Score */}
+   602→              <div className="space-y-3">
+   603→                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Opportunity Score</h3>
+   604→                <div className={`rounded-xl p-5 text-center ${getScoreBg(business.opportunityScore)}`}>
+   605→                  <p className={`text-4xl font-bold ${getScoreColor(business.opportunityScore)}`}>
+   606→                    {business.opportunityScore ?? '—'}
+   607→                  </p>
+   608→                  <p className="text-sm text-muted-foreground mt-1">out of 100</p>
+   609→                  <div className="w-full bg-white/50 dark:bg-slate-700/50 rounded-full h-2 mt-3">
+   610→                    <div
+   611→                      className={`h-2 rounded-full transition-all ${
+   612→                        (business.opportunityScore ?? 0) >= 80 ? 'bg-emerald-500' :
+   613→                        (business.opportunityScore ?? 0) >= 60 ? 'bg-amber-500' :
+   614→                        (business.opportunityScore ?? 0) >= 40 ? 'bg-orange-500' : 'bg-red-500'
+   615→                      }`}
+   616→                      style={{ width: `${business.opportunityScore ?? 0}%` }}
+   617→                    />
+   618→                  </div>
+   619→                </div>
+   620→              </div>
+   621→
+   622→              {/* Estimated Revenue */}
+   623→              {business.estimatedMonthlyRevenue && (
+   624→                <>
+   625→                  <Separator />
+   626→                  <div className="space-y-2">
+   627→                    <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Estimated Revenue</h3>
+   628→                    <div className="rounded-xl p-4 bg-amber-50 dark:bg-amber-500/10 text-center">
+   629→                      <p className="text-2xl font-bold text-amber-700 dark:text-amber-400">
+   630→                        ₹{business.estimatedMonthlyRevenue.toLocaleString()}
+   631→                      </p>
+   632→                      <p className="text-xs text-muted-foreground">per month (estimated)</p>
+   633→                    </div>
+   634→                  </div>
+   635→                </>
+   636→              )}
+   637→            </TabsContent>
+   638→
+   639→            {/* Social Tab */}
+   640→            <TabsContent value="social" className="p-6 space-y-5 mt-0">
+   641→              <div className="space-y-3">
+   642→                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Social Media Presence</h3>
+   643→
+   644→                {/* Social Score */}
+   645→                <div className="rounded-xl p-4 bg-slate-50 dark:bg-slate-800 flex items-center justify-between">
+   646→                  <div>
+   647→                    <p className="text-sm font-medium">Social Presence Score</p>
+   648→                    <p className="text-xs text-muted-foreground">Based on connected platforms</p>
+   649→                  </div>
+   650→                  <div className="text-2xl font-bold text-amber-600">{business.socialPresence}/3</div>
+   651→                </div>
+   652→
+   653→                {/* Platform Cards */}
+   654→                {[
+   655→                  { name: 'Facebook', url: business.facebookUrl, icon: Facebook, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+   656→                  { name: 'Instagram', url: business.instagramUrl, icon: Instagram, color: 'text-pink-600', bg: 'bg-pink-50 dark:bg-pink-500/10' },
+   657→                  { name: 'LinkedIn', url: business.linkedinUrl, icon: Linkedin, color: 'text-blue-700', bg: 'bg-blue-50 dark:bg-blue-500/10' },
+   658→                ].map((platform) => (
+   659→                  <div key={platform.name} className={`rounded-xl p-4 border ${platform.url ? 'border-slate-200 dark:border-slate-700' : 'border-dashed border-slate-200 dark:border-slate-700'}`}>
+   660→                    <div className="flex items-center justify-between">
+   661→                      <div className="flex items-center gap-3">
+   662→                        <div className={`h-10 w-10 rounded-xl ${platform.url ? platform.bg : 'bg-slate-100 dark:bg-slate-800'} flex items-center justify-center`}>
+   663→                          <platform.icon className={`h-5 w-5 ${platform.url ? platform.color : 'text-slate-300'}`} />
+   664→                        </div>
+   665→                        <div>
+   666→                          <p className="text-sm font-medium">{platform.name}</p>
+   667→                          {platform.url ? (
+   668→                            <p className="text-xs text-amber-600 truncate max-w-[200px]">{platform.url}</p>
+   669→                          ) : (
+   670→                            <p className="text-xs text-muted-foreground">Not found</p>
+   671→                          )}
+   672→                        </div>
+   673→                      </div>
+   674→                      {platform.url && (
+   675→                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => window.open(platform.url!, '_blank')}>
+   676→                          <ExternalLink className="h-3.5 w-3.5" />
+   677→                        </Button>
+   678→                      )}
+   679→                    </div>
+   680→                  </div>
+   681→                ))}
+   682→              </div>
+   683→            </TabsContent>
+   684→          </ScrollArea>
+   685→        </Tabs>
+   686→      </SheetContent>
+   687→    </Sheet>
+   688→  )
+   689→}
+   690→
+   691→// ─── Tooltip Wrapper ──────────────────────────────────────────────────────────
+   692→
+   693→function TooltipWrap({ label, children }: { label: string; children: React.ReactNode }) {
+   694→  return <span title={label}>{children}</span>
+   695→}
+   696→
