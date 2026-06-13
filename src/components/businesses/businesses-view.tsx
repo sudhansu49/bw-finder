@@ -159,14 +159,12 @@ const sortOptions = [
 ] as const
 
 export function BusinessesView() {
-  const { user } = useAppStore()
+  const { user, openBusinessDetail } = useAppStore()
   const { toast } = useToast()
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
-  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
-  const [detailOpen, setDetailOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [addedLeads, setAddedLeads] = useState<Set<string>>(new Set())
   const [sortBy, setSortBy] = useState<string>('default')
@@ -247,8 +245,7 @@ export function BusinessesView() {
   }
 
   const openDetail = (business: Business) => {
-    setSelectedBusiness(business)
-    setDetailOpen(true)
+    openBusinessDetail(business)
   }
 
   const handleAudit = async (business: Business) => {
@@ -537,182 +534,7 @@ export function BusinessesView() {
         </div>
       )}
 
-      {/* Business Detail Dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          {selectedBusiness && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5 text-amber-500" />
-                  {selectedBusiness.name}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                {/* Status badges */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <WebsiteBadge status={selectedBusiness.websiteStatus} />
-                  <Badge variant="secondary">{selectedBusiness.category}</Badge>
-                  {selectedBusiness.sourceDetail && (
-                    <Badge variant="outline" className="text-xs">via {selectedBusiness.sourceDetail}</Badge>
-                  )}
-                </div>
-
-                {/* Score Cards */}
-                <div className="grid grid-cols-3 gap-3">
-                  {/* Lead Score Card */}
-                  <div className={`rounded-xl border p-3 text-center ${getScoreBg(selectedBusiness.leadScore)}`}>
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                      <Target className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Lead</span>
-                    </div>
-                    <div className={`text-2xl font-bold ${getScoreColor(selectedBusiness.leadScore)}`}>
-                      {selectedBusiness.leadScore ?? '-'}
-                    </div>
-                    {selectedBusiness.leadScore != null && (
-                      <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/60 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${selectedBusiness.leadScore >= 70 ? 'bg-emerald-500' : selectedBusiness.leadScore >= 40 ? 'bg-amber-500' : 'bg-red-400'}`}
-                          style={{ width: `${selectedBusiness.leadScore}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Opportunity Score Card */}
-                  <div className={`rounded-xl border p-3 text-center ${getScoreBg(selectedBusiness.opportunityScore)}`}>
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                      <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Opp.</span>
-                    </div>
-                    <div className={`text-2xl font-bold ${getScoreColor(selectedBusiness.opportunityScore)}`}>
-                      {selectedBusiness.opportunityScore ?? '-'}
-                    </div>
-                    {selectedBusiness.opportunityScore != null && (
-                      <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/60 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${selectedBusiness.opportunityScore >= 70 ? 'bg-emerald-500' : selectedBusiness.opportunityScore >= 40 ? 'bg-amber-500' : 'bg-red-400'}`}
-                          style={{ width: `${selectedBusiness.opportunityScore}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Revenue Card */}
-                  <div className="rounded-xl border p-3 text-center bg-amber-50">
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                      <DollarSign className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Rev/mo</span>
-                    </div>
-                    <div className="text-2xl font-bold text-amber-600">
-                      {formatRevenue(selectedBusiness.estimatedMonthlyRevenue)}
-                    </div>
-                    {selectedBusiness.estimatedMonthlyRevenue != null && (
-                      <div className="mt-1.5 w-full h-1.5 rounded-full bg-white/60 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-amber-500"
-                          style={{ width: `${Math.min(100, (selectedBusiness.estimatedMonthlyRevenue / 50000) * 100)}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Google Rating */}
-                {selectedBusiness.googleRating && (
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className={`h-4 w-4 ${i < Math.floor(selectedBusiness.googleRating!) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
-                    ))}
-                    <span className="font-medium ml-1">{selectedBusiness.googleRating}</span>
-                    <span className="text-sm text-muted-foreground">
-                      ({selectedBusiness.googleReviews || selectedBusiness.reviewCount || 0} reviews)
-                    </span>
-                  </div>
-                )}
-
-                <Separator />
-
-                {/* Contact Details */}
-                <div className="space-y-2">
-                  {selectedBusiness.phone && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="h-4 w-4 text-muted-foreground shrink-0" />
-                      {selectedBusiness.phone}
-                    </div>
-                  )}
-                  {selectedBusiness.email && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Mail className="h-4 w-4 text-muted-foreground shrink-0" />
-                      {selectedBusiness.email}
-                    </div>
-                  )}
-                  {(selectedBusiness.address || selectedBusiness.city) && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                      {[selectedBusiness.address, selectedBusiness.city, selectedBusiness.state, selectedBusiness.country].filter(Boolean).join(', ')}
-                    </div>
-                  )}
-                  {selectedBusiness.website && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <Globe className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <a href={selectedBusiness.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                        {selectedBusiness.website}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                {/* Social Media */}
-                {(selectedBusiness.facebookUrl || selectedBusiness.instagramUrl || selectedBusiness.linkedinUrl) && (
-                  <>
-                    <Separator />
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">Social Media</p>
-                      {selectedBusiness.facebookUrl && (
-                        <a href={selectedBusiness.facebookUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-sm text-blue-600 hover:underline">
-                          <Facebook className="h-4 w-4" /> {selectedBusiness.facebookUrl}
-                        </a>
-                      )}
-                      {selectedBusiness.instagramUrl && (
-                        <a href={selectedBusiness.instagramUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-sm text-pink-600 hover:underline">
-                          <Instagram className="h-4 w-4" /> {selectedBusiness.instagramUrl}
-                        </a>
-                      )}
-                      {selectedBusiness.linkedinUrl && (
-                        <a href={selectedBusiness.linkedinUrl} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-sm text-blue-700 hover:underline">
-                          <Linkedin className="h-4 w-4" /> {selectedBusiness.linkedinUrl}
-                        </a>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                <Separator />
-
-                {/* Add to Leads */}
-                {!selectedBusiness.hasWebsite && (
-                  <Button
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                    onClick={() => { handleAddToLeads(selectedBusiness); setDetailOpen(false) }}
-                    disabled={addedLeads.has(selectedBusiness.id)}
-                  >
-                    {addedLeads.has(selectedBusiness.id) ? (
-                      <><CheckCircle2 className="mr-2 h-4 w-4" /> Already Added as Lead</>
-                    ) : (
-                      <><Plus className="mr-2 h-4 w-4" /> Add to Leads Pipeline</>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Business detail is now shown in the global BusinessDetailDrawer */}
     </div>
   )
 }

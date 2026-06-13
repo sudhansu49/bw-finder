@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAppStore } from '@/store/app-store'
+import { useAppStore, type UserView } from '@/store/app-store'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,8 @@ import {
   Activity,
   ChevronRight,
   Calculator,
+  MessageSquare,
+  Mail,
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -235,13 +237,36 @@ export function DashboardView() {
           <p className="text-muted-foreground">Welcome back, {user?.name || 'User'}. Here&apos;s your business overview.</p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setCurrentView('search')} className="bg-amber-500 hover:bg-amber-600 text-white">
+          <Button onClick={() => setCurrentView('user-lead-finder')} className="bg-amber-500 hover:bg-amber-600 text-white">
             <Search className="h-4 w-4 mr-2" /> Discover
           </Button>
-          <Button onClick={() => setCurrentView('crm')} variant="outline">
+          <Button onClick={() => setCurrentView('user-crm')} variant="outline">
             <Activity className="h-4 w-4 mr-2" /> Pipeline
           </Button>
         </div>
+      </div>
+
+      {/* ── Quick Actions ──────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        {[
+          { label: 'Find Leads', icon: Search, view: 'user-lead-finder' as UserView, color: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' },
+          { label: 'Pipeline', icon: Activity, view: 'user-crm' as UserView, color: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30' },
+          { label: 'AI Audit', icon: ClipboardCheck, view: 'user-audit' as UserView, color: 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/30' },
+          { label: 'Proposal', icon: FileText, view: 'user-proposal' as UserView, color: 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/30' },
+          { label: 'WhatsApp', icon: MessageSquare, view: 'user-whatsapp' as UserView, color: 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/30' },
+          { label: 'Email', icon: Mail, view: 'user-email' as UserView, color: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/30' },
+        ].map((action) => (
+          <motion.button
+            key={action.label}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setCurrentView(action.view)}
+            className={`flex flex-col items-center gap-2 p-4 rounded-xl border ${action.color} hover:shadow-md transition-all duration-200 cursor-pointer`}
+          >
+            <action.icon className="h-6 w-6" />
+            <span className="text-xs font-semibold">{action.label}</span>
+          </motion.button>
+        ))}
       </div>
 
       {/* ── Section 1: KPI Hero Cards ──────────────────────────────── */}

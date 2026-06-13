@@ -103,6 +103,9 @@ interface AppState {
   setSearchResults: (results: any[]) => void
   selectedBusiness: any | null
   setSelectedBusiness: (business: any | null) => void
+  businessDetailOpen: boolean
+  setBusinessDetailOpen: (open: boolean) => void
+  openBusinessDetail: (business: any) => void
 
   // Command palette
   commandPaletteOpen: boolean
@@ -153,6 +156,9 @@ export const useAppStore = create<AppState>()(
       setSearchResults: (results) => set({ searchResults: results }),
       selectedBusiness: null,
       setSelectedBusiness: (business) => set({ selectedBusiness: business }),
+      businessDetailOpen: false,
+      setBusinessDetailOpen: (open) => set({ businessDetailOpen: open }),
+      openBusinessDetail: (business) => set({ selectedBusiness: business, businessDetailOpen: true }),
 
       // Command palette
       commandPaletteOpen: false,

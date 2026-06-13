@@ -20,6 +20,7 @@ import { NotificationsView } from '@/components/notifications/notifications-view
 import { HelpView } from '@/components/help/help-view'
 import { ReportsView } from '@/components/reports/reports-view'
 import { OutreachView } from '@/components/outreach/outreach-view'
+import { BusinessDetailDrawer } from '@/components/businesses/business-detail-drawer'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -418,6 +419,9 @@ export function UserLayout() {
           </main>
         </div>
       </div>
+
+      {/* Business Detail Drawer - available across all user views */}
+      <BusinessDetailDrawer />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,9 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { DndContext, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDroppable, type DragStartEvent, type DragEndEvent, type DragOverEvent } from '@dnd-kit/core'
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -164,83 +167,113 @@ const ACTION_LABELS: Record<string, string> = {
   reminder_added: 'Reminder set',
 }
 
-// ── Lead Card ────────────────────────────────────────────────────
+// ── Lead Card Content (presentational) ──────────────────────────
 
-function LeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+function LeadCardContent({ lead }: { lead: Lead }) {
   const priority = PRIORITY_CONFIG[lead.priority] || PRIORITY_CONFIG.medium
   const hasTasks = lead.leadTasks && lead.leadTasks.length > 0
   const hasReminders = lead.reminders && lead.reminders.length > 0
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="group cursor-pointer"
-      onClick={onClick}
-    >
-      <Card className="border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 bg-white">
-        <CardContent className="p-3 space-y-2">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-2">
-            <h4 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">
-              {lead.business.name}
-            </h4>
-            <Badge variant="secondary" className={`text-[10px] shrink-0 ${priority.bg} ${priority.color} border-0`}>
-              {priority.label}
-            </Badge>
-          </div>
+    <Card className="border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 bg-white">
+      <CardContent className="p-3 space-y-2">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-2">
+          <h4 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">
+            {lead.business.name}
+          </h4>
+          <Badge variant="secondary" className={`text-[10px] shrink-0 ${priority.bg} ${priority.color} border-0`}>
+            {priority.label}
+          </Badge>
+        </div>
 
-          {/* Category & Location */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant="outline" className="text-[10px] h-5 px-1.5">
-              <Tag className="h-2.5 w-2.5 mr-0.5" />
-              {lead.business.category}
-            </Badge>
-            {lead.business.city && (
-              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                <MapPin className="h-2.5 w-2.5" />
-                {lead.business.city}
-              </span>
-            )}
-          </div>
-
-          {/* Value */}
-          {lead.estimatedValue && (
-            <div className="flex items-center gap-1">
-              <DollarSign className="h-3 w-3 text-emerald-600" />
-              <span className="text-xs font-semibold text-emerald-700">
-                ₹{lead.estimatedValue.toLocaleString('en-IN')}
-              </span>
-            </div>
+        {/* Category & Location */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+            <Tag className="h-2.5 w-2.5 mr-0.5" />
+            {lead.business.category}
+          </Badge>
+          {lead.business.city && (
+            <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+              <MapPin className="h-2.5 w-2.5" />
+              {lead.business.city}
+            </span>
           )}
+        </div>
 
-          {/* Indicators */}
-          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-            {lead.business.leadScore != null && (
-              <span className="text-[10px] text-muted-foreground">
-                Score: <span className="font-semibold text-slate-700">{lead.business.leadScore}</span>
-              </span>
-            )}
-            {hasTasks && (
-              <span className="text-[10px] text-blue-600 flex items-center gap-0.5">
-                <ListTodo className="h-2.5 w-2.5" />
-                {lead.leadTasks.length}
-              </span>
-            )}
-            {hasReminders && (
-              <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
-                <Bell className="h-2.5 w-2.5" />
-                {lead.reminders.length}
-              </span>
-            )}
-            <span className="ml-auto text-[10px] text-muted-foreground flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              Open <ChevronRight className="h-2.5 w-2.5" />
+        {/* Value */}
+        {lead.estimatedValue && (
+          <div className="flex items-center gap-1">
+            <DollarSign className="h-3 w-3 text-emerald-600" />
+            <span className="text-xs font-semibold text-emerald-700">
+              ₹{lead.estimatedValue.toLocaleString('en-IN')}
             </span>
           </div>
-        </CardContent>
-      </Card>
-    </motion.div>
+        )}
+
+        {/* Indicators */}
+        <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+          {lead.business.leadScore != null && (
+            <span className="text-[10px] text-muted-foreground">
+              Score: <span className="font-semibold text-slate-700">{lead.business.leadScore}</span>
+            </span>
+          )}
+          {hasTasks && (
+            <span className="text-[10px] text-blue-600 flex items-center gap-0.5">
+              <ListTodo className="h-2.5 w-2.5" />
+              {lead.leadTasks.length}
+            </span>
+          )}
+          {hasReminders && (
+            <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+              <Bell className="h-2.5 w-2.5" />
+              {lead.reminders.length}
+            </span>
+          )}
+          <span className="ml-auto text-[10px] text-muted-foreground flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            Open <ChevronRight className="h-2.5 w-2.5" />
+          </span>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Lead Card (Sortable) ────────────────────────────────────────
+
+function LeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lead.id })
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+    >
+      <motion.div
+        layout
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className={`group cursor-grab active:cursor-grabbing ${isDragging ? 'ring-2 ring-amber-400/50 rounded-lg' : ''}`}
+        onClick={isDragging ? undefined : onClick}
+      >
+        <LeadCardContent lead={lead} />
+      </motion.div>
+    </div>
   )
 }
 
@@ -255,11 +288,15 @@ function PipelineColumn({
   leads: Lead[]
   onLeadClick: (lead: Lead) => void
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage.id })
   const Icon = STAGE_ICONS[stage.id] || Circle
   const totalValue = leads.reduce((sum, l) => sum + (l.estimatedValue || 0), 0)
 
   return (
-    <div className="flex flex-col min-w-[280px] w-[280px]">
+    <div
+      ref={setNodeRef}
+      className={`flex flex-col min-w-[280px] w-[280px] rounded-lg transition-all duration-200 ${isOver ? 'bg-amber-50/60 ring-2 ring-amber-300/50 ring-inset' : ''}`}
+    >
       {/* Column Header */}
       <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg bg-white border border-slate-200">
         <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: stage.color + '20' }}>
@@ -277,19 +314,21 @@ function PipelineColumn({
       </div>
 
       {/* Lead Cards */}
-      <div className="flex-1 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] pr-1 custom-scrollbar">
-        <AnimatePresence>
-          {leads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
-          ))}
-        </AnimatePresence>
-        {leads.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Icon className="h-8 w-8 mb-2 opacity-20" style={{ color: stage.color }} />
-            <p className="text-xs">No leads here yet</p>
-          </div>
-        )}
-      </div>
+      <SortableContext items={leads.map(l => l.id)} strategy={verticalListSortingStrategy}>
+        <div className="flex-1 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] pr-1 custom-scrollbar">
+          <AnimatePresence>
+            {leads.map((lead) => (
+              <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
+            ))}
+          </AnimatePresence>
+          {leads.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Icon className="h-8 w-8 mb-2 opacity-20" style={{ color: stage.color }} />
+              <p className="text-xs">No leads here yet</p>
+            </div>
+          )}
+        </div>
+      </SortableContext>
     </div>
   )
 }
@@ -860,9 +899,20 @@ function LeadDetailPanel({
 
 export function CRMView() {
   const { user } = useAppStore()
+  const { toast } = useToast()
   const [pipelineData, setPipelineData] = useState<PipelineData | null>(null)
   const [loading, setLoading] = useState(true)
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const originalStageRef = useRef<string | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
 
   const fetchPipeline = useCallback(async () => {
     try {
@@ -881,6 +931,106 @@ export function CRMView() {
   useEffect(() => {
     fetchPipeline()
   }, [fetchPipeline, user?.id])
+
+  // Find a lead by ID across all columns
+  const findLeadById = useCallback((leadId: string): { lead: Lead; stageId: string } | null => {
+    if (!pipelineData) return null
+    for (const stageId of Object.keys(pipelineData.pipeline)) {
+      const lead = pipelineData.pipeline[stageId].find(l => l.id === leadId)
+      if (lead) return { lead, stageId }
+    }
+    return null
+  }, [pipelineData])
+
+  // Find which stage a droppable/over ID belongs to
+  const findStageForOverId = useCallback((overId: string): string | null => {
+    if (!pipelineData) return null
+    // Check if overId is a stage ID directly
+    if (pipelineData.pipeline[overId] !== undefined) return overId
+    // Check if overId is a lead ID
+    for (const stageId of Object.keys(pipelineData.pipeline)) {
+      if (pipelineData.pipeline[stageId].some(l => l.id === overId)) return stageId
+    }
+    return null
+  }, [pipelineData])
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const id = event.active.id as string
+    setActiveId(id)
+    // Record the original stage so we know if a change occurred
+    const info = findLeadById(id)
+    originalStageRef.current = info?.stageId ?? null
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event
+    if (!over || !pipelineData) return
+
+    const activeId = active.id as string
+    const overId = over.id as string
+
+    const activeStageId = findStageForOverId(activeId)
+    const overStageId = findStageForOverId(overId)
+
+    if (!activeStageId || !overStageId || activeStageId === overStageId) return
+
+    // Move the lead from source to target column optimistically
+    setPipelineData(prev => {
+      if (!prev) return prev
+      const newPipeline = { ...prev.pipeline }
+      const lead = newPipeline[activeStageId].find(l => l.id === activeId)
+      if (!lead) return prev
+
+      newPipeline[activeStageId] = newPipeline[activeStageId].filter(l => l.id !== activeId)
+      newPipeline[overStageId] = [...newPipeline[overStageId], { ...lead, status: overStageId }]
+
+      return { ...prev, pipeline: newPipeline }
+    })
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (!over || !pipelineData) return
+
+    const activeLeadId = active.id as string
+    const overId = over.id as string
+
+    // Determine the target stage from the over ID
+    const targetStageId = findStageForOverId(overId)
+    const originalStageId = originalStageRef.current
+    originalStageRef.current = null
+
+    if (!targetStageId || !originalStageId || originalStageId === targetStageId) return
+
+    // The optimistic move already happened in onDragOver, now persist via API
+    fetch('/api/crm/pipeline', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ leadId: activeLeadId, status: targetStageId, userId: user?.id || 'demo' }),
+    }).then(res => {
+      if (res.ok) {
+        toast({ title: 'Lead moved successfully!' })
+      } else {
+        toast({ title: 'Failed to move lead', variant: 'destructive' })
+        fetchPipeline()
+      }
+    }).catch(() => {
+      toast({ title: 'Failed to move lead', variant: 'destructive' })
+      fetchPipeline()
+    })
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+    originalStageRef.current = null
+    // Revert optimistic changes by re-fetching
+    fetchPipeline()
+  }
+
+  // Get the active lead for DragOverlay
+  const activeLead = activeId ? findLeadById(activeId)?.lead ?? null : null
 
   if (loading) {
     return (
@@ -971,19 +1121,37 @@ export function CRMView() {
         </Card>
       </div>
 
-      {/* Pipeline Board */}
-      <div className="overflow-x-auto pb-4 -mx-4 px-4 lg:-mx-8 lg:px-8">
-        <div className="flex gap-4 min-h-[400px]">
-          {stages.map((stage) => (
-            <PipelineColumn
-              key={stage.id}
-              stage={stage}
-              leads={pipeline[stage.id] || []}
-              onLeadClick={setSelectedLead}
-            />
-          ))}
+      {/* Pipeline Board with DnD */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
+        <div className="overflow-x-auto pb-4 -mx-4 px-4 lg:-mx-8 lg:px-8">
+          <div className="flex gap-4 min-h-[400px]">
+            {stages.map((stage) => (
+              <PipelineColumn
+                key={stage.id}
+                stage={stage}
+                leads={pipeline[stage.id] || []}
+                onLeadClick={setSelectedLead}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+
+        {/* Drag Overlay — shows the card being dragged */}
+        <DragOverlay dropAnimation={null}>
+          {activeLead ? (
+            <div className="rotate-3 opacity-90 shadow-2xl ring-2 ring-amber-400/40 rounded-lg cursor-grabbing">
+              <LeadCardContent lead={activeLead} />
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Detail Panel Overlay */}
       <AnimatePresence>

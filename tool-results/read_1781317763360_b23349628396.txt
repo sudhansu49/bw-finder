@@ -1,0 +1,1010 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import { Textarea } from '@/components/ui/textarea'
+    11→import { Label } from '@/components/ui/label'
+    12→import { Checkbox } from '@/components/ui/checkbox'
+    13→import {
+    14→  Select,
+    15→  SelectContent,
+    16→  SelectItem,
+    17→  SelectTrigger,
+    18→  SelectValue,
+    19→} from '@/components/ui/select'
+    20→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    21→import { ScrollArea } from '@/components/ui/scroll-area'
+    22→import { motion, AnimatePresence } from 'framer-motion'
+    23→import {
+    24→  Kanban,
+    25→  Plus,
+    26→  ChevronRight,
+    27→  Phone,
+    28→  Mail,
+    29→  Building2,
+    30→  MapPin,
+    31→  Tag,
+    32→  DollarSign,
+    33→  Clock,
+    34→  CheckCircle2,
+    35→  Circle,
+    36→  AlertCircle,
+    37→  StickyNote,
+    38→  ListTodo,
+    39→  Bell,
+    40→  Activity,
+    41→  X,
+    42→  Calendar,
+    43→  User,
+    44→  ArrowRight,
+    45→  TrendingUp,
+    46→  Trophy,
+    47→  XCircle,
+    48→  Eye,
+    49→  Sparkles,
+    50→  Loader2,
+    51→} from 'lucide-react'
+    52→import { useToast } from '@/hooks/use-toast'
+    53→
+    54→// ── Types ──────────────────────────────────────────────────────────
+    55→
+    56→interface PipelineStage {
+    57→  id: string
+    58→  label: string
+    59→  color: string
+    60→}
+    61→
+    62→interface Business {
+    63→  id: string
+    64→  name: string
+    65→  category: string
+    66→  city?: string
+    67→  state?: string
+    68→  country?: string
+    69→  phone?: string
+    70→  email?: string
+    71→  hasWebsite: boolean
+    72→  leadScore?: number
+    73→  opportunityScore?: number
+    74→}
+    75→
+    76→interface LeadTask {
+    77→  id: string
+    78→  title: string
+    79→  description?: string | null
+    80→  dueDate?: string | null
+    81→  completed: boolean
+    82→  completedAt?: string | null
+    83→  createdAt: string
+    84→  user?: { id: string; name: string }
+    85→}
+    86→
+    87→interface LeadNote {
+    88→  id: string
+    89→  content: string
+    90→  createdAt: string
+    91→  user?: { id: string; name: string }
+    92→}
+    93→
+    94→interface Reminder {
+    95→  id: string
+    96→  title: string
+    97→  description?: string | null
+    98→  dueDate: string
+    99→  completed: boolean
+   100→  createdAt: string
+   101→  user?: { id: string; name: string }
+   102→}
+   103→
+   104→interface ActivityLogItem {
+   105→  id: string
+   106→  action: string
+   107→  details?: string | null
+   108→  createdAt: string
+   109→  user?: { id: string; name: string }
+   110→}
+   111→
+   112→interface Lead {
+   113→  id: string
+   114→  status: string
+   115→  priority: string
+   116→  estimatedValue?: number | null
+   117→  notes?: string | null
+   118→  lastContactedAt?: string | null
+   119→  createdAt: string
+   120→  updatedAt: string
+   121→  business: Business
+   122→  user: { id: string; name: string; email: string }
+   123→  _count: { leadNotes: number; leadTasks: number; reminders: number; activities: number }
+   124→  leadTasks: LeadTask[]
+   125→  reminders: Reminder[]
+   126→}
+   127→
+   128→interface PipelineData {
+   129→  pipeline: Record<string, Lead[]>
+   130→  stages: PipelineStage[]
+   131→  stats: {
+   132→    totalLeads: number
+   133→    totalValue: number
+   134→    wonValue: number
+   135→    conversionRate: number
+   136→  }
+   137→}
+   138→
+   139→// ── Stage Config ──────────────────────────────────────────────────
+   140→
+   141→const STAGE_ICONS: Record<string, React.ElementType> = {
+   142→  new_lead: Sparkles,
+   143→  contacted: Phone,
+   144→  interested: Eye,
+   145→  meeting_scheduled: Calendar,
+   146→  proposal_sent: Mail,
+   147→  won: Trophy,
+   148→  lost: XCircle,
+   149→}
+   150→
+   151→const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+   152→  urgent: { label: 'Urgent', color: 'text-red-700', bg: 'bg-red-100' },
+   153→  high: { label: 'High', color: 'text-orange-700', bg: 'bg-orange-100' },
+   154→  medium: { label: 'Medium', color: 'text-amber-700', bg: 'bg-amber-100' },
+   155→  low: { label: 'Low', color: 'text-slate-600', bg: 'bg-slate-100' },
+   156→}
+   157→
+   158→const ACTION_LABELS: Record<string, string> = {
+   159→  created: 'Lead created',
+   160→  status_change: 'Status changed',
+   161→  note_added: 'Note added',
+   162→  task_added: 'Task added',
+   163→  task_completed: 'Task completed',
+   164→  reminder_added: 'Reminder set',
+   165→}
+   166→
+   167→// ── Lead Card ────────────────────────────────────────────────────
+   168→
+   169→function LeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+   170→  const priority = PRIORITY_CONFIG[lead.priority] || PRIORITY_CONFIG.medium
+   171→  const hasTasks = lead.leadTasks && lead.leadTasks.length > 0
+   172→  const hasReminders = lead.reminders && lead.reminders.length > 0
+   173→
+   174→  return (
+   175→    <motion.div
+   176→      layout
+   177→      initial={{ opacity: 0, scale: 0.95 }}
+   178→      animate={{ opacity: 1, scale: 1 }}
+   179→      className="group cursor-pointer"
+   180→      onClick={onClick}
+   181→    >
+   182→      <Card className="border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all duration-200 bg-white">
+   183→        <CardContent className="p-3 space-y-2">
+   184→          {/* Header */}
+   185→          <div className="flex items-start justify-between gap-2">
+   186→            <h4 className="text-sm font-semibold text-slate-900 leading-tight line-clamp-2">
+   187→              {lead.business.name}
+   188→            </h4>
+   189→            <Badge variant="secondary" className={`text-[10px] shrink-0 ${priority.bg} ${priority.color} border-0`}>
+   190→              {priority.label}
+   191→            </Badge>
+   192→          </div>
+   193→
+   194→          {/* Category & Location */}
+   195→          <div className="flex items-center gap-2 flex-wrap">
+   196→            <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+   197→              <Tag className="h-2.5 w-2.5 mr-0.5" />
+   198→              {lead.business.category}
+   199→            </Badge>
+   200→            {lead.business.city && (
+   201→              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+   202→                <MapPin className="h-2.5 w-2.5" />
+   203→                {lead.business.city}
+   204→              </span>
+   205→            )}
+   206→          </div>
+   207→
+   208→          {/* Value */}
+   209→          {lead.estimatedValue && (
+   210→            <div className="flex items-center gap-1">
+   211→              <DollarSign className="h-3 w-3 text-emerald-600" />
+   212→              <span className="text-xs font-semibold text-emerald-700">
+   213→                ₹{lead.estimatedValue.toLocaleString('en-IN')}
+   214→              </span>
+   215→            </div>
+   216→          )}
+   217→
+   218→          {/* Indicators */}
+   219→          <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+   220→            {lead.business.leadScore != null && (
+   221→              <span className="text-[10px] text-muted-foreground">
+   222→                Score: <span className="font-semibold text-slate-700">{lead.business.leadScore}</span>
+   223→              </span>
+   224→            )}
+   225→            {hasTasks && (
+   226→              <span className="text-[10px] text-blue-600 flex items-center gap-0.5">
+   227→                <ListTodo className="h-2.5 w-2.5" />
+   228→                {lead.leadTasks.length}
+   229→              </span>
+   230→            )}
+   231→            {hasReminders && (
+   232→              <span className="text-[10px] text-amber-600 flex items-center gap-0.5">
+   233→                <Bell className="h-2.5 w-2.5" />
+   234→                {lead.reminders.length}
+   235→              </span>
+   236→            )}
+   237→            <span className="ml-auto text-[10px] text-muted-foreground flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+   238→              Open <ChevronRight className="h-2.5 w-2.5" />
+   239→            </span>
+   240→          </div>
+   241→        </CardContent>
+   242→      </Card>
+   243→    </motion.div>
+   244→  )
+   245→}
+   246→
+   247→// ── Pipeline Column ──────────────────────────────────────────────
+   248→
+   249→function PipelineColumn({
+   250→  stage,
+   251→  leads,
+   252→  onLeadClick,
+   253→}: {
+   254→  stage: PipelineStage
+   255→  leads: Lead[]
+   256→  onLeadClick: (lead: Lead) => void
+   257→}) {
+   258→  const Icon = STAGE_ICONS[stage.id] || Circle
+   259→  const totalValue = leads.reduce((sum, l) => sum + (l.estimatedValue || 0), 0)
+   260→
+   261→  return (
+   262→    <div className="flex flex-col min-w-[280px] w-[280px]">
+   263→      {/* Column Header */}
+   264→      <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-lg bg-white border border-slate-200">
+   265→        <div className="h-7 w-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: stage.color + '20' }}>
+   266→          <Icon className="h-4 w-4" style={{ color: stage.color }} />
+   267→        </div>
+   268→        <div className="flex-1 min-w-0">
+   269→          <h3 className="text-xs font-bold text-slate-900 truncate">{stage.label}</h3>
+   270→          <p className="text-[10px] text-muted-foreground">
+   271→            {leads.length} lead{leads.length !== 1 ? 's' : ''} · ₹{totalValue.toLocaleString('en-IN')}
+   272→          </p>
+   273→        </div>
+   274→        <Badge variant="secondary" className="h-5 text-[10px] px-1.5" style={{ backgroundColor: stage.color + '15', color: stage.color }}>
+   275→          {leads.length}
+   276→        </Badge>
+   277→      </div>
+   278→
+   279→      {/* Lead Cards */}
+   280→      <div className="flex-1 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] pr-1 custom-scrollbar">
+   281→        <AnimatePresence>
+   282→          {leads.map((lead) => (
+   283→            <LeadCard key={lead.id} lead={lead} onClick={() => onLeadClick(lead)} />
+   284→          ))}
+   285→        </AnimatePresence>
+   286→        {leads.length === 0 && (
+   287→          <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+   288→            <Icon className="h-8 w-8 mb-2 opacity-20" style={{ color: stage.color }} />
+   289→            <p className="text-xs">No leads here yet</p>
+   290→          </div>
+   291→        )}
+   292→      </div>
+   293→    </div>
+   294→  )
+   295→}
+   296→
+   297→// ── Lead Detail Panel ────────────────────────────────────────────
+   298→
+   299→function LeadDetailPanel({
+   300→  lead,
+   301→  onClose,
+   302→  onRefresh,
+   303→}: {
+   304→  lead: Lead
+   305→  onClose: () => void
+   306→  onRefresh: () => void
+   307→}) {
+   308→  const { user } = useAppStore()
+   309→  const { toast } = useToast()
+   310→  const [activeTab, setActiveTab] = useState('details')
+   311→  const [notes, setNotes] = useState<LeadNote[]>([])
+   312→  const [tasks, setTasks] = useState<LeadTask[]>([])
+   313→  const [reminders, setReminders] = useState<Reminder[]>([])
+   314→  const [activities, setActivities] = useState<ActivityLogItem[]>([])
+   315→  const [loadingDetails, setLoadingDetails] = useState(true)
+   316→
+   317→  // Form states
+   318→  const [newNote, setNewNote] = useState('')
+   319→  const [newTask, setNewTask] = useState('')
+   320→  const [newTaskDue, setNewTaskDue] = useState('')
+   321→  const [newReminder, setNewReminder] = useState('')
+   322→  const [newReminderDue, setNewReminderDue] = useState('')
+   323→  const [selectedStatus, setSelectedStatus] = useState(lead.status)
+   324→  const [selectedPriority, setSelectedPriority] = useState(lead.priority)
+   325→  const [estimatedValue, setEstimatedValue] = useState(lead.estimatedValue?.toString() || '')
+   326→
+   327→  // Load lead details
+   328→  useEffect(() => {
+   329→    const loadDetails = async () => {
+   330→      setLoadingDetails(true)
+   331→      try {
+   332→        const [notesRes, tasksRes, remindersRes, activitiesRes] = await Promise.all([
+   333→          fetch(`/api/crm/notes?leadId=${lead.id}`),
+   334→          fetch(`/api/crm/tasks?leadId=${lead.id}`),
+   335→          fetch(`/api/crm/reminders?leadId=${lead.id}`),
+   336→          fetch(`/api/crm/activities?leadId=${lead.id}`),
+   337→        ])
+   338→        if (notesRes.ok) setNotes((await notesRes.json()).notes || [])
+   339→        if (tasksRes.ok) setTasks((await tasksRes.json()).tasks || [])
+   340→        if (remindersRes.ok) setReminders((await remindersRes.json()).reminders || [])
+   341→        if (activitiesRes.ok) setActivities((await activitiesRes.json()).activities || [])
+   342→      } catch {
+   343→        // Silent fail
+   344→      } finally {
+   345→        setLoadingDetails(false)
+   346→      }
+   347→    }
+   348→    loadDetails()
+   349→  }, [lead.id])
+   350→
+   351→  // Update lead
+   352→  const handleUpdateLead = async () => {
+   353→    try {
+   354→      const res = await fetch('/api/crm/pipeline', {
+   355→        method: 'PATCH',
+   356→        headers: { 'Content-Type': 'application/json' },
+   357→        body: JSON.stringify({
+   358→          leadId: lead.id,
+   359→          status: selectedStatus,
+   360→          priority: selectedPriority,
+   361→          estimatedValue: estimatedValue ? parseFloat(estimatedValue) : null,
+   362→          userId: user?.id || 'demo',
+   363→        }),
+   364→      })
+   365→      if (res.ok) {
+   366→        toast({ title: 'Lead updated!' })
+   367→        onRefresh()
+   368→      }
+   369→    } catch {
+   370→      toast({ title: 'Failed to update lead', variant: 'destructive' })
+   371→    }
+   372→  }
+   373→
+   374→  // Add note
+   375→  const handleAddNote = async () => {
+   376→    if (!newNote.trim()) return
+   377→    try {
+   378→      const res = await fetch('/api/crm/notes', {
+   379→        method: 'POST',
+   380→        headers: { 'Content-Type': 'application/json' },
+   381→        body: JSON.stringify({ leadId: lead.id, userId: user?.id || 'demo', content: newNote.trim() }),
+   382→      })
+   383→      if (res.ok) {
+   384→        const data = await res.json()
+   385→        setNotes(prev => [data.note, ...prev])
+   386→        setNewNote('')
+   387→        toast({ title: 'Note added!' })
+   388→      }
+   389→    } catch {
+   390→      toast({ title: 'Failed to add note', variant: 'destructive' })
+   391→    }
+   392→  }
+   393→
+   394→  // Add task
+   395→  const handleAddTask = async () => {
+   396→    if (!newTask.trim()) return
+   397→    try {
+   398→      const res = await fetch('/api/crm/tasks', {
+   399→        method: 'POST',
+   400→        headers: { 'Content-Type': 'application/json' },
+   401→        body: JSON.stringify({
+   402→          leadId: lead.id,
+   403→          userId: user?.id || 'demo',
+   404→          title: newTask.trim(),
+   405→          dueDate: newTaskDue || null,
+   406→        }),
+   407→      })
+   408→      if (res.ok) {
+   409→        const data = await res.json()
+   410→        setTasks(prev => [data.task, ...prev])
+   411→        setNewTask('')
+   412→        setNewTaskDue('')
+   413→        toast({ title: 'Task added!' })
+   414→      }
+   415→    } catch {
+   416→      toast({ title: 'Failed to add task', variant: 'destructive' })
+   417→    }
+   418→  }
+   419→
+   420→  // Toggle task
+   421→  const handleToggleTask = async (taskId: string, completed: boolean) => {
+   422→    try {
+   423→      const res = await fetch('/api/crm/tasks', {
+   424→        method: 'PATCH',
+   425→        headers: { 'Content-Type': 'application/json' },
+   426→        body: JSON.stringify({ taskId, completed: !completed }),
+   427→      })
+   428→      if (res.ok) {
+   429→        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, completed: !completed, completedAt: !completed ? new Date().toISOString() : null } : t))
+   430→        toast({ title: completed ? 'Task reopened' : 'Task completed!' })
+   431→      }
+   432→    } catch {
+   433→      toast({ title: 'Failed to update task', variant: 'destructive' })
+   434→    }
+   435→  }
+   436→
+   437→  // Delete task
+   438→  const handleDeleteTask = async (taskId: string) => {
+   439→    try {
+   440→      const res = await fetch(`/api/crm/tasks?taskId=${taskId}`, { method: 'DELETE' })
+   441→      if (res.ok) {
+   442→        setTasks(prev => prev.filter(t => t.id !== taskId))
+   443→        toast({ title: 'Task deleted' })
+   444→      }
+   445→    } catch {
+   446→      toast({ title: 'Failed to delete task', variant: 'destructive' })
+   447→    }
+   448→  }
+   449→
+   450→  // Add reminder
+   451→  const handleAddReminder = async () => {
+   452→    if (!newReminder.trim() || !newReminderDue) return
+   453→    try {
+   454→      const res = await fetch('/api/crm/reminders', {
+   455→        method: 'POST',
+   456→        headers: { 'Content-Type': 'application/json' },
+   457→        body: JSON.stringify({
+   458→          leadId: lead.id,
+   459→          userId: user?.id || 'demo',
+   460→          title: newReminder.trim(),
+   461→          dueDate: newReminderDue,
+   462→        }),
+   463→      })
+   464→      if (res.ok) {
+   465→        const data = await res.json()
+   466→        setReminders(prev => [data.reminder, ...prev])
+   467→        setNewReminder('')
+   468→        setNewReminderDue('')
+   469→        toast({ title: 'Reminder set!' })
+   470→      }
+   471→    } catch {
+   472→      toast({ title: 'Failed to add reminder', variant: 'destructive' })
+   473→    }
+   474→  }
+   475→
+   476→  // Complete reminder
+   477→  const handleCompleteReminder = async (reminderId: string) => {
+   478→    try {
+   479→      const res = await fetch('/api/crm/reminders', {
+   480→        method: 'PATCH',
+   481→        headers: { 'Content-Type': 'application/json' },
+   482→        body: JSON.stringify({ reminderId, completed: true }),
+   483→      })
+   484→      if (res.ok) {
+   485→        setReminders(prev => prev.map(r => r.id === reminderId ? { ...r, completed: true } : r))
+   486→        toast({ title: 'Reminder completed' })
+   487→      }
+   488→    } catch {
+   489→      toast({ title: 'Failed to update reminder', variant: 'destructive' })
+   490→    }
+   491→  }
+   492→
+   493→  // Delete reminder
+   494→  const handleDeleteReminder = async (reminderId: string) => {
+   495→    try {
+   496→      const res = await fetch(`/api/crm/reminders?reminderId=${reminderId}`, { method: 'DELETE' })
+   497→      if (res.ok) {
+   498→        setReminders(prev => prev.filter(r => r.id !== reminderId))
+   499→        toast({ title: 'Reminder deleted' })
+   500→      }
+   501→    } catch {
+   502→      toast({ title: 'Failed to delete reminder', variant: 'destructive' })
+   503→    }
+   504→  }
+   505→
+   506→  const priority = PRIORITY_CONFIG[lead.priority] || PRIORITY_CONFIG.medium
+   507→  const biz = lead.business
+   508→
+   509→  return (
+   510→    <motion.div
+   511→      initial={{ opacity: 0, x: 40 }}
+   512→      animate={{ opacity: 1, x: 0 }}
+   513→      exit={{ opacity: 0, x: 40 }}
+   514→      className="fixed inset-y-0 right-0 z-50 w-full sm:w-[480px] bg-white border-l border-slate-200 shadow-2xl flex flex-col"
+   515→    >
+   516→      {/* Header */}
+   517→      <div className="flex items-center justify-between p-4 border-b bg-slate-50">
+   518→        <div className="flex-1 min-w-0">
+   519→          <h2 className="text-lg font-bold text-slate-900 truncate">{biz.name}</h2>
+   520→          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+   521→            <Badge variant="outline" className="text-[10px] h-5 px-1.5">
+   522→              <Tag className="h-2.5 w-2.5 mr-0.5" /> {biz.category}
+   523→            </Badge>
+   524→            {biz.city && (
+   525→              <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+   526→                <MapPin className="h-3 w-3" /> {biz.city}
+   527→              </span>
+   528→            )}
+   529→          </div>
+   530→        </div>
+   531→        <Button variant="ghost" size="icon" onClick={onClose} className="shrink-0">
+   532→          <X className="h-5 w-5" />
+   533→        </Button>
+   534→      </div>
+   535→
+   536→      {/* Tabs */}
+   537→      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+   538→        <div className="border-b px-4">
+   539→          <TabsList className="h-10 bg-transparent p-0 gap-4">
+   540→            <TabsTrigger value="details" className="text-xs data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent rounded-none px-0 pb-0">Details</TabsTrigger>
+   541→            <TabsTrigger value="notes" className="text-xs data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent rounded-none px-0 pb-0">
+   542→              Notes{notes.length > 0 && ` (${notes.length})`}
+   543→            </TabsTrigger>
+   544→            <TabsTrigger value="tasks" className="text-xs data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent rounded-none px-0 pb-0">
+   545→              Tasks{tasks.length > 0 && ` (${tasks.filter(t => !t.completed).length})`}
+   546→            </TabsTrigger>
+   547→            <TabsTrigger value="reminders" className="text-xs data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent rounded-none px-0 pb-0">
+   548→              Reminders{reminders.length > 0 && ` (${reminders.filter(r => !r.completed).length})`}
+   549→            </TabsTrigger>
+   550→            <TabsTrigger value="activity" className="text-xs data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-amber-500 data-[state=active]:bg-transparent rounded-none px-0 pb-0">Activity</TabsTrigger>
+   551→          </TabsList>
+   552→        </div>
+   553→
+   554→        <div className="flex-1 overflow-y-auto">
+   555→          {/* Details Tab */}
+   556→          <TabsContent value="details" className="p-4 space-y-4 mt-0">
+   557→            {/* Business Info */}
+   558→            <Card className="border-0 shadow-none bg-slate-50">
+   559→              <CardContent className="p-3 space-y-2">
+   560→                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Business Info</h4>
+   561→                <div className="space-y-1.5">
+   562→                  {biz.phone && (
+   563→                    <div className="flex items-center gap-2 text-sm">
+   564→                      <Phone className="h-3.5 w-3.5 text-slate-400" />
+   565→                      <span>{biz.phone}</span>
+   566→                    </div>
+   567→                  )}
+   568→                  {biz.email && (
+   569→                    <div className="flex items-center gap-2 text-sm">
+   570→                      <Mail className="h-3.5 w-3.5 text-slate-400" />
+   571→                      <span>{biz.email}</span>
+   572→                    </div>
+   573→                  )}
+   574→                  {biz.leadScore != null && (
+   575→                    <div className="flex items-center gap-2 text-sm">
+   576→                      <TrendingUp className="h-3.5 w-3.5 text-slate-400" />
+   577→                      <span>Lead Score: <span className="font-semibold">{biz.leadScore}/100</span></span>
+   578→                    </div>
+   579→                  )}
+   580→                </div>
+   581→              </CardContent>
+   582→            </Card>
+   583→
+   584→            {/* Editable Fields */}
+   585→            <div className="space-y-3">
+   586→              <div className="space-y-1.5">
+   587→                <Label className="text-xs font-semibold">Pipeline Stage</Label>
+   588→                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+   589→                  <SelectTrigger className="h-9 text-sm">
+   590→                    <SelectValue />
+   591→                  </SelectTrigger>
+   592→                  <SelectContent>
+   593→                    <SelectItem value="new_lead">New Lead</SelectItem>
+   594→                    <SelectItem value="contacted">Contacted</SelectItem>
+   595→                    <SelectItem value="interested">Interested</SelectItem>
+   596→                    <SelectItem value="meeting_scheduled">Meeting Scheduled</SelectItem>
+   597→                    <SelectItem value="proposal_sent">Proposal Sent</SelectItem>
+   598→                    <SelectItem value="won">Won</SelectItem>
+   599→                    <SelectItem value="lost">Lost</SelectItem>
+   600→                  </SelectContent>
+   601→                </Select>
+   602→              </div>
+   603→
+   604→              <div className="space-y-1.5">
+   605→                <Label className="text-xs font-semibold">Priority</Label>
+   606→                <Select value={selectedPriority} onValueChange={setSelectedPriority}>
+   607→                  <SelectTrigger className="h-9 text-sm">
+   608→                    <SelectValue />
+   609→                  </SelectTrigger>
+   610→                  <SelectContent>
+   611→                    <SelectItem value="urgent">Urgent</SelectItem>
+   612→                    <SelectItem value="high">High</SelectItem>
+   613→                    <SelectItem value="medium">Medium</SelectItem>
+   614→                    <SelectItem value="low">Low</SelectItem>
+   615→                  </SelectContent>
+   616→                </Select>
+   617→              </div>
+   618→
+   619→              <div className="space-y-1.5">
+   620→                <Label className="text-xs font-semibold">Estimated Value (₹)</Label>
+   621→                <Input
+   622→                  type="number"
+   623→                  value={estimatedValue}
+   624→                  onChange={(e) => setEstimatedValue(e.target.value)}
+   625→                  placeholder="e.g. 24999"
+   626→                  className="h-9"
+   627→                />
+   628→              </div>
+   629→
+   630→              <Button className="w-full bg-amber-500 hover:bg-amber-600 text-white" onClick={handleUpdateLead}>
+   631→                Save Changes
+   632→              </Button>
+   633→            </div>
+   634→          </TabsContent>
+   635→
+   636→          {/* Notes Tab */}
+   637→          <TabsContent value="notes" className="p-4 space-y-3 mt-0">
+   638→            <div className="flex gap-2">
+   639→              <Textarea
+   640→                placeholder="Add a note..."
+   641→                value={newNote}
+   642→                onChange={(e) => setNewNote(e.target.value)}
+   643→                className="text-sm resize-none min-h-[60px]"
+   644→                onKeyDown={(e) => {
+   645→                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleAddNote()
+   646→                }}
+   647→              />
+   648→              <Button
+   649→                size="sm"
+   650→                className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white"
+   651→                onClick={handleAddNote}
+   652→                disabled={!newNote.trim()}
+   653→              >
+   654→                <Plus className="h-4 w-4" />
+   655→              </Button>
+   656→            </div>
+   657→            <div className="space-y-2">
+   658→              {notes.map((note) => (
+   659→                <Card key={note.id} className="border border-slate-200">
+   660→                  <CardContent className="p-3">
+   661→                    <p className="text-sm text-slate-800 whitespace-pre-line">{note.content}</p>
+   662→                    <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
+   663→                      <User className="h-3 w-3" />
+   664→                      <span>{note.user?.name || 'You'}</span>
+   665→                      <span>·</span>
+   666→                      <span>{new Date(note.createdAt).toLocaleDateString()}</span>
+   667→                    </div>
+   668→                  </CardContent>
+   669→                </Card>
+   670→              ))}
+   671→              {notes.length === 0 && (
+   672→                <div className="text-center py-8 text-muted-foreground">
+   673→                  <StickyNote className="h-8 w-8 mx-auto mb-2 opacity-20" />
+   674→                  <p className="text-xs">No notes yet</p>
+   675→                </div>
+   676→              )}
+   677→            </div>
+   678→          </TabsContent>
+   679→
+   680→          {/* Tasks Tab */}
+   681→          <TabsContent value="tasks" className="p-4 space-y-3 mt-0">
+   682→            <Card className="border border-slate-200">
+   683→              <CardContent className="p-3 space-y-2">
+   684→                <Input
+   685→                  placeholder="Add a task..."
+   686→                  value={newTask}
+   687→                  onChange={(e) => setNewTask(e.target.value)}
+   688→                  className="h-8 text-sm"
+   689→                  onKeyDown={(e) => {
+   690→                    if (e.key === 'Enter') handleAddTask()
+   691→                  }}
+   692→                />
+   693→                <div className="flex gap-2">
+   694→                  <Input
+   695→                    type="date"
+   696→                    value={newTaskDue}
+   697→                    onChange={(e) => setNewTaskDue(e.target.value)}
+   698→                    className="h-8 text-xs flex-1"
+   699→                  />
+   700→                  <Button
+   701→                    size="sm"
+   702→                    className="h-8 bg-amber-500 hover:bg-amber-600 text-white"
+   703→                    onClick={handleAddTask}
+   704→                    disabled={!newTask.trim()}
+   705→                  >
+   706→                    Add
+   707→                  </Button>
+   708→                </div>
+   709→              </CardContent>
+   710→            </Card>
+   711→            <div className="space-y-1.5">
+   712→              {tasks.map((task) => (
+   713→                <div key={task.id} className="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 group">
+   714→                  <Checkbox
+   715→                    checked={task.completed}
+   716→                    onCheckedChange={() => handleToggleTask(task.id, task.completed)}
+   717→                    className="mt-0.5"
+   718→                  />
+   719→                  <div className="flex-1 min-w-0">
+   720→                    <p className={`text-sm ${task.completed ? 'line-through text-muted-foreground' : 'text-slate-800'}`}>
+   721→                      {task.title}
+   722→                    </p>
+   723→                    {task.dueDate && (
+   724→                      <p className="text-[10px] text-muted-foreground flex items-center gap-0.5 mt-0.5">
+   725→                        <Clock className="h-2.5 w-2.5" />
+   726→                        {new Date(task.dueDate).toLocaleDateString()}
+   727→                      </p>
+   728→                    )}
+   729→                  </div>
+   730→                  <Button
+   731→                    variant="ghost"
+   732→                    size="sm"
+   733→                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"
+   734→                    onClick={() => handleDeleteTask(task.id)}
+   735→                  >
+   736→                    <X className="h-3 w-3" />
+   737→                  </Button>
+   738→                </div>
+   739→              ))}
+   740→              {tasks.length === 0 && (
+   741→                <div className="text-center py-8 text-muted-foreground">
+   742→                  <ListTodo className="h-8 w-8 mx-auto mb-2 opacity-20" />
+   743→                  <p className="text-xs">No tasks yet</p>
+   744→                </div>
+   745→              )}
+   746→            </div>
+   747→          </TabsContent>
+   748→
+   749→          {/* Reminders Tab */}
+   750→          <TabsContent value="reminders" className="p-4 space-y-3 mt-0">
+   751→            <Card className="border border-slate-200">
+   752→              <CardContent className="p-3 space-y-2">
+   753→                <Input
+   754→                  placeholder="Reminder title..."
+   755→                  value={newReminder}
+   756→                  onChange={(e) => setNewReminder(e.target.value)}
+   757→                  className="h-8 text-sm"
+   758→                />
+   759→                <div className="flex gap-2">
+   760→                  <Input
+   761→                    type="datetime-local"
+   762→                    value={newReminderDue}
+   763→                    onChange={(e) => setNewReminderDue(e.target.value)}
+   764→                    className="h-8 text-xs flex-1"
+   765→                  />
+   766→                  <Button
+   767→                    size="sm"
+   768→                    className="h-8 bg-amber-500 hover:bg-amber-600 text-white"
+   769→                    onClick={handleAddReminder}
+   770→                    disabled={!newReminder.trim() || !newReminderDue}
+   771→                  >
+   772→                    Set
+   773→                  </Button>
+   774→                </div>
+   775→              </CardContent>
+   776→            </Card>
+   777→            <div className="space-y-1.5">
+   778→              {reminders.map((reminder) => {
+   779→                const isOverdue = !reminder.completed && new Date(reminder.dueDate) < new Date()
+   780→                return (
+   781→                  <div key={reminder.id} className="flex items-start gap-2 p-2 rounded-lg hover:bg-slate-50 group">
+   782→                    <button onClick={() => handleCompleteReminder(reminder.id)}>
+   783→                      {reminder.completed ? (
+   784→                        <CheckCircle2 className="h-4 w-4 text-emerald-500 mt-0.5" />
+   785→                      ) : (
+   786→                        <AlertCircle className={`h-4 w-4 mt-0.5 ${isOverdue ? 'text-red-500' : 'text-amber-500'}`} />
+   787→                      )}
+   788→                    </button>
+   789→                    <div className="flex-1 min-w-0">
+   790→                      <p className={`text-sm ${reminder.completed ? 'line-through text-muted-foreground' : 'text-slate-800'}`}>
+   791→                        {reminder.title}
+   792→                      </p>
+   793→                      <p className={`text-[10px] flex items-center gap-0.5 mt-0.5 ${isOverdue ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
+   794→                        <Clock className="h-2.5 w-2.5" />
+   795→                        {isOverdue ? 'Overdue: ' : ''}{new Date(reminder.dueDate).toLocaleString()}
+   796→                      </p>
+   797→                    </div>
+   798→                    <Button
+   799→                      variant="ghost"
+   800→                      size="sm"
+   801→                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500"
+   802→                      onClick={() => handleDeleteReminder(reminder.id)}
+   803→                    >
+   804→                      <X className="h-3 w-3" />
+   805→                    </Button>
+   806→                  </div>
+   807→                )
+   808→              })}
+   809→              {reminders.length === 0 && (
+   810→                <div className="text-center py-8 text-muted-foreground">
+   811→                  <Bell className="h-8 w-8 mx-auto mb-2 opacity-20" />
+   812→                  <p className="text-xs">No reminders set</p>
+   813→                </div>
+   814→              )}
+   815→            </div>
+   816→          </TabsContent>
+   817→
+   818→          {/* Activity Tab */}
+   819→          <TabsContent value="activity" className="p-4 mt-0">
+   820→            <div className="space-y-1">
+   821→              {activities.map((activity, idx) => {
+   822→                let details: Record<string, string> = {}
+   823→                try { details = JSON.parse(activity.details || '{}') } catch {}
+   824→
+   825→                return (
+   826→                  <div key={activity.id} className="flex items-start gap-3 py-2">
+   827→                    <div className="flex flex-col items-center">
+   828→                      <div className="h-2 w-2 rounded-full bg-amber-400 mt-1.5" />
+   829→                      {idx < activities.length - 1 && <div className="w-0.5 flex-1 bg-slate-200 mt-1" />}
+   830→                    </div>
+   831→                    <div className="flex-1 min-w-0 pb-2">
+   832→                      <p className="text-sm text-slate-800">
+   833→                        <span className="font-medium">{ACTION_LABELS[activity.action] || activity.action}</span>
+   834→                        {details.from && details.to && (
+   835→                          <span className="text-muted-foreground"> · {details.from} → {details.to}</span>
+   836→                        )}
+   837→                      </p>
+   838→                      <p className="text-[10px] text-muted-foreground mt-0.5">
+   839→                        {activity.user?.name || 'You'} · {new Date(activity.createdAt).toLocaleString()}
+   840→                      </p>
+   841→                    </div>
+   842→                  </div>
+   843→                )
+   844→              })}
+   845→              {activities.length === 0 && (
+   846→                <div className="text-center py-8 text-muted-foreground">
+   847→                  <Activity className="h-8 w-8 mx-auto mb-2 opacity-20" />
+   848→                  <p className="text-xs">No activity yet</p>
+   849→                </div>
+   850→              )}
+   851→            </div>
+   852→          </TabsContent>
+   853→        </div>
+   854→      </Tabs>
+   855→    </motion.div>
+   856→  )
+   857→}
+   858→
+   859→// ── Main CRM Component ────────────────────────────────────────────
+   860→
+   861→export function CRMView() {
+   862→  const { user } = useAppStore()
+   863→  const [pipelineData, setPipelineData] = useState<PipelineData | null>(null)
+   864→  const [loading, setLoading] = useState(true)
+   865→  const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
+   866→
+   867→  const fetchPipeline = useCallback(async () => {
+   868→    try {
+   869→      const res = await fetch('/api/crm/pipeline')
+   870→      if (res.ok) {
+   871→        const data = await res.json()
+   872→        setPipelineData(data)
+   873→      }
+   874→    } catch {
+   875→      // Silent
+   876→    } finally {
+   877→      setLoading(false)
+   878→    }
+   879→  }, [])
+   880→
+   881→  useEffect(() => {
+   882→    fetchPipeline()
+   883→  }, [fetchPipeline, user?.id])
+   884→
+   885→  if (loading) {
+   886→    return (
+   887→      <div className="flex items-center justify-center h-64">
+   888→        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+   889→      </div>
+   890→    )
+   891→  }
+   892→
+   893→  if (!pipelineData) {
+   894→    return (
+   895→      <div className="flex items-center justify-center h-64 text-muted-foreground">
+   896→        Failed to load pipeline data
+   897→      </div>
+   898→    )
+   899→  }
+   900→
+   901→  const { pipeline, stages, stats } = pipelineData
+   902→
+   903→  return (
+   904→    <div className="space-y-4">
+   905→      {/* Header */}
+   906→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   907→        <div>
+   908→          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+   909→            <div className="h-8 w-8 rounded-lg bg-amber-500 flex items-center justify-center">
+   910→              <Kanban className="h-5 w-5 text-white" />
+   911→            </div>
+   912→            CRM Pipeline
+   913→          </h1>
+   914→          <p className="text-muted-foreground mt-1">Track and manage your sales pipeline</p>
+   915→        </div>
+   916→      </div>
+   917→
+   918→      {/* Stats Row */}
+   919→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   920→        <Card className="border-0 shadow-sm">
+   921→          <CardContent className="p-4">
+   922→            <div className="flex items-center gap-3">
+   923→              <div className="h-10 w-10 rounded-xl bg-blue-50 flex items-center justify-center">
+   924→                <Building2 className="h-5 w-5 text-blue-600" />
+   925→              </div>
+   926→              <div>
+   927→                <p className="text-2xl font-bold text-slate-900">{stats.totalLeads}</p>
+   928→                <p className="text-xs text-muted-foreground">Total Leads</p>
+   929→              </div>
+   930→            </div>
+   931→          </CardContent>
+   932→        </Card>
+   933→        <Card className="border-0 shadow-sm">
+   934→          <CardContent className="p-4">
+   935→            <div className="flex items-center gap-3">
+   936→              <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+   937→                <DollarSign className="h-5 w-5 text-emerald-600" />
+   938→              </div>
+   939→              <div>
+   940→                <p className="text-2xl font-bold text-slate-900">₹{stats.totalValue.toLocaleString('en-IN')}</p>
+   941→                <p className="text-xs text-muted-foreground">Pipeline Value</p>
+   942→              </div>
+   943→            </div>
+   944→          </CardContent>
+   945→        </Card>
+   946→        <Card className="border-0 shadow-sm">
+   947→          <CardContent className="p-4">
+   948→            <div className="flex items-center gap-3">
+   949→              <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center">
+   950→                <Trophy className="h-5 w-5 text-green-600" />
+   951→              </div>
+   952→              <div>
+   953→                <p className="text-2xl font-bold text-slate-900">₹{stats.wonValue.toLocaleString('en-IN')}</p>
+   954→                <p className="text-xs text-muted-foreground">Won Value</p>
+   955→              </div>
+   956→            </div>
+   957→          </CardContent>
+   958→        </Card>
+   959→        <Card className="border-0 shadow-sm">
+   960→          <CardContent className="p-4">
+   961→            <div className="flex items-center gap-3">
+   962→              <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center">
+   963→                <TrendingUp className="h-5 w-5 text-amber-600" />
+   964→              </div>
+   965→              <div>
+   966→                <p className="text-2xl font-bold text-slate-900">{stats.conversionRate}%</p>
+   967→                <p className="text-xs text-muted-foreground">Conversion Rate</p>
+   968→              </div>
+   969→            </div>
+   970→          </CardContent>
+   971→        </Card>
+   972→      </div>
+   973→
+   974→      {/* Pipeline Board */}
+   975→      <div className="overflow-x-auto pb-4 -mx-4 px-4 lg:-mx-8 lg:px-8">
+   976→        <div className="flex gap-4 min-h-[400px]">
+   977→          {stages.map((stage) => (
+   978→            <PipelineColumn
+   979→              key={stage.id}
+   980→              stage={stage}
+   981→              leads={pipeline[stage.id] || []}
+   982→              onLeadClick={setSelectedLead}
+   983→            />
+   984→          ))}
+   985→        </div>
+   986→      </div>
+   987→
+   988→      {/* Detail Panel Overlay */}
+   989→      <AnimatePresence>
+   990→        {selectedLead && (
+   991→          <>
+   992→            <div
+   993→              className="fixed inset-0 bg-black/30 z-40"
+   994→              onClick={(e) => {
+   995→                // Only close if clicking the backdrop itself, not child elements
+   996→                if (e.target === e.currentTarget) setSelectedLead(null)
+   997→              }}
+   998→            />
+   999→            <LeadDetailPanel
+  1000→              lead={selectedLead}
+  1001→              onClose={() => setSelectedLead(null)}
+  1002→              onRefresh={fetchPipeline}
+  1003→            />
+  1004→          </>
+  1005→        )}
+  1006→      </AnimatePresence>
+  1007→    </div>
+  1008→  )
+  1009→}
+  1010→
