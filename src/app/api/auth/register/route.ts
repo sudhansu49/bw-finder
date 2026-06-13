@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { createHashedPassword } from '@/lib/auth-utils'
-import { signAccessToken, signRefreshToken, setAuthCookies } from '@/lib/auth/jwt'
+import { signAccessToken, signRefreshToken, setAuthCookies, createSession } from '@/lib/auth/jwt'
 import { applyRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { auditRegister, getRequestInfo } from '@/lib/security/audit'
 
@@ -55,11 +55,14 @@ export async function POST(request: NextRequest) {
         password: hashedPassword,
         company: company || null,
         role: 'user',
-        credits: 50, // Free tier credits
+        credits: 50,
       },
     })
 
-    // Generate JWT tokens
+    // Generate JWT tokens with session
+    const refreshToken = await signRefreshToken(user.id, 'pending')
+    const sessionId = await createSession(user.id, refreshToken, ip, userAgent)
+
     const accessToken = await signAccessToken({
       id: user.id,
       email: user.email,
@@ -67,8 +70,8 @@ export async function POST(request: NextRequest) {
       name: user.name,
       planId: null,
       planTier: 'free',
+      sessionId,
     })
-    const refreshToken = await signRefreshToken(user.id)
 
     // Audit log
     await auditRegister(user.id, ip, userAgent)

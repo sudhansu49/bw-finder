@@ -31,6 +31,9 @@ export type AdminView =
   | 'admin-integrations'
   | 'admin-ai-usage'
   | 'admin-feature-flags'
+  | 'admin-security'
+  | 'admin-roles'
+  | 'admin-sessions'
   | 'admin-settings'
 
 export type UserView =
@@ -53,7 +56,6 @@ export type UserView =
   | 'user-notifications'
   | 'user-help'
 
-// Which auth screen to show: 'user' login or 'admin' login
 export type AuthMode = 'user' | 'admin'
 
 interface AppUser {
@@ -72,25 +74,16 @@ interface AppUser {
 }
 
 interface AppState {
-  // Auth
   user: AppUser | null
   setUser: (user: AppUser | null) => void
   authMode: AuthMode
   setAuthMode: (mode: AuthMode) => void
-
-  // Panel (derived from role after login - NO manual switching)
   activePanel: 'user' | 'admin'
   setActivePanel: (panel: 'user' | 'admin') => void
-
-  // User Panel views
   currentView: UserView
   setCurrentView: (view: UserView) => void
-
-  // Admin Panel views
   currentAdminView: AdminView
   setCurrentAdminView: (view: AdminView) => void
-
-  // Sidebar state - separate per panel
   userSidebarCollapsed: boolean
   setUserSidebarCollapsed: (collapsed: boolean) => void
   toggleUserSidebar: () => void
@@ -99,8 +92,6 @@ interface AppState {
   toggleAdminSidebar: () => void
   sidebarMobileOpen: boolean
   setSidebarMobileOpen: (open: boolean) => void
-
-  // Search results
   searchResults: any[]
   setSearchResults: (results: any[]) => void
   selectedBusiness: any | null
@@ -108,16 +99,10 @@ interface AppState {
   businessDetailOpen: boolean
   setBusinessDetailOpen: (open: boolean) => void
   openBusinessDetail: (business: any) => void
-
-  // Command palette
   commandPaletteOpen: boolean
   setCommandPaletteOpen: (open: boolean) => void
-
-  // Notifications panel
   notificationsOpen: boolean
   setNotificationsOpen: (open: boolean) => void
-
-  // Localization
   locale: LocaleCode
   setLocale: (locale: LocaleCode) => void
   currency: CurrencyCode
@@ -127,29 +112,20 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set) => ({
-      // Auth
       user: null,
       setUser: (user) => set({ user }),
       authMode: 'user',
       setAuthMode: (mode) => set({ authMode: mode }),
-
-      // Panel - set automatically based on login
       activePanel: 'user',
       setActivePanel: (panel) => set({
         activePanel: panel,
         userSidebarCollapsed: false,
         adminSidebarCollapsed: false,
       }),
-
-      // User Panel views
       currentView: 'user-dashboard',
       setCurrentView: (view) => set({ currentView: view }),
-
-      // Admin Panel views
       currentAdminView: 'admin-dashboard',
       setCurrentAdminView: (view) => set({ currentAdminView: view }),
-
-      // Sidebar - separate per panel
       userSidebarCollapsed: false,
       setUserSidebarCollapsed: (collapsed) => set({ userSidebarCollapsed: collapsed }),
       toggleUserSidebar: () => set((s) => ({ userSidebarCollapsed: !s.userSidebarCollapsed })),
@@ -158,8 +134,6 @@ export const useAppStore = create<AppState>()(
       toggleAdminSidebar: () => set((s) => ({ adminSidebarCollapsed: !s.adminSidebarCollapsed })),
       sidebarMobileOpen: false,
       setSidebarMobileOpen: (open) => set({ sidebarMobileOpen: open }),
-
-      // Search
       searchResults: [],
       setSearchResults: (results) => set({ searchResults: results }),
       selectedBusiness: null,
@@ -167,16 +141,10 @@ export const useAppStore = create<AppState>()(
       businessDetailOpen: false,
       setBusinessDetailOpen: (open) => set({ businessDetailOpen: open }),
       openBusinessDetail: (business) => set({ selectedBusiness: business, businessDetailOpen: true }),
-
-      // Command palette
       commandPaletteOpen: false,
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
-
-      // Notifications
       notificationsOpen: false,
       setNotificationsOpen: (open) => set({ notificationsOpen: open }),
-
-      // Localization
       locale: 'en',
       setLocale: (locale) => set({ locale }),
       currency: 'INR',
@@ -192,7 +160,6 @@ export const useAppStore = create<AppState>()(
         locale: state.locale,
         currency: state.currency,
       }),
-      // Skip hydration to avoid SSR/client mismatch — rehydrate after mount
       skipHydration: true,
     }
   )

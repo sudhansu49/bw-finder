@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAuth, clearAuthCookies } from '@/lib/auth/jwt'
+import { requireAuth, clearAuthCookies, revokeSession } from '@/lib/auth/jwt'
 import { auditLogout, getRequestInfo } from '@/lib/security/audit'
 
 export async function POST(request: NextRequest) {
@@ -10,6 +10,10 @@ export async function POST(request: NextRequest) {
     // Even if auth fails, we still clear cookies
     if (authResult.success) {
       await auditLogout(authResult.payload.sub, ip)
+      // Revoke the session if session ID exists
+      if (authResult.payload.sid) {
+        await revokeSession(authResult.payload.sid)
+      }
     }
 
     const response = NextResponse.json({

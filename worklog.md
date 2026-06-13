@@ -1,59 +1,44 @@
+# BW Finder - Phase 15: Security - Worklog
+
 ---
-Task ID: 15
-Agent: Main Agent
-Task: Phase 15 - Security (JWT, Rate Limiting, Audit Logs, RBAC)
+Task ID: 1
+Agent: Main
+Task: Phase 15: SECURITY - JWT, Rate Limiting, Audit Logs, Role Based Access Control
 
 Work Log:
-- Examined existing auth-utils.ts (PBKDF2 password hashing), rbac.ts (full RBAC with 5 roles, 44 permissions), and audit-logs API
-- Installed jose@6.2.3 for JWT token signing/verification
-- Created JWT authentication system (src/lib/auth/jwt.ts):
-  - signAccessToken() with 24h expiry, signRefreshToken() with 30d expiry
-  - verifyToken() with issuer/audience validation
-  - extractToken() from Authorization header or httpOnly cookies
-  - authenticateRequest(), requireAuth(), requireRole(), requireAdmin(), requireOwnerOrAdmin()
-  - setAuthCookies() and clearAuthCookies() for httpOnly secure cookie management
-- Created rate limiting middleware (src/lib/security/rate-limit.ts):
-  - In-memory sliding window rate limiter with automatic cleanup
-  - Pre-configured limits: login (5/min), register (3/min), api (100/min), search (30/min), export (10/min), checkout (5/min), admin (200/min), webhook (50/min)
-  - X-RateLimit-* headers and 429 responses with Retry-After
-  - applyRateLimit() convenience helper for routes
-- Created audit logging service (src/lib/security/audit.ts):
-  - 9 categories: auth, user, subscription, billing, credit, admin, system, security, api
-  - 4 severity levels: info, warning, error, critical
-  - Convenience functions: auditLogin, auditLoginFailure, auditRegister, auditLogout, auditSubscriptionChange, auditSubscriptionCancel, auditCreditTransaction, auditAdminUserAction, auditRateLimitHit, auditUnauthorizedAccess, auditPasswordChange, auditSecurityEvent
-  - getRequestInfo() helper for IP/User-Agent extraction
-- Updated login route: JWT tokens, httpOnly cookies, rate limiting (5/min), audit logging (success/failure), account status check (suspended/banned)
-- Updated register route: JWT tokens, httpOnly cookies, rate limiting (3/min), password strength validation (8+ chars), audit logging
-- Created auth verify route (GET /api/auth/verify): Token-based session verification
-- Created auth logout route (POST /api/auth/logout): Cookie clearing, audit logging
-- Updated admin users route: requireAdmin() + RBAC check + audit logging for all actions
-- Updated admin audit-logs route: requireAdmin() + RBAC check + stats computation
-- Updated user billing route: requireOwnerOrAdmin() + rate limiting
-- Updated user subscription route: requireOwnerOrAdmin() + rate limiting
-- Updated stripe checkout route: requireOwnerOrAdmin() + rate limiting + audit logging
-- Updated stripe cancel route: requireOwnerOrAdmin() + rate limiting + audit logging
-- Updated frontend auth flow:
-  - Login/register forms use credentials: 'include' for cookie-based auth
-  - page.tsx verifies JWT cookie on mount via /api/auth/verify
-  - Logout calls /api/auth/logout API to clear server-side cookies
-  - Both user and admin sidebars updated with async logout
-- Rebuilt Admin Audit Logs view with:
-  - Real API data from /api/admin/audit-logs
-  - Stats cards: Total Logs, Auth Events, Security Events, Critical, Today
-  - Category filter (auth, security, admin, billing, credits, system)
-  - Severity filter (info, warning, error, critical)
-  - Color-coded severity badges and category badges
-  - Actor info with name/email, IP address, timestamps
-- Verified all API routes work:
-  - POST /api/auth/register → JWT token + httpOnly cookies
-  - POST /api/auth/login → JWT token + httpOnly cookies + audit log
-  - GET /api/auth/verify → Token-based session verification
-  - Lint passes clean
+- Examined current codebase: existing JWT, rate-limit, audit, and RBAC foundations
+- Updated Prisma schema with Session model and enhanced User model (2FA fields, failedLoginAttempts, lockedUntil, passwordChangedAt)
+- Enhanced SystemAuditLog with resource, resourceId, metadata fields
+- Pushed schema changes with `bun run db:push`
+- Rewrote JWT system (src/lib/auth/jwt.ts): 15min access tokens, 7d refresh tokens, session tracking, token rotation, session creation/revocation
+- Created POST /api/auth/refresh - Token refresh with rotation
+- Updated POST /api/auth/login - Session creation, account lockout after 5 failed attempts
+- Updated POST /api/auth/logout - Session revocation
+- Updated POST /api/auth/register - Session creation on signup
+- Enhanced rate limiting (src/lib/security/rate-limit.ts): per-user key generation, tier-based multipliers, getRateLimitStats() for admin
+- Enhanced audit system (src/lib/security/audit.ts): new convenience functions (auditSessionEvent, auditRoleChange), resource/resourceId/metadata fields
+- Created GET /api/admin/security - Security dashboard with comprehensive stats
+- Created GET/PATCH /api/admin/roles - Role listing and user role changes with RBAC checks
+- Created GET/DELETE /api/admin/sessions - Session listing and revocation
+- Created AdminSecurity component - Full security dashboard with charts, stats, recent events
+- Created AdminRoles component - Permission matrix table, user role assignment with dialog
+- Created AdminSessions component - Active sessions list with revoke actions
+- Created AdminAuditLogs (enhanced) component - Full audit log viewer with filtering, export, charts, pagination
+- Updated AdminSidebar with RBAC filtering and new Security nav group
+- Updated UserSidebar with RBAC filtering (USER_NAV_PERMISSIONS)
+- Updated admin-layout.tsx with new view renderers
+- Updated store (app-store.ts) with new AdminView types (admin-security, admin-roles, admin-sessions)
+- Updated page.tsx with JWT auto-refresh (14min interval) and session verification
+- Updated RBAC module with USER_NAV_PERMISSIONS mapping
 
 Stage Summary:
-- Full JWT authentication with httpOnly cookies + Bearer token support
-- Rate limiting on all API routes with 8 pre-configured limits
-- Audit logging on login, register, logout, subscription changes, admin actions
-- RBAC enforcement on admin and user routes
-- Admin Audit Logs view now shows real data with severity/category badges
-- All security infrastructure in place and functional
+- Enterprise-grade JWT: 15min access + 7d refresh tokens with rotation and session tracking
+- Account lockout: 5 failed login attempts = 30min lock
+- Per-user rate limiting with JWT-aware key generation
+- Full audit trail with categories, severity, resource tracking
+- 5-role RBAC system with 50+ granular permissions
+- RBAC-filtered sidebars (both user and admin)
+- 3 new admin views: Security Center, Roles & Permissions, Active Sessions
+- Enhanced Audit Logs with CSV export, filtering, charts
+- All lint checks pass clean
+- All API endpoints verified working via curl

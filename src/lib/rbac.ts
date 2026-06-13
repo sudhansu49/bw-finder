@@ -191,3 +191,26 @@ export const ADMIN_NAV_PERMISSIONS: Record<string, Permission[]> = {
   'feature-flags': ['feature_flags.manage'],
   settings: ['system.settings'],
 }
+
+// ─── User Sidebar Items with Required Permissions ────────────────────────────
+
+export const USER_NAV_PERMISSIONS: Record<string, Permission[]> = {
+  dashboard: ['leads.list'],
+  'lead-finder': ['leads.list'],
+  'website-detection': ['leads.list'],
+  'lead-scoring': ['leads.list'],
+  outreach: ['leads.list'],
+  audit: ['leads.list'],
+  proposal: ['leads.list'],
+  whatsapp: ['leads.list'],
+  email: ['leads.list'],
+  crm: ['crm.view'],
+  reports: ['reports.view'],
+  exports: ['leads.export'],
+  settings: ['settings.own'],
+  profile: ['profile.view'],
+  billing: ['billing.own'],
+  subscription: ['billing.own'],
+  notifications: ['notifications.own'],
+  help: ['support.tickets'],
+}

@@ -34,11 +34,13 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useTranslation } from '@/lib/i18n/hooks'
+import { hasPermission, type Permission, USER_NAV_PERMISSIONS } from '@/lib/rbac'
 
 interface NavItem {
   view: UserView
   labelKey: string
   icon: React.ElementType
+  permissionKey: string
 }
 
 interface NavGroup {
@@ -50,39 +52,39 @@ const navGroups: NavGroup[] = [
   {
     titleKey: 'nav.overview',
     items: [
-      { view: 'user-dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
-      { view: 'user-lead-finder', labelKey: 'nav.leadFinder', icon: Search },
-      { view: 'user-website-detection', labelKey: 'nav.websiteDetection', icon: Globe },
-      { view: 'user-lead-scoring', labelKey: 'nav.leadScoring', icon: Target },
-      { view: 'user-outreach', labelKey: 'nav.outreach', icon: Megaphone },
+      { view: 'user-dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard, permissionKey: 'dashboard' },
+      { view: 'user-lead-finder', labelKey: 'nav.leadFinder', icon: Search, permissionKey: 'lead-finder' },
+      { view: 'user-website-detection', labelKey: 'nav.websiteDetection', icon: Globe, permissionKey: 'website-detection' },
+      { view: 'user-lead-scoring', labelKey: 'nav.leadScoring', icon: Target, permissionKey: 'lead-scoring' },
+      { view: 'user-outreach', labelKey: 'nav.outreach', icon: Megaphone, permissionKey: 'outreach' },
     ],
   },
   {
     titleKey: 'nav.tools',
     items: [
-      { view: 'user-audit', labelKey: 'nav.aiAudit', icon: ClipboardCheck },
-      { view: 'user-proposal', labelKey: 'nav.proposalGenerator', icon: FileText },
-      { view: 'user-whatsapp', labelKey: 'nav.whatsappGenerator', icon: Smartphone },
-      { view: 'user-email', labelKey: 'nav.emailGenerator', icon: Mail },
-      { view: 'user-crm', labelKey: 'nav.crm', icon: Kanban },
+      { view: 'user-audit', labelKey: 'nav.aiAudit', icon: ClipboardCheck, permissionKey: 'audit' },
+      { view: 'user-proposal', labelKey: 'nav.proposalGenerator', icon: FileText, permissionKey: 'proposal' },
+      { view: 'user-whatsapp', labelKey: 'nav.whatsappGenerator', icon: Smartphone, permissionKey: 'whatsapp' },
+      { view: 'user-email', labelKey: 'nav.emailGenerator', icon: Mail, permissionKey: 'email' },
+      { view: 'user-crm', labelKey: 'nav.crm', icon: Kanban, permissionKey: 'crm' },
     ],
   },
   {
     titleKey: 'nav.output',
     items: [
-      { view: 'user-reports', labelKey: 'nav.reports', icon: BarChart3 },
-      { view: 'user-exports', labelKey: 'nav.exports', icon: Download },
+      { view: 'user-reports', labelKey: 'nav.reports', icon: BarChart3, permissionKey: 'reports' },
+      { view: 'user-exports', labelKey: 'nav.exports', icon: Download, permissionKey: 'exports' },
     ],
   },
   {
     titleKey: 'nav.account',
     items: [
-      { view: 'user-settings', labelKey: 'nav.settings', icon: Settings },
-      { view: 'user-profile', labelKey: 'nav.profile', icon: User },
-      { view: 'user-billing', labelKey: 'nav.billing', icon: CreditCard },
-      { view: 'user-subscription', labelKey: 'nav.subscription', icon: Crown },
-      { view: 'user-notifications', labelKey: 'nav.notifications', icon: Bell },
-      { view: 'user-help', labelKey: 'nav.helpCenter', icon: LifeBuoy },
+      { view: 'user-settings', labelKey: 'nav.settings', icon: Settings, permissionKey: 'settings' },
+      { view: 'user-profile', labelKey: 'nav.profile', icon: User, permissionKey: 'profile' },
+      { view: 'user-billing', labelKey: 'nav.billing', icon: CreditCard, permissionKey: 'billing' },
+      { view: 'user-subscription', labelKey: 'nav.subscription', icon: Crown, permissionKey: 'subscription' },
+      { view: 'user-notifications', labelKey: 'nav.notifications', icon: Bell, permissionKey: 'notifications' },
+      { view: 'user-help', labelKey: 'nav.helpCenter', icon: LifeBuoy, permissionKey: 'help' },
     ],
   },
 ]
@@ -122,6 +124,17 @@ export function UserSidebar() {
 
   const { t } = useTranslation()
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
+  const userRole = user?.role || 'user'
+
+  // RBAC: Filter nav items based on user permissions
+  const filteredNavGroups = navGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      const requiredPerms = USER_NAV_PERMISSIONS[item.permissionKey]
+      if (!requiredPerms) return true
+      return requiredPerms.some((perm) => hasPermission(userRole, perm))
+    }),
+  })).filter((group) => group.items.length > 0)
 
   const handleNavClick = (view: UserView) => {
     setCurrentView(view)
@@ -258,7 +271,7 @@ export function UserSidebar() {
       {/* Navigation - scrollable area takes all available space */}
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="space-y-4">
-          {navGroups.map((group) => (
+          {filteredNavGroups.map((group) => (
             <div key={group.titleKey}>
               {!userSidebarCollapsed && (
                 <h3 className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">

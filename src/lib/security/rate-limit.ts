@@ -33,17 +33,44 @@ function defaultKeyGenerator(request: NextRequest): string {
   // Try to get IP from headers (behind proxy)
   const forwarded = request.headers.get('x-forwarded-for')
   if (forwarded) {
-    return forwarded.split(',')[0].trim()
+    return `ip:${forwarded.split(',')[0].trim()}`
   }
   // Fallback: use user agent + a hash for uniqueness
   const ua = request.headers.get('user-agent') || 'unknown'
   return `ip:${ua.slice(0, 50)}`
 }
 
+// ─── User-Aware Key Generator ──────────────────────────────────────────────
+// Extracts user ID from JWT if available, falls back to IP
+
+function userKeyGenerator(request: NextRequest): string {
+  // Try to extract user ID from the authorization cookie or header
+  const cookieToken = request.cookies.get('bw-access-token')?.value
+  const authHeader = request.headers.get('authorization')
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : cookieToken
+
+  if (token) {
+    // Decode JWT payload without verification (just for rate limit key)
+    try {
+      const parts = token.split('.')
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString())
+        if (payload.sub) {
+          return `user:${payload.sub}`
+        }
+      }
+    } catch {
+      // Fall through to IP-based key
+    }
+  }
+
+  return defaultKeyGenerator(request)
+}
+
 // ─── Pre-configured Rate Limits ────────────────────────────────────────────
 
 export const RATE_LIMITS = {
-  // Auth routes: 5 attempts per minute per IP
+  // Auth routes: 10 attempts per minute per IP
   auth: { windowMs: 60 * 1000, maxRequests: 10 },
 
   // Login: stricter - 5 attempts per minute
@@ -52,24 +79,37 @@ export const RATE_LIMITS = {
   // Register: 3 per minute
   register: { windowMs: 60 * 1000, maxRequests: 3 },
 
-  // General API: 100 requests per minute
-  api: { windowMs: 60 * 1000, maxRequests: 100 },
+  // General API: 100 requests per minute per user
+  api: { windowMs: 60 * 1000, maxRequests: 100, keyGenerator: userKeyGenerator },
 
   // Search/Lead finder: 30 per minute (expensive operations)
-  search: { windowMs: 60 * 1000, maxRequests: 30 },
+  search: { windowMs: 60 * 1000, maxRequests: 30, keyGenerator: userKeyGenerator },
 
   // Export: 10 per minute (resource heavy)
-  export: { windowMs: 60 * 1000, maxRequests: 10 },
+  export: { windowMs: 60 * 1000, maxRequests: 10, keyGenerator: userKeyGenerator },
 
   // Stripe checkout: 5 per minute
-  checkout: { windowMs: 60 * 1000, maxRequests: 5 },
+  checkout: { windowMs: 60 * 1000, maxRequests: 5, keyGenerator: userKeyGenerator },
 
   // Admin routes: 200 per minute
-  admin: { windowMs: 60 * 1000, maxRequests: 200 },
+  admin: { windowMs: 60 * 1000, maxRequests: 200, keyGenerator: userKeyGenerator },
 
   // Webhook: 50 per minute
   webhook: { windowMs: 60 * 1000, maxRequests: 50 },
+
+  // Password change: 3 per minute
+  password: { windowMs: 60 * 1000, maxRequests: 3, keyGenerator: userKeyGenerator },
 } as const
+
+// ─── Tier-Based Rate Limit Overrides ────────────────────────────────────────
+// Higher tiers get higher rate limits
+
+export const TIER_RATE_MULTIPLIERS: Record<string, number> = {
+  free: 1,
+  starter: 1.5,
+  agency: 3,
+  enterprise: 10,
+}
 
 // ─── Rate Limit Check ──────────────────────────────────────────────────────
 
@@ -78,6 +118,8 @@ export interface RateLimitResult {
   remaining: number
   resetTime: number
   retryAfter?: number  // seconds until retry is allowed
+  limit: number
+  key: string
 }
 
 export function checkRateLimit(
@@ -86,6 +128,7 @@ export function checkRateLimit(
 ): RateLimitResult {
   const key = (config.keyGenerator || defaultKeyGenerator)(request)
   const now = Date.now()
+  const maxRequests = config.maxRequests
 
   const entry = store.get(key)
 
@@ -95,27 +138,33 @@ export function checkRateLimit(
     store.set(key, { count: 1, resetTime })
     return {
       allowed: true,
-      remaining: config.maxRequests - 1,
+      remaining: maxRequests - 1,
       resetTime,
+      limit: maxRequests,
+      key,
     }
   }
 
   // Within window - increment count
-  if (entry.count >= config.maxRequests) {
+  if (entry.count >= maxRequests) {
     const retryAfter = Math.ceil((entry.resetTime - now) / 1000)
     return {
       allowed: false,
       remaining: 0,
       resetTime: entry.resetTime,
       retryAfter,
+      limit: maxRequests,
+      key,
     }
   }
 
   entry.count++
   return {
     allowed: true,
-    remaining: config.maxRequests - entry.count,
+    remaining: maxRequests - entry.count,
     resetTime: entry.resetTime,
+    limit: maxRequests,
+    key,
   }
 }
 
@@ -126,7 +175,7 @@ export function addRateLimitHeaders(
   result: RateLimitResult,
   config: RateLimitConfig = RATE_LIMITS.api
 ): NextResponse {
-  response.headers.set('X-RateLimit-Limit', config.maxRequests.toString())
+  response.headers.set('X-RateLimit-Limit', result.limit.toString())
   response.headers.set('X-RateLimit-Remaining', result.remaining.toString())
   response.headers.set('X-RateLimit-Reset', new Date(result.resetTime).toISOString())
 
@@ -163,4 +212,16 @@ export function applyRateLimit(
     return result // Caller should return rateLimitResponse(result)
   }
   return null // Allowed, continue processing
+}
+
+// ─── Get Rate Limit Stats ──────────────────────────────────────────────────
+// For admin dashboard
+
+export function getRateLimitStats(): { totalKeys: number; activeKeys: number } {
+  const now = Date.now()
+  let active = 0
+  for (const [, entry] of store.entries()) {
+    if (now <= entry.resetTime) active++
+  }
+  return { totalKeys: store.size, activeKeys: active }
 }

@@ -1,16 +1,36 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { AuthPage } from '@/components/layout/auth-page'
 import { AdminLoginPage } from '@/components/auth/admin-login-page'
 import { UserLayout } from '@/components/user/user-layout'
 import { AdminLayout } from '@/components/admin/admin-layout'
 
-export default function Home() {
-  const { user, activePanel, authMode } = useAppStore()
+// ─── JWT Token Refresh Logic ────────────────────────────────────────────────
+// Access tokens expire every 15 minutes. This helper refreshes them
+// automatically when they expire using the refresh token cookie.
 
-  // Rehydrate Zustand persisted store after mount (skipHydration is enabled)
+async function refreshAccessToken(): Promise<{ user: any; token: string } | null> {
+  try {
+    const res = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (res.ok) {
+      const data = await res.json()
+      return { user: data.user, token: data.token }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+export default function Home() {
+  const { user, activePanel, authMode, setUser } = useAppStore()
+
+  // Rehydrate Zustand persisted store after mount
   useEffect(() => {
     useAppStore.persist.rehydrate()
   }, [])
@@ -25,15 +45,13 @@ export default function Home() {
           localStorage.setItem('bw-finder-seeded', 'true')
         }
       } catch {
-        // Silent fail - seed might already exist
+        // Silent fail
       }
     }
     seedIfNeeded()
   }, [])
 
-  // JWT Cookie-based session verification
-  // On mount, verify the JWT cookie is valid by calling /api/auth/verify
-  // Also restore user from localStorage as fallback for offline/speed
+  // JWT Cookie-based session verification with auto-refresh
   useEffect(() => {
     const verifySession = async () => {
       const explicitLogout = sessionStorage.getItem('bw-finder-logged-out')
@@ -42,7 +60,7 @@ export default function Home() {
         return
       }
 
-      // Try to restore from localStorage first for instant UI
+      // Restore from localStorage first for instant UI
       const savedUser = localStorage.getItem('bw-finder-user')
       if (savedUser && !user) {
         try {
@@ -53,23 +71,28 @@ export default function Home() {
         }
       }
 
-      // Then verify the JWT cookie with the server
+      // Verify JWT cookie with the server
       try {
-        const res = await fetch('/api/auth/verify')
+        const res = await fetch('/api/auth/verify', { credentials: 'include' })
         if (res.ok) {
           const data = await res.json()
           if (data.user) {
             useAppStore.getState().setUser(data.user)
             localStorage.setItem('bw-finder-user', JSON.stringify(data.user))
           }
-        } else {
-          // JWT is invalid/expired - clear session
-          const currentUser = useAppStore.getState().user
-          if (currentUser) {
-            // Only clear if we had a user (session expired)
-            localStorage.removeItem('bw-finder-user')
-            // Don't setUser(null) here to avoid flash - let user continue
-            // The next API call will fail with 401 and then we'll redirect
+        } else if (res.status === 401) {
+          // Access token expired - try to refresh
+          const refreshed = await refreshAccessToken()
+          if (refreshed) {
+            useAppStore.getState().setUser(refreshed.user)
+            localStorage.setItem('bw-finder-user', JSON.stringify(refreshed.user))
+          } else {
+            // Refresh failed - session expired
+            const currentUser = useAppStore.getState().user
+            if (currentUser) {
+              localStorage.removeItem('bw-finder-user')
+              useAppStore.getState().setUser(null)
+            }
           }
         }
       } catch {
@@ -78,6 +101,21 @@ export default function Home() {
     }
     verifySession()
   }, [])
+
+  // Periodic token refresh (every 14 minutes, access token expires at 15 min)
+  useEffect(() => {
+    if (!user) return
+
+    const interval = setInterval(async () => {
+      const refreshed = await refreshAccessToken()
+      if (refreshed) {
+        useAppStore.getState().setUser(refreshed.user)
+        localStorage.setItem('bw-finder-user', JSON.stringify(refreshed.user))
+      }
+    }, 14 * 60 * 1000) // 14 minutes
+
+    return () => clearInterval(interval)
+  }, [user])
 
   // Persist user session in localStorage
   useEffect(() => {
@@ -90,10 +128,7 @@ export default function Home() {
   }, [user])
 
   // ─── Routing Logic ─────────────────────────────────────────────────────────
-  // COMPLETELY SEPARATE: Admin and User panels render independently
-  // No shared state between panels beyond auth
 
-  // Not authenticated - show auth page based on mode
   if (!user) {
     if (authMode === 'admin') {
       return <AdminLoginPage />
@@ -101,8 +136,6 @@ export default function Home() {
     return <AuthPage />
   }
 
-  // Authenticated - route to the correct panel
-  // Admin panel and User panel are COMPLETELY SEPARATE
   if (activePanel === 'admin') {
     return <AdminLayout />
   }

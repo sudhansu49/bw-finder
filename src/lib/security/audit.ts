@@ -13,6 +13,7 @@ export type AuditCategory =
   | 'system'        // System health, configuration changes
   | 'security'      // Rate limit hits, suspicious activity, failed auth
   | 'api'           // API usage patterns
+  | 'session'       // Session creation, revocation
 
 // ─── Audit Severity Levels ─────────────────────────────────────────────────
 
@@ -28,6 +29,9 @@ export interface AuditLogEntry {
   ipAddress?: string | null
   userAgent?: string | null
   severity?: AuditSeverity
+  resource?: string | null
+  resourceId?: string | null
+  metadata?: Record<string, any> | null
 }
 
 // ─── Create Audit Log ──────────────────────────────────────────────────────
@@ -43,6 +47,9 @@ export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
         ipAddress: entry.ipAddress || null,
         userAgent: entry.userAgent || null,
         severity: entry.severity || 'info',
+        resource: entry.resource || null,
+        resourceId: entry.resourceId || null,
+        metadata: entry.metadata ? JSON.stringify(entry.metadata) : null,
       },
     })
   } catch (error) {
@@ -67,6 +74,8 @@ export async function auditLogin(
     ipAddress: ip,
     userAgent,
     severity: 'info',
+    resource: 'user',
+    resourceId: userId,
   })
 }
 
@@ -101,6 +110,8 @@ export async function auditRegister(
     ipAddress: ip,
     userAgent,
     severity: 'info',
+    resource: 'user',
+    resourceId: userId,
   })
 }
 
@@ -116,6 +127,8 @@ export async function auditLogout(
     details: 'User logged out',
     ipAddress: ip,
     severity: 'info',
+    resource: 'user',
+    resourceId: userId,
   })
 }
 
@@ -135,6 +148,9 @@ export async function auditSubscriptionChange(
     details: `Plan changed from "${fromPlan}" to "${toPlan}"${isSelf ? '' : ` (by admin)`}`,
     ipAddress: ip,
     severity: 'info',
+    resource: 'subscription',
+    resourceId: userId,
+    metadata: { fromPlan, toPlan, isSelf },
   })
 }
 
@@ -152,6 +168,8 @@ export async function auditSubscriptionCancel(
     details: `Subscription "${planName}" canceled`,
     ipAddress: ip,
     severity: 'warning',
+    resource: 'subscription',
+    resourceId: userId,
   })
 }
 
@@ -170,6 +188,8 @@ export async function auditCreditTransaction(
     details: `${type}: ${amount > 0 ? '+' : ''}${amount} credits - ${description}`,
     ipAddress: ip,
     severity: amount < 0 ? 'info' : 'info',
+    resource: 'credit',
+    resourceId: userId,
   })
 }
 
@@ -188,6 +208,8 @@ export async function auditAdminUserAction(
     details: `Admin action on user ${targetUserId}: ${details}`,
     ipAddress: ip,
     severity: 'warning',
+    resource: 'user',
+    resourceId: targetUserId,
   })
 }
 
@@ -238,6 +260,8 @@ export async function auditPasswordChange(
     details: 'Password changed successfully',
     ipAddress: ip,
     severity: 'info',
+    resource: 'user',
+    resourceId: userId,
   })
 }
 
@@ -256,6 +280,46 @@ export async function auditSecurityEvent(
     details,
     ipAddress: ip,
     severity,
+  })
+}
+
+/** Log a session event */
+export async function auditSessionEvent(
+  userId: string,
+  action: string,
+  details: string,
+  ip?: string,
+  severity: AuditSeverity = 'info'
+): Promise<void> {
+  await createAuditLog({
+    actorId: userId,
+    action,
+    category: 'session',
+    details,
+    ipAddress: ip,
+    severity,
+    resource: 'session',
+  })
+}
+
+/** Log a role change */
+export async function auditRoleChange(
+  adminId: string,
+  targetUserId: string,
+  oldRole: string,
+  newRole: string,
+  ip?: string
+): Promise<void> {
+  await createAuditLog({
+    actorId: adminId,
+    action: 'ROLE_CHANGED',
+    category: 'admin',
+    details: `Role changed from "${oldRole}" to "${newRole}"`,
+    ipAddress: ip,
+    severity: 'warning',
+    resource: 'user',
+    resourceId: targetUserId,
+    metadata: { oldRole, newRole },
   })
 }
 

@@ -6,6 +6,10 @@ import { AdminDashboard } from '@/components/admin/admin-dashboard'
 import { AdminUsers } from '@/components/admin/admin-users'
 import { AdminSubscriptions } from '@/components/admin/admin-subscriptions'
 import { AdminCredits } from '@/components/admin/admin-credits'
+import { AdminSecurity } from '@/components/admin/admin-security'
+import { AdminRoles } from '@/components/admin/admin-roles'
+import { AdminSessions } from '@/components/admin/admin-sessions'
+import { AdminAuditLogs } from '@/components/admin/admin-audit-logs-enhanced'
 import {
   AdminAgencies,
   AdminPayments,
@@ -15,7 +19,6 @@ import {
   AdminLocations,
   AdminApiUsage,
   AdminSystemHealth,
-  AdminAuditLogs,
   AdminReports,
   AdminSupport,
   AdminAnnouncements,
@@ -93,6 +96,9 @@ const viewLabels: Record<AdminView, string> = {
   'admin-integrations': 'Integrations',
   'admin-ai-usage': 'AI Usage',
   'admin-feature-flags': 'Feature Flags',
+  'admin-security': 'Security Center',
+  'admin-roles': 'Roles & Permissions',
+  'admin-sessions': 'Active Sessions',
   'admin-settings': 'Settings',
 }
 
@@ -111,6 +117,9 @@ const viewGroups: Record<string, string> = {
   'admin-system-health': 'System',
   'admin-audit-logs': 'System',
   'admin-reports': 'System',
+  'admin-security': 'Security',
+  'admin-roles': 'Security',
+  'admin-sessions': 'Security',
   'admin-support': 'Support',
   'admin-announcements': 'Support',
   'admin-email-broadcast': 'Marketing',
@@ -160,6 +169,12 @@ function ViewRenderer({ view }: { view: AdminView }) {
               return <AdminSystemHealth />
             case 'admin-audit-logs':
               return <AdminAuditLogs />
+            case 'admin-security':
+              return <AdminSecurity />
+            case 'admin-roles':
+              return <AdminRoles />
+            case 'admin-sessions':
+              return <AdminSessions />
             case 'admin-reports':
               return <AdminReports />
             case 'admin-support':
@@ -250,6 +265,9 @@ export function AdminLayout() {
     'admin-integrations': t('nav.integrations'),
     'admin-ai-usage': t('nav.aiUsage'),
     'admin-feature-flags': t('nav.featureFlags'),
+    'admin-security': 'Security Center',
+    'admin-roles': 'Roles & Permissions',
+    'admin-sessions': 'Active Sessions',
     'admin-settings': t('nav.settings'),
   }
 
@@ -277,6 +295,9 @@ export function AdminLayout() {
     'admin-integrations': t('nav.config'),
     'admin-ai-usage': t('nav.config'),
     'admin-feature-flags': t('nav.config'),
+    'admin-security': 'Security',
+    'admin-roles': 'Security',
+    'admin-sessions': 'Security',
     'admin-settings': t('nav.config'),
   }
 

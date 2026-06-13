@@ -1,5 +1,6 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
 
 // ─── JWT Configuration ──────────────────────────────────────────────────────
 
@@ -10,8 +11,8 @@ const JWT_SECRET = new TextEncoder().encode(
 const JWT_ISSUER = 'bw-finder'
 const JWT_AUDIENCE = 'bw-finder-api'
 
-export const ACCESS_TOKEN_EXPIRY = '24h'    // Access token: 24 hours
-export const REFRESH_TOKEN_EXPIRY = '30d'   // Refresh token: 30 days
+export const ACCESS_TOKEN_EXPIRY = '15m'    // Access token: 15 minutes (enterprise-grade)
+export const REFRESH_TOKEN_EXPIRY = '7d'    // Refresh token: 7 days
 
 // ─── Token Types ────────────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ export interface JWTPayload {
   planId?: string | null
   planTier?: string
   type: 'access' | 'refresh'
+  sid?: string       // session ID
   iat: number
   exp: number
   iss: string
@@ -38,6 +40,7 @@ export async function signAccessToken(user: {
   name: string
   planId?: string | null
   planTier?: string
+  sessionId?: string
 }): Promise<string> {
   return new SignJWT({
     sub: user.id,
@@ -47,6 +50,7 @@ export async function signAccessToken(user: {
     planId: user.planId || null,
     planTier: user.planTier || 'free',
     type: 'access',
+    sid: user.sessionId,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer(JWT_ISSUER)
@@ -58,10 +62,11 @@ export async function signAccessToken(user: {
 
 // ─── Sign Refresh Token ────────────────────────────────────────────────────
 
-export async function signRefreshToken(userId: string): Promise<string> {
+export async function signRefreshToken(userId: string, sessionId: string): Promise<string> {
   return new SignJWT({
     sub: userId,
     type: 'refresh',
+    sid: sessionId,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuer(JWT_ISSUER)
@@ -130,7 +135,65 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     return { authenticated: false, payload: null, error: 'Invalid token type' }
   }
 
+  // Check if session is still valid (if session ID exists)
+  if (payload.sid) {
+    const session = await db.session.findUnique({
+      where: { id: payload.sid },
+      select: { isRevoked: true, expiresAt: true },
+    })
+    if (!session || session.isRevoked || new Date() > session.expiresAt) {
+      return { authenticated: false, payload: null, error: 'Session expired or revoked' }
+    }
+
+    // Update last active timestamp (throttled - only update every 5 minutes)
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000)
+    if (session.lastActiveAt < fiveMinutesAgo) {
+      await db.session.update({
+        where: { id: payload.sid },
+        data: { lastActiveAt: new Date() },
+      }).catch(() => {}) // Silent fail
+    }
+  }
+
   return { authenticated: true, payload }
+}
+
+// ─── Create Session ────────────────────────────────────────────────────────
+
+export async function createSession(
+  userId: string,
+  refreshToken: string,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<string> {
+  const deviceInfo = parseUserAgent(userAgent)
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+
+  const session = await db.session.create({
+    data: {
+      userId,
+      refreshToken,
+      deviceInfo,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      expiresAt,
+    },
+  })
+
+  return session.id
+}
+
+// ─── Parse User Agent ──────────────────────────────────────────────────────
+
+function parseUserAgent(ua?: string): string {
+  if (!ua) return 'Unknown Device'
+  
+  if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome'
+  if (ua.includes('Firefox')) return 'Firefox'
+  if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari'
+  if (ua.includes('Edg')) return 'Edge'
+  if (ua.includes('Mobile')) return 'Mobile Browser'
+  return 'Unknown Browser'
 }
 
 // ─── Set Auth Cookies ──────────────────────────────────────────────────────
@@ -140,22 +203,22 @@ export function setAuthCookies(
   accessToken: string,
   refreshToken: string
 ): NextResponse {
-  // Access token cookie
+  // Access token cookie - 15 minutes
   response.cookies.set('bw-access-token', accessToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: 15 * 60, // 15 minutes
   })
 
-  // Refresh token cookie
+  // Refresh token cookie - 7 days
   response.cookies.set('bw-refresh-token', refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 7 * 24 * 60 * 60, // 7 days
   })
 
   return response
@@ -181,6 +244,29 @@ export function clearAuthCookies(response: NextResponse): NextResponse {
   })
 
   return response
+}
+
+// ─── Revoke Session ────────────────────────────────────────────────────────
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  await db.session.update({
+    where: { id: sessionId },
+    data: { isRevoked: true },
+  }).catch(() => {})
+}
+
+// ─── Revoke All User Sessions ──────────────────────────────────────────────
+
+export async function revokeAllUserSessions(userId: string, exceptSessionId?: string): Promise<number> {
+  const where: any = { userId, isRevoked: false }
+  if (exceptSessionId) {
+    where.id = { not: exceptSessionId }
+  }
+  const result = await db.session.updateMany({
+    where,
+    data: { isRevoked: true },
+  })
+  return result.count
 }
 
 // ─── Require Auth Middleware Helper ────────────────────────────────────────
@@ -240,7 +326,6 @@ export async function requireAdmin(request: NextRequest): Promise<{
 }
 
 // ─── Require Ownership or Admin ────────────────────────────────────────────
-// User can access their own data, admins can access any data
 
 export async function requireOwnerOrAdmin(
   request: NextRequest,

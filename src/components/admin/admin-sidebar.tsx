@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { hasPermission, type Permission, ADMIN_NAV_PERMISSIONS } from '@/lib/rbac'
 import {
   LayoutDashboard,
   Users,
@@ -38,6 +39,9 @@ import {
   Search,
   X,
   ArrowLeftRight,
+  Key,
+  Monitor,
+  Lock,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useTranslation } from '@/lib/i18n/hooks'
@@ -46,6 +50,7 @@ interface NavItem {
   view: AdminView
   labelKey: string
   icon: React.ElementType
+  permissionKey: string
 }
 
 interface NavGroup {
@@ -57,54 +62,62 @@ const navGroups: NavGroup[] = [
   {
     titleKey: 'nav.main',
     items: [
-      { view: 'admin-dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
-      { view: 'admin-users', labelKey: 'nav.users', icon: Users },
-      { view: 'admin-agencies', labelKey: 'nav.agencies', icon: Building2 },
-      { view: 'admin-subscriptions', labelKey: 'nav.subscriptions', icon: CreditCard },
-      { view: 'admin-payments', labelKey: 'nav.payments', icon: DollarSign },
-      { view: 'admin-transactions', labelKey: 'nav.transactions', icon: Receipt },
+      { view: 'admin-dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard, permissionKey: 'dashboard' },
+      { view: 'admin-users', labelKey: 'nav.users', icon: Users, permissionKey: 'users' },
+      { view: 'admin-agencies', labelKey: 'nav.agencies', icon: Building2, permissionKey: 'agencies' },
+      { view: 'admin-subscriptions', labelKey: 'nav.subscriptions', icon: CreditCard, permissionKey: 'subscriptions' },
+      { view: 'admin-payments', labelKey: 'nav.payments', icon: DollarSign, permissionKey: 'payments' },
+      { view: 'admin-transactions', labelKey: 'nav.transactions', icon: Receipt, permissionKey: 'transactions' },
     ],
   },
   {
     titleKey: 'nav.data',
     items: [
-      { view: 'admin-leads', labelKey: 'nav.leads', icon: Target },
-      { view: 'admin-categories', labelKey: 'nav.categories', icon: Tag },
-      { view: 'admin-locations', labelKey: 'nav.locations', icon: MapPin },
-      { view: 'admin-credits', labelKey: 'nav.credits', icon: Coins },
+      { view: 'admin-leads', labelKey: 'nav.leads', icon: Target, permissionKey: 'leads' },
+      { view: 'admin-categories', labelKey: 'nav.categories', icon: Tag, permissionKey: 'categories' },
+      { view: 'admin-locations', labelKey: 'nav.locations', icon: MapPin, permissionKey: 'locations' },
+      { view: 'admin-credits', labelKey: 'nav.credits', icon: Coins, permissionKey: 'credits' },
     ],
   },
   {
     titleKey: 'nav.system',
     items: [
-      { view: 'admin-api-usage', labelKey: 'nav.apiUsage', icon: Activity },
-      { view: 'admin-system-health', labelKey: 'nav.systemHealth', icon: Heart },
-      { view: 'admin-audit-logs', labelKey: 'nav.auditLogs', icon: FileText },
-      { view: 'admin-reports', labelKey: 'nav.reports', icon: BarChart3 },
+      { view: 'admin-api-usage', labelKey: 'nav.apiUsage', icon: Activity, permissionKey: 'api-usage' },
+      { view: 'admin-system-health', labelKey: 'nav.systemHealth', icon: Heart, permissionKey: 'system-health' },
+      { view: 'admin-audit-logs', labelKey: 'nav.auditLogs', icon: FileText, permissionKey: 'audit-logs' },
+      { view: 'admin-reports', labelKey: 'nav.reports', icon: BarChart3, permissionKey: 'reports' },
+    ],
+  },
+  {
+    titleKey: 'nav.security',
+    items: [
+      { view: 'admin-security', labelKey: 'nav.securityCenter', icon: Shield, permissionKey: 'audit-logs' },
+      { view: 'admin-roles', labelKey: 'nav.rolesPermissions', icon: Key, permissionKey: 'users' },
+      { view: 'admin-sessions', labelKey: 'nav.activeSessions', icon: Monitor, permissionKey: 'audit-logs' },
     ],
   },
   {
     titleKey: 'nav.support',
     items: [
-      { view: 'admin-support', labelKey: 'nav.helpCenter', icon: LifeBuoy },
-      { view: 'admin-announcements', labelKey: 'nav.announcements', icon: Megaphone },
+      { view: 'admin-support', labelKey: 'nav.helpCenter', icon: LifeBuoy, permissionKey: 'support' },
+      { view: 'admin-announcements', labelKey: 'nav.announcements', icon: Megaphone, permissionKey: 'announcements' },
     ],
   },
   {
     titleKey: 'nav.marketing',
     items: [
-      { view: 'admin-email-broadcast', labelKey: 'nav.emailBroadcast', icon: Mail },
-      { view: 'admin-whatsapp-broadcast', labelKey: 'nav.whatsappBroadcast', icon: Smartphone },
-      { view: 'admin-marketing', labelKey: 'nav.marketing', icon: TrendingUp },
+      { view: 'admin-email-broadcast', labelKey: 'nav.emailBroadcast', icon: Mail, permissionKey: 'email-broadcast' },
+      { view: 'admin-whatsapp-broadcast', labelKey: 'nav.whatsappBroadcast', icon: Smartphone, permissionKey: 'whatsapp-broadcast' },
+      { view: 'admin-marketing', labelKey: 'nav.marketing', icon: TrendingUp, permissionKey: 'marketing' },
     ],
   },
   {
     titleKey: 'nav.config',
     items: [
-      { view: 'admin-integrations', labelKey: 'nav.integrations', icon: Puzzle },
-      { view: 'admin-ai-usage', labelKey: 'nav.aiUsage', icon: Brain },
-      { view: 'admin-feature-flags', labelKey: 'nav.featureFlags', icon: ToggleLeft },
-      { view: 'admin-settings', labelKey: 'nav.settings', icon: Settings },
+      { view: 'admin-integrations', labelKey: 'nav.integrations', icon: Puzzle, permissionKey: 'integrations' },
+      { view: 'admin-ai-usage', labelKey: 'nav.aiUsage', icon: Brain, permissionKey: 'ai-usage' },
+      { view: 'admin-feature-flags', labelKey: 'nav.featureFlags', icon: ToggleLeft, permissionKey: 'feature-flags' },
+      { view: 'admin-settings', labelKey: 'nav.settings', icon: Settings, permissionKey: 'settings' },
     ],
   },
 ]
@@ -147,6 +160,17 @@ export function AdminSidebar() {
   } = useAppStore()
 
   const { t } = useTranslation()
+  const userRole = user?.role || 'user'
+
+  // RBAC: Filter nav items based on user permissions
+  const filteredNavGroups = navGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      const requiredPerms = ADMIN_NAV_PERMISSIONS[item.permissionKey]
+      if (!requiredPerms) return true // No permission required
+      return requiredPerms.some((perm) => hasPermission(userRole, perm))
+    }),
+  })).filter((group) => group.items.length > 0)
 
   const handleNavClick = (view: AdminView) => {
     setCurrentAdminView(view)
@@ -235,7 +259,7 @@ export function AdminSidebar() {
 
   const sidebarContent = (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header / Logo - fixed height */}
+      {/* Header / Logo */}
       <div className="flex items-center justify-between px-4 h-16 shrink-0">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
@@ -281,7 +305,7 @@ export function AdminSidebar() {
       {/* Navigation - scrollable area */}
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="space-y-4">
-          {navGroups.map((group) => (
+          {filteredNavGroups.map((group) => (
             <div key={group.titleKey}>
               {!adminSidebarCollapsed && (
                 <h3 className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
@@ -299,7 +323,7 @@ export function AdminSidebar() {
 
       <Separator className="bg-slate-700/50 shrink-0" />
 
-      {/* User section - compact */}
+      {/* User section */}
       <div className="p-3 shrink-0">
         {adminSidebarCollapsed ? (
           <div className="flex flex-col items-center gap-2">
@@ -393,7 +417,7 @@ export function AdminSidebar() {
         )}
       </div>
 
-      {/* Collapse toggle - desktop only */}
+      {/* Collapse toggle */}
       <div className="hidden lg:flex p-3 pt-0 shrink-0">
         <Button
           variant="ghost"

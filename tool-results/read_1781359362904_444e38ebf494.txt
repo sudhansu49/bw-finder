@@ -1,0 +1,1434 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+     5→import { Button } from '@/components/ui/button'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    10→import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+    11→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    12→import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+    13→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    14→import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+    15→import { Separator } from '@/components/ui/separator'
+    16→import { Textarea } from '@/components/ui/textarea'
+    17→import { ScrollArea } from '@/components/ui/scroll-area'
+    18→import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+    19→import { Bar, BarChart, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart, CartesianGrid } from 'recharts'
+    20→import { motion, AnimatePresence } from 'framer-motion'
+    21→import {
+    22→  Users,
+    23→  CreditCard,
+    24→  Coins,
+    25→  BarChart3,
+    26→  Search,
+    27→  Shield,
+    28→  UserCheck,
+    29→  UserX,
+    30→  UserPlus,
+    31→  MoreHorizontal,
+    32→  Edit,
+    33→  Ban,
+    34→  CheckCircle2,
+    35→  Plus,
+    36→  TrendingUp,
+    37→  TrendingDown,
+    38→  DollarSign,
+    39→  Activity,
+    40→  Calendar,
+    41→  ArrowUpRight,
+    42→  ArrowDownRight,
+    43→  Eye,
+    44→  Download,
+    45→  RefreshCw,
+    46→  Zap,
+    47→  Target,
+    48→  Globe,
+    49→  FileText,
+    50→  AlertTriangle,
+    51→  XCircle,
+    52→} from 'lucide-react'
+    53→
+    54→// ─── Types ────────────────────────────────────────────────────────────────────
+    55→
+    56→interface AdminUser {
+    57→  id: string
+    58→  name: string
+    59→  email: string
+    60→  role: 'admin' | 'user'
+    61→  plan: string
+    62→  credits: number
+    63→  status: 'active' | 'suspended' | 'banned'
+    64→  leads: number
+    65→  joined: string
+    66→}
+    67→
+    68→interface AdminSubscription {
+    69→  id: string
+    70→  userId: string
+    71→  userName: string
+    72→  userEmail: string
+    73→  plan: string
+    74→  status: 'active' | 'canceled' | 'expired' | 'past_due'
+    75→  periodStart: string
+    76→  periodEnd: string
+    77→  cancelAtEnd: boolean
+    78→  amount: number
+    79→}
+    80→
+    81→interface CreditTransaction {
+    82→  id: string
+    83→  userId: string
+    84→  userName: string
+    85→  amount: number
+    86→  type: 'purchase' | 'usage' | 'bonus' | 'refund' | 'plan_credits'
+    87→  description: string
+    88→  date: string
+    89→}
+    90→
+    91→interface AnalyticsData {
+    92→  totalUsers: number
+    93→  activeUsers: number
+    94→  mrr: number
+    95→  totalRevenue: number
+    96→  revenueTrend: { month: string; revenue: number }[]
+    97→  usersByPlan: { plan: string; count: number }[]
+    98→  subscriptionStatus: { status: string; count: number }[]
+    99→  topUsersByLeads: { name: string; leads: number; plan: string }[]
+   100→  topUsersByCredits: { name: string; credits: number; plan: string }[]
+   101→  platformStats: { totalLeads: number; totalSearches: number; totalExports: number }
+   102→}
+   103→
+   104→// ─── Animation variants ───────────────────────────────────────────────────────
+   105→
+   106→const container = {
+   107→  hidden: { opacity: 0 },
+   108→  show: {
+   109→    opacity: 1,
+   110→    transition: { staggerChildren: 0.06 },
+   111→  },
+   112→}
+   113→
+   114→const item = {
+   115→  hidden: { opacity: 0, y: 16 },
+   116→  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+   117→}
+   118→
+   119→const fadeIn = {
+   120→  hidden: { opacity: 0, y: 12 },
+   121→  show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+   122→}
+   123→
+   124→// ─── Color constants ──────────────────────────────────────────────────────────
+   125→
+   126→const AMBER = '#f59e0b'
+   127→const ORANGE = '#f97316'
+   128→const EMERALD = '#10b981'
+   129→const RED = '#ef4444'
+   130→const SLATE = '#94a3b8'
+   131→const ROSE = '#f43f5e'
+   132→const TEAL = '#14b8a6'
+   133→
+   134→const PLAN_COLORS: Record<string, string> = {
+   135→  free: SLATE,
+   136→  starter: AMBER,
+   137→  pro: ORANGE,
+   138→  enterprise: EMERALD,
+   139→}
+   140→
+   141→const SUB_STATUS_COLORS: Record<string, string> = {
+   142→  active: EMERALD,
+   143→  canceled: RED,
+   144→  expired: SLATE,
+   145→  past_due: ROSE,
+   146→}
+   147→
+   148→const CREDIT_TYPE_COLORS: Record<string, string> = {
+   149→  purchase: AMBER,
+   150→  usage: ORANGE,
+   151→  bonus: EMERALD,
+   152→  refund: TEAL,
+   153→  plan_credits: '#8b5cf6',
+   154→}
+   155→
+   156→// ─── Helpers ──────────────────────────────────────────────────────────────────
+   157→
+   158→function formatCurrency(value: number): string {
+   159→  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
+   160→  if (value >= 1000) return `$${(value / 1000).toFixed(1)}k`
+   161→  return `$${value.toLocaleString()}`
+   162→}
+   163→
+   164→function formatDate(dateStr: string): string {
+   165→  return new Date(dateStr).toLocaleDateString('en-US', {
+   166→    month: 'short',
+   167→    day: 'numeric',
+   168→    year: 'numeric',
+   169→  })
+   170→}
+   171→
+   172→function getInitials(name: string): string {
+   173→  return name
+   174→    .split(' ')
+   175→    .map((n) => n[0])
+   176→    .join('')
+   177→    .toUpperCase()
+   178→    .slice(0, 2)
+   179→}
+   180→
+   181→function statusBadgeClass(status: string): string {
+   182→  switch (status) {
+   183→    case 'active':
+   184→      return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+   185→    case 'suspended':
+   186→      return 'bg-amber-50 text-amber-700 border-amber-200'
+   187→    case 'banned':
+   188→      return 'bg-red-50 text-red-700 border-red-200'
+   189→    case 'canceled':
+   190→      return 'bg-red-50 text-red-600 border-red-200'
+   191→    case 'expired':
+   192→      return 'bg-slate-50 text-slate-600 border-slate-200'
+   193→    case 'past_due':
+   194→      return 'bg-rose-50 text-rose-700 border-rose-200'
+   195→    default:
+   196→      return 'bg-slate-50 text-slate-600 border-slate-200'
+   197→  }
+   198→}
+   199→
+   200→function planBadgeClass(plan: string): string {
+   201→  switch (plan) {
+   202→    case 'pro':
+   203→      return 'bg-orange-50 text-orange-700 border-orange-200'
+   204→    case 'starter':
+   205→      return 'bg-amber-50 text-amber-700 border-amber-200'
+   206→    case 'enterprise':
+   207→      return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+   208→    default:
+   209→      return 'bg-slate-50 text-slate-600 border-slate-200'
+   210→  }
+   211→}
+   212→
+   213→// ─── Main Component ───────────────────────────────────────────────────────────
+   214→
+   215→export function AdminView() {
+   216→  // Tab state
+   217→  const [activeTab, setActiveTab] = useState('users')
+   218→
+   219→  // Users state
+   220→  const [users, setUsers] = useState<AdminUser[]>([])
+   221→  const [usersLoading, setUsersLoading] = useState(true)
+   222→  const [userSearch, setUserSearch] = useState('')
+   223→  const [userRoleFilter, setUserRoleFilter] = useState('all')
+   224→  const [userStatusFilter, setUserStatusFilter] = useState('all')
+   225→
+   226→  // Subscriptions state
+   227→  const [subscriptions, setSubscriptions] = useState<AdminSubscription[]>([])
+   228→  const [subsLoading, setSubsLoading] = useState(true)
+   229→  const [subStatusFilter, setSubStatusFilter] = useState('all')
+   230→
+   231→  // Credits state
+   232→  const [credits, setCredits] = useState<CreditTransaction[]>([])
+   233→  const [creditsLoading, setCreditsLoading] = useState(true)
+   234→  const [creditTypeFilter, setCreditTypeFilter] = useState('all')
+   235→  const [addCreditsOpen, setAddCreditsOpen] = useState(false)
+   236→  const [addCreditsUserId, setAddCreditsUserId] = useState('')
+   237→  const [addCreditsAmount, setAddCreditsAmount] = useState('')
+   238→  const [addCreditsType, setAddCreditsType] = useState<'bonus' | 'purchase' | 'refund'>('bonus')
+   239→  const [addCreditsDesc, setAddCreditsDesc] = useState('')
+   240→  const [addCreditsSubmitting, setAddCreditsSubmitting] = useState(false)
+   241→
+   242→  // Analytics state
+   243→  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null)
+   244→  const [analyticsLoading, setAnalyticsLoading] = useState(true)
+   245→
+   246→  // ─── Fetch users ──────────────────────────────────────────────────────────
+   247→  const fetchUsers = useCallback(async () => {
+   248→    setUsersLoading(true)
+   249→    try {
+   250→      const params = new URLSearchParams()
+   251→      if (userSearch) params.set('search', userSearch)
+   252→      if (userRoleFilter !== 'all') params.set('role', userRoleFilter)
+   253→      if (userStatusFilter !== 'all') params.set('status', userStatusFilter)
+   254→      const res = await fetch(`/api/admin/users?${params.toString()}`)
+   255→      if (res.ok) {
+   256→        const data = await res.json()
+   257→        const mapped = (data.users || []).map((u: Record<string, unknown>) => ({
+   258→          id: u.id as string,
+   259→          name: u.name as string,
+   260→          email: u.email as string,
+   261→          role: u.role as string,
+   262→          plan: (u.plan as Record<string, string>)?.name || (u.activeSubscription as Record<string, Record<string, string>>)?.plan?.name || 'Free',
+   263→          credits: u.credits as number,
+   264→          status: u.status as string,
+   265→          leads: (u as Record<string, number>).leadCount || 0,
+   266→          joined: u.createdAt as string,
+   267→        }))
+   268→        setUsers(mapped)
+   269→      }
+   270→    } catch {
+   271→      // Silently handle error
+   272→    } finally {
+   273→      setUsersLoading(false)
+   274→    }
+   275→  }, [userSearch, userRoleFilter, userStatusFilter])
+   276→
+   277→  useEffect(() => {
+   278→    fetchUsers()
+   279→  }, [fetchUsers])
+   280→
+   281→  // ─── Fetch subscriptions ─────────────────────────────────────────────────
+   282→  const fetchSubs = useCallback(async () => {
+   283→    setSubsLoading(true)
+   284→    try {
+   285→      const params = new URLSearchParams()
+   286→      if (subStatusFilter !== 'all') params.set('status', subStatusFilter)
+   287→      const res = await fetch(`/api/admin/subscriptions?${params.toString()}`)
+   288→      if (res.ok) {
+   289→        const data = await res.json()
+   290→        const mapped = (data.subscriptions || []).map((s: Record<string, unknown>) => ({
+   291→          id: s.id as string,
+   292→          userId: s.userId as string,
+   293→          userName: (s.user as Record<string, string>)?.name || 'Unknown',
+   294→          userEmail: (s.user as Record<string, string>)?.email || '',
+   295→          plan: (s.plan as Record<string, unknown>)?.name as string || 'Free',
+   296→          status: s.status as string,
+   297→          periodStart: s.currentPeriodStart as string,
+   298→          periodEnd: s.currentPeriodEnd as string,
+   299→          cancelAtEnd: s.cancelAtPeriodEnd as boolean,
+   300→          amount: (s.plan as Record<string, number>)?.price || 0,
+   301→        }))
+   302→        setSubscriptions(mapped)
+   303→      }
+   304→    } catch {
+   305→      // Silently handle error
+   306→    } finally {
+   307→      setSubsLoading(false)
+   308→    }
+   309→  }, [subStatusFilter])
+   310→
+   311→  useEffect(() => {
+   312→    fetchSubs()
+   313→  }, [fetchSubs])
+   314→
+   315→  // ─── Fetch credits ───────────────────────────────────────────────────────
+   316→  const fetchCredits = useCallback(async () => {
+   317→    setCreditsLoading(true)
+   318→    try {
+   319→      const params = new URLSearchParams()
+   320→      if (creditTypeFilter !== 'all') params.set('type', creditTypeFilter)
+   321→      const res = await fetch(`/api/admin/credits?${params.toString()}`)
+   322→      if (res.ok) {
+   323→        const data = await res.json()
+   324→        const mapped = (data.transactions || []).map((t: Record<string, unknown>) => ({
+   325→          id: t.id as string,
+   326→          userId: t.userId as string,
+   327→          userName: (t.user as Record<string, string>)?.name || 'Unknown',
+   328→          amount: t.amount as number,
+   329→          type: t.type as string,
+   330→          description: t.description as string,
+   331→          date: t.createdAt as string,
+   332→        }))
+   333→        setCredits(mapped)
+   334→      }
+   335→    } catch {
+   336→      // Silently handle error
+   337→    } finally {
+   338→      setCreditsLoading(false)
+   339→    }
+   340→  }, [creditTypeFilter])
+   341→
+   342→  useEffect(() => {
+   343→    fetchCredits()
+   344→  }, [fetchCredits])
+   345→
+   346→  // ─── Fetch analytics ─────────────────────────────────────────────────────
+   347→  useEffect(() => {
+   348→    const fetchAnalytics = async () => {
+   349→      setAnalyticsLoading(true)
+   350→      try {
+   351→        const res = await fetch('/api/admin/analytics')
+   352→        if (res.ok) {
+   353→          const data = await res.json()
+   354→          // Map the API response to the frontend AnalyticsData type
+   355→          const mapped: AnalyticsData = {
+   356→            totalUsers: data.totalUsers || 0,
+   357→            activeUsers: data.activeUsers || 0,
+   358→            mrr: data.subscriptions?.mrr || 0,
+   359→            totalRevenue: (data.subscriptions?.mrr || 0) + (data.credits?.totalRevenueFromCredits || 0) * 0.1,
+   360→            revenueTrend: (data.revenueByMonth || []).map((m: Record<string, unknown>) => ({
+   361→              month: m.month as string,
+   362→              revenue: m.totalRevenue as number,
+   363→            })),
+   364→            usersByPlan: (data.usersByPlan || []).map((p: Record<string, unknown>) => ({
+   365→              plan: p.planName as string,
+   366→              count: p.count as number,
+   367→            })),
+   368→            subscriptionStatus: [
+   369→              { status: 'Active', count: data.subscriptions?.active || 0 },
+   370→              { status: 'Canceled', count: data.subscriptions?.canceled || 0 },
+   371→              { status: 'Expired', count: data.subscriptions?.expired || 0 },
+   372→              { status: 'Past Due', count: data.subscriptions?.pastDue || 0 },
+   373→            ],
+   374→            topUsersByLeads: (data.topUsersByLeads || []).map((u: Record<string, unknown>) => ({
+   375→              name: u.name as string,
+   376→              leads: u.leadCount as number,
+   377→              plan: 'Pro',
+   378→            })),
+   379→            topUsersByCredits: (data.topUsersByCredits || []).map((u: Record<string, unknown>) => ({
+   380→              name: u.name as string,
+   381→              credits: u.creditsUsed as number,
+   382→              plan: 'Pro',
+   383→            })),
+   384→            platformStats: {
+   385→              totalLeads: data.platformUsage?.totalLeads || 0,
+   386→              totalSearches: data.platformUsage?.totalSearches || 0,
+   387→              totalExports: data.platformUsage?.totalExports || 0,
+   388→            },
+   389→          }
+   390→          setAnalytics(mapped)
+   391→        }
+   392→      } catch {
+   393→        // Silently handle error
+   394→      } finally {
+   395→        setAnalyticsLoading(false)
+   396→      }
+   397→    }
+   398→    fetchAnalytics()
+   399→  }, [])
+   400→
+   401→  // ─── User actions ────────────────────────────────────────────────────────
+   402→  const updateUser = async (userId: string, updates: { role?: string; status?: string; credits?: number }) => {
+   403→    try {
+   404→      const res = await fetch('/api/admin/users', {
+   405→        method: 'PATCH',
+   406→        headers: { 'Content-Type': 'application/json' },
+   407→        body: JSON.stringify({ userId, ...updates }),
+   408→      })
+   409→      if (res.ok) {
+   410→        fetchUsers()
+   411→      }
+   412→    } catch {
+   413→      // Silently handle error
+   414→    }
+   415→  }
+   416→
+   417→  const updateSubscription = async (subscriptionId: string, updates: { status?: string; cancelAtPeriodEnd?: boolean; planId?: string }) => {
+   418→    try {
+   419→      const res = await fetch('/api/admin/subscriptions', {
+   420→        method: 'PATCH',
+   421→        headers: { 'Content-Type': 'application/json' },
+   422→        body: JSON.stringify({ subscriptionId, ...updates }),
+   423→      })
+   424→      if (res.ok) {
+   425→        fetchSubs()
+   426→      }
+   427→    } catch {
+   428→      // Silently handle error
+   429→    }
+   430→  }
+   431→
+   432→  const handleAddCredits = async () => {
+   433→    if (!addCreditsUserId || !addCreditsAmount) return
+   434→    setAddCreditsSubmitting(true)
+   435→    try {
+   436→      const res = await fetch('/api/admin/credits', {
+   437→        method: 'POST',
+   438→        headers: { 'Content-Type': 'application/json' },
+   439→        body: JSON.stringify({
+   440→          userId: addCreditsUserId,
+   441→          amount: Number(addCreditsAmount),
+   442→          type: addCreditsType,
+   443→          description: addCreditsDesc || `Admin added ${addCreditsAmount} credits`,
+   444→        }),
+   445→      })
+   446→      if (res.ok) {
+   447→        setAddCreditsOpen(false)
+   448→        setAddCreditsUserId('')
+   449→        setAddCreditsAmount('')
+   450→        setAddCreditsDesc('')
+   451→        fetchCredits()
+   452→        fetchUsers()
+   453→      }
+   454→    } catch {
+   455→      // Silently handle error
+   456→    } finally {
+   457→      setAddCreditsSubmitting(false)
+   458→    }
+   459→  }
+   460→
+   461→  // ─── Computed values ─────────────────────────────────────────────────────
+   462→  const totalUsers = users.length
+   463→  const activeUsers = users.filter((u) => u.status === 'active').length
+   464→  const adminUsers = users.filter((u) => u.role === 'admin').length
+   465→  const newThisMonth = users.filter((u) => {
+   466→    const d = new Date(u.joined)
+   467→    const now = new Date()
+   468→    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+   469→  }).length
+   470→
+   471→  const activeSubs = subscriptions.filter((s) => s.status === 'active').length
+   472→  const mrr = subscriptions.filter((s) => s.status === 'active').reduce((sum, s) => sum + s.amount, 0)
+   473→  const canceledThisMonth = subscriptions.filter((s) => {
+   474→    if (s.status !== 'canceled') return false
+   475→    const d = new Date(s.periodEnd)
+   476→    const now = new Date()
+   477→    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+   478→  }).length
+   479→  const churnRate = activeSubs > 0 ? ((canceledThisMonth / (activeSubs + canceledThisMonth)) * 100).toFixed(1) : '0'
+   480→
+   481→  const totalCreditsIssued = credits.filter((c) => c.amount > 0).reduce((sum, c) => sum + c.amount, 0)
+   482→  const totalCreditsUsed = credits.filter((c) => c.amount < 0).reduce((sum, c) => sum + Math.abs(c.amount), 0)
+   483→  const creditsBalance = totalCreditsIssued - totalCreditsUsed
+   484→  const revenueFromCredits = credits
+   485→    .filter((c) => c.type === 'purchase')
+   486→    .reduce((sum, c) => sum + c.amount * 0.1, 0)
+   487→
+   488→  // ─── Chart configs ───────────────────────────────────────────────────────
+   489→  const revenueChartConfig = {
+   490→    revenue: { label: 'Revenue', color: AMBER },
+   491→  }
+   492→
+   493→  const usersByPlanConfig: Record<string, { label: string; color: string }> = {}
+   494→  ;(analytics?.usersByPlan || []).forEach((p, i) => {
+   495→    usersByPlanConfig[p.plan] = { label: p.plan, color: [AMBER, ORANGE, EMERALD, SLATE, TEAL][i % 5] }
+   496→  })
+   497→
+   498→  const subStatusConfig: Record<string, { label: string; color: string }> = {
+   499→    active: { label: 'Active', color: EMERALD },
+   500→    canceled: { label: 'Canceled', color: RED },
+   501→    expired: { label: 'Expired', color: SLATE },
+   502→    past_due: { label: 'Past Due', color: ROSE },
+   503→  }
+   504→
+   505→  // ─── Render loading ──────────────────────────────────────────────────────
+   506→  const renderLoading = () => (
+   507→    <div className="flex items-center justify-center h-48">
+   508→      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+   509→    </div>
+   510→  )
+   511→
+   512→  // ─── KPI Card helper ─────────────────────────────────────────────────────
+   513→  const renderKPICard = (
+   514→    title: string,
+   515→    value: string | number,
+   516→    icon: React.ReactNode,
+   517→    gradient: string,
+   518→    iconBg: string,
+   519→    iconColor: string,
+   520→    subtitle?: string,
+   521→    trend?: { value: number; label: string }
+   522→  ) => (
+   523→    <motion.div variants={item}>
+   524→      <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   525→        <div className={`h-1 bg-gradient-to-r ${gradient}`} />
+   526→        <CardContent className="p-5">
+   527→          <div className="flex items-center justify-between">
+   528→            <div className="space-y-1">
+   529→              <p className="text-sm font-medium text-muted-foreground">{title}</p>
+   530→              <p className="text-3xl font-bold tracking-tight">{value}</p>
+   531→              {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+   532→              {trend && (
+   533→                <div className={`flex items-center gap-1 text-xs font-medium ${trend.value >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+   534→                  {trend.value >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+   535→                  {Math.abs(trend.value)}% {trend.label}
+   536→                </div>
+   537→              )}
+   538→            </div>
+   539→            <div className={`h-12 w-12 rounded-2xl ${iconBg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+   540→              <div className={iconColor}>{icon}</div>
+   541→            </div>
+   542→          </div>
+   543→        </CardContent>
+   544→      </Card>
+   545→    </motion.div>
+   546→  )
+   547→
+   548→  // ─── Tab 1: Users ────────────────────────────────────────────────────────
+   549→  const renderUsersTab = () => (
+   550→    <motion.div className="space-y-6" variants={container} initial="hidden" animate="show">
+   551→      {/* Summary cards */}
+   552→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   553→        {renderKPICard('Total Users', totalUsers, <Users className="h-6 w-6" />, 'from-amber-400 to-amber-600', 'bg-amber-50', 'text-amber-600')}
+   554→        {renderKPICard('Active Users', activeUsers, <UserCheck className="h-6 w-6" />, 'from-emerald-400 to-emerald-600', 'bg-emerald-50', 'text-emerald-600', `${totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0}% of total`)}
+   555→        {renderKPICard('Admin Users', adminUsers, <Shield className="h-6 w-6" />, 'from-orange-400 to-orange-600', 'bg-orange-50', 'text-orange-600')}
+   556→        {renderKPICard('New This Month', newThisMonth, <UserPlus className="h-6 w-6" />, 'from-teal-400 to-teal-600', 'bg-teal-50', 'text-teal-600')}
+   557→      </div>
+   558→
+   559→      {/* Filters */}
+   560→      <motion.div variants={item}>
+   561→        <Card className="border-0 shadow-sm">
+   562→          <CardContent className="p-4">
+   563→            <div className="flex flex-col sm:flex-row gap-3">
+   564→              <div className="relative flex-1">
+   565→                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   566→                <Input
+   567→                  placeholder="Search by name or email..."
+   568→                  value={userSearch}
+   569→                  onChange={(e) => setUserSearch(e.target.value)}
+   570→                  className="pl-9"
+   571→                />
+   572→              </div>
+   573→              <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
+   574→                <SelectTrigger className="w-full sm:w-[140px]">
+   575→                  <SelectValue placeholder="Role" />
+   576→                </SelectTrigger>
+   577→                <SelectContent>
+   578→                  <SelectItem value="all">All Roles</SelectItem>
+   579→                  <SelectItem value="admin">Admin</SelectItem>
+   580→                  <SelectItem value="user">User</SelectItem>
+   581→                </SelectContent>
+   582→              </Select>
+   583→              <Select value={userStatusFilter} onValueChange={setUserStatusFilter}>
+   584→                <SelectTrigger className="w-full sm:w-[150px]">
+   585→                  <SelectValue placeholder="Status" />
+   586→                </SelectTrigger>
+   587→                <SelectContent>
+   588→                  <SelectItem value="all">All Status</SelectItem>
+   589→                  <SelectItem value="active">Active</SelectItem>
+   590→                  <SelectItem value="suspended">Suspended</SelectItem>
+   591→                  <SelectItem value="banned">Banned</SelectItem>
+   592→                </SelectContent>
+   593→              </Select>
+   594→              <Button variant="outline" size="icon" onClick={fetchUsers} className="shrink-0">
+   595→                <RefreshCw className="h-4 w-4" />
+   596→              </Button>
+   597→            </div>
+   598→          </CardContent>
+   599→        </Card>
+   600→      </motion.div>
+   601→
+   602→      {/* Users table */}
+   603→      <motion.div variants={item}>
+   604→        <Card className="border-0 shadow-sm">
+   605→          <CardHeader className="pb-3">
+   606→            <CardTitle className="text-lg flex items-center gap-2">
+   607→              <Users className="h-5 w-5 text-amber-500" />
+   608→              User Management
+   609→            </CardTitle>
+   610→            <CardDescription>{totalUsers} users found</CardDescription>
+   611→          </CardHeader>
+   612→          <CardContent className="p-0">
+   613→            {usersLoading ? (
+   614→              renderLoading()
+   615→            ) : (
+   616→              <ScrollArea className="max-h-[520px]">
+   617→                <Table>
+   618→                  <TableHeader>
+   619→                    <TableRow>
+   620→                      <TableHead>User</TableHead>
+   621→                      <TableHead className="hidden md:table-cell">Role</TableHead>
+   622→                      <TableHead className="hidden sm:table-cell">Plan</TableHead>
+   623→                      <TableHead>Credits</TableHead>
+   624→                      <TableHead>Status</TableHead>
+   625→                      <TableHead className="hidden lg:table-cell">Leads</TableHead>
+   626→                      <TableHead className="hidden lg:table-cell">Joined</TableHead>
+   627→                      <TableHead className="text-right">Actions</TableHead>
+   628→                    </TableRow>
+   629→                  </TableHeader>
+   630→                  <TableBody>
+   631→                    {users.length === 0 ? (
+   632→                      <TableRow>
+   633→                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+   634→                          No users found matching your filters
+   635→                        </TableCell>
+   636→                      </TableRow>
+   637→                    ) : (
+   638→                      users.map((user) => (
+   639→                        <TableRow key={user.id}>
+   640→                          <TableCell>
+   641→                            <div className="flex items-center gap-3">
+   642→                              <Avatar className="h-8 w-8">
+   643→                                <AvatarFallback className="bg-amber-50 text-amber-700 text-xs font-bold">
+   644→                                  {getInitials(user.name)}
+   645→                                </AvatarFallback>
+   646→                              </Avatar>
+   647→                              <div>
+   648→                                <p className="text-sm font-medium">{user.name}</p>
+   649→                                <p className="text-xs text-muted-foreground">{user.email}</p>
+   650→                              </div>
+   651→                            </div>
+   652→                          </TableCell>
+   653→                          <TableCell className="hidden md:table-cell">
+   654→                            <Badge variant="outline" className={user.role === 'admin' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-slate-50 text-slate-600 border-slate-200'}>
+   655→                              {user.role === 'admin' ? <Shield className="h-3 w-3 mr-1" /> : <Users className="h-3 w-3 mr-1" />}
+   656→                              {user.role}
+   657→                            </Badge>
+   658→                          </TableCell>
+   659→                          <TableCell className="hidden sm:table-cell">
+   660→                            <Badge variant="outline" className={planBadgeClass(user.plan)}>
+   661→                              {user.plan}
+   662→                            </Badge>
+   663→                          </TableCell>
+   664→                          <TableCell>
+   665→                            <span className="text-sm font-medium">{user.credits}</span>
+   666→                          </TableCell>
+   667→                          <TableCell>
+   668→                            <Badge variant="outline" className={statusBadgeClass(user.status)}>
+   669→                              {user.status}
+   670→                            </Badge>
+   671→                          </TableCell>
+   672→                          <TableCell className="hidden lg:table-cell">
+   673→                            <span className="text-sm">{user.leads}</span>
+   674→                          </TableCell>
+   675→                          <TableCell className="hidden lg:table-cell">
+   676→                            <span className="text-xs text-muted-foreground">{formatDate(user.joined)}</span>
+   677→                          </TableCell>
+   678→                          <TableCell className="text-right">
+   679→                            <DropdownMenu>
+   680→                              <DropdownMenuTrigger asChild>
+   681→                                <Button variant="ghost" size="icon" className="h-8 w-8">
+   682→                                  <MoreHorizontal className="h-4 w-4" />
+   683→                                </Button>
+   684→                              </DropdownMenuTrigger>
+   685→                              <DropdownMenuContent align="end">
+   686→                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+   687→                                <DropdownMenuSeparator />
+   688→                                <DropdownMenuItem onClick={() => updateUser(user.id, { role: user.role === 'admin' ? 'user' : 'admin' })}>
+   689→                                  <Edit className="h-4 w-4 mr-2" />
+   690→                                  {user.role === 'admin' ? 'Demote to User' : 'Promote to Admin'}
+   691→                                </DropdownMenuItem>
+   692→                                {user.status === 'active' && (
+   693→                                  <DropdownMenuItem onClick={() => updateUser(user.id, { status: 'suspended' })}>
+   694→                                    <AlertTriangle className="h-4 w-4 mr-2" />
+   695→                                    Suspend User
+   696→                                  </DropdownMenuItem>
+   697→                                )}
+   698→                                {(user.status === 'suspended' || user.status === 'banned') && (
+   699→                                  <DropdownMenuItem onClick={() => updateUser(user.id, { status: 'active' })}>
+   700→                                    <CheckCircle2 className="h-4 w-4 mr-2" />
+   701→                                    Activate User
+   702→                                  </DropdownMenuItem>
+   703→                                )}
+   704→                                {user.status !== 'banned' && (
+   705→                                  <DropdownMenuItem variant="destructive" onClick={() => updateUser(user.id, { status: 'banned' })}>
+   706→                                    <Ban className="h-4 w-4 mr-2" />
+   707→                                    Ban User
+   708→                                  </DropdownMenuItem>
+   709→                                )}
+   710→                                <DropdownMenuSeparator />
+   711→                                <DropdownMenuItem
+   712→                                  onClick={() => {
+   713→                                    setAddCreditsUserId(user.id)
+   714→                                    setAddCreditsOpen(true)
+   715→                                  }}
+   716→                                >
+   717→                                  <Plus className="h-4 w-4 mr-2" />
+   718→                                  Add Credits
+   719→                                </DropdownMenuItem>
+   720→                              </DropdownMenuContent>
+   721→                            </DropdownMenu>
+   722→                          </TableCell>
+   723→                        </TableRow>
+   724→                      ))
+   725→                    )}
+   726→                  </TableBody>
+   727→                </Table>
+   728→              </ScrollArea>
+   729→            )}
+   730→          </CardContent>
+   731→        </Card>
+   732→      </motion.div>
+   733→    </motion.div>
+   734→  )
+   735→
+   736→  // ─── Tab 2: Subscriptions ────────────────────────────────────────────────
+   737→  const renderSubscriptionsTab = () => (
+   738→    <motion.div className="space-y-6" variants={container} initial="hidden" animate="show">
+   739→      {/* Summary cards */}
+   740→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   741→        {renderKPICard('Active Subscriptions', activeSubs, <CreditCard className="h-6 w-6" />, 'from-emerald-400 to-emerald-600', 'bg-emerald-50', 'text-emerald-600')}
+   742→        {renderKPICard('MRR', formatCurrency(mrr), <DollarSign className="h-6 w-6" />, 'from-amber-400 to-amber-600', 'bg-amber-50', 'text-amber-600')}
+   743→        {renderKPICard('Canceled This Month', canceledThisMonth, <UserX className="h-6 w-6" />, 'from-red-400 to-red-600', 'bg-red-50', 'text-red-600')}
+   744→        {renderKPICard('Churn Rate', `${churnRate}%`, <TrendingDown className="h-6 w-6" />, 'from-orange-400 to-orange-600', 'bg-orange-50', 'text-orange-600')}
+   745→      </div>
+   746→
+   747→      {/* Filters */}
+   748→      <motion.div variants={item}>
+   749→        <Card className="border-0 shadow-sm">
+   750→          <CardContent className="p-4">
+   751→            <div className="flex flex-col sm:flex-row gap-3">
+   752→              <Select value={subStatusFilter} onValueChange={setSubStatusFilter}>
+   753→                <SelectTrigger className="w-full sm:w-[160px]">
+   754→                  <SelectValue placeholder="Status" />
+   755→                </SelectTrigger>
+   756→                <SelectContent>
+   757→                  <SelectItem value="all">All Status</SelectItem>
+   758→                  <SelectItem value="active">Active</SelectItem>
+   759→                  <SelectItem value="canceled">Canceled</SelectItem>
+   760→                  <SelectItem value="expired">Expired</SelectItem>
+   761→                  <SelectItem value="past_due">Past Due</SelectItem>
+   762→                </SelectContent>
+   763→              </Select>
+   764→              <Button variant="outline" size="icon" onClick={fetchSubs} className="shrink-0">
+   765→                <RefreshCw className="h-4 w-4" />
+   766→              </Button>
+   767→            </div>
+   768→          </CardContent>
+   769→        </Card>
+   770→      </motion.div>
+   771→
+   772→      {/* Subscriptions table */}
+   773→      <motion.div variants={item}>
+   774→        <Card className="border-0 shadow-sm">
+   775→          <CardHeader className="pb-3">
+   776→            <CardTitle className="text-lg flex items-center gap-2">
+   777→              <CreditCard className="h-5 w-5 text-amber-500" />
+   778→              Subscriptions
+   779→            </CardTitle>
+   780→            <CardDescription>{subscriptions.length} subscriptions total</CardDescription>
+   781→          </CardHeader>
+   782→          <CardContent className="p-0">
+   783→            {subsLoading ? (
+   784→              renderLoading()
+   785→            ) : (
+   786→              <ScrollArea className="max-h-[520px]">
+   787→                <Table>
+   788→                  <TableHeader>
+   789→                    <TableRow>
+   790→                      <TableHead>User</TableHead>
+   791→                      <TableHead>Plan</TableHead>
+   792→                      <TableHead>Status</TableHead>
+   793→                      <TableHead className="hidden sm:table-cell">Period Start</TableHead>
+   794→                      <TableHead className="hidden md:table-cell">Period End</TableHead>
+   795→                      <TableHead className="hidden lg:table-cell">Cancel at End</TableHead>
+   796→                      <TableHead>Amount</TableHead>
+   797→                      <TableHead className="text-right">Actions</TableHead>
+   798→                    </TableRow>
+   799→                  </TableHeader>
+   800→                  <TableBody>
+   801→                    {subscriptions.length === 0 ? (
+   802→                      <TableRow>
+   803→                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+   804→                          No subscriptions found
+   805→                        </TableCell>
+   806→                      </TableRow>
+   807→                    ) : (
+   808→                      subscriptions.map((sub) => (
+   809→                        <TableRow key={sub.id}>
+   810→                          <TableCell>
+   811→                            <div>
+   812→                              <p className="text-sm font-medium">{sub.userName}</p>
+   813→                              <p className="text-xs text-muted-foreground">{sub.userEmail}</p>
+   814→                            </div>
+   815→                          </TableCell>
+   816→                          <TableCell>
+   817→                            <Badge variant="outline" className={planBadgeClass(sub.plan)}>
+   818→                              {sub.plan}
+   819→                            </Badge>
+   820→                          </TableCell>
+   821→                          <TableCell>
+   822→                            <Badge variant="outline" className={statusBadgeClass(sub.status)}>
+   823→                              {sub.status.replace('_', ' ')}
+   824→                            </Badge>
+   825→                          </TableCell>
+   826→                          <TableCell className="hidden sm:table-cell">
+   827→                            <span className="text-xs text-muted-foreground">{formatDate(sub.periodStart)}</span>
+   828→                          </TableCell>
+   829→                          <TableCell className="hidden md:table-cell">
+   830→                            <span className="text-xs text-muted-foreground">{formatDate(sub.periodEnd)}</span>
+   831→                          </TableCell>
+   832→                          <TableCell className="hidden lg:table-cell">
+   833→                            {sub.cancelAtEnd ? (
+   834→                              <XCircle className="h-4 w-4 text-red-400" />
+   835→                            ) : (
+   836→                              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+   837→                            )}
+   838→                          </TableCell>
+   839→                          <TableCell>
+   840→                            <span className="text-sm font-medium">${sub.amount}/mo</span>
+   841→                          </TableCell>
+   842→                          <TableCell className="text-right">
+   843→                            <DropdownMenu>
+   844→                              <DropdownMenuTrigger asChild>
+   845→                                <Button variant="ghost" size="icon" className="h-8 w-8">
+   846→                                  <MoreHorizontal className="h-4 w-4" />
+   847→                                </Button>
+   848→                              </DropdownMenuTrigger>
+   849→                              <DropdownMenuContent align="end">
+   850→                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+   851→                                <DropdownMenuSeparator />
+   852→                                <DropdownMenuItem onClick={() => updateSubscription(sub.id, { planId: 'pro' })}>
+   853→                                  <TrendingUp className="h-4 w-4 mr-2" />
+   854→                                  Upgrade to Pro
+   855→                                </DropdownMenuItem>
+   856→                                <DropdownMenuItem onClick={() => updateSubscription(sub.id, { planId: 'enterprise' })}>
+   857→                                  <Zap className="h-4 w-4 mr-2" />
+   858→                                  Upgrade to Enterprise
+   859→                                </DropdownMenuItem>
+   860→                                <DropdownMenuSeparator />
+   861→                                {sub.status === 'active' && !sub.cancelAtEnd && (
+   862→                                  <DropdownMenuItem variant="destructive" onClick={() => updateSubscription(sub.id, { cancelAtPeriodEnd: true })}>
+   863→                                    <Ban className="h-4 w-4 mr-2" />
+   864→                                    Cancel at Period End
+   865→                                  </DropdownMenuItem>
+   866→                                )}
+   867→                                {(sub.status === 'canceled' || sub.status === 'expired') && (
+   868→                                  <DropdownMenuItem onClick={() => updateSubscription(sub.id, { status: 'active', cancelAtPeriodEnd: false })}>
+   869→                                    <CheckCircle2 className="h-4 w-4 mr-2" />
+   870→                                    Reactivate
+   871→                                  </DropdownMenuItem>
+   872→                                )}
+   873→                              </DropdownMenuContent>
+   874→                            </DropdownMenu>
+   875→                          </TableCell>
+   876→                        </TableRow>
+   877→                      ))
+   878→                    )}
+   879→                  </TableBody>
+   880→                </Table>
+   881→              </ScrollArea>
+   882→            )}
+   883→          </CardContent>
+   884→        </Card>
+   885→      </motion.div>
+   886→    </motion.div>
+   887→  )
+   888→
+   889→  // ─── Tab 3: Credits ──────────────────────────────────────────────────────
+   890→  const renderCreditsTab = () => (
+   891→    <motion.div className="space-y-6" variants={container} initial="hidden" animate="show">
+   892→      {/* Summary cards */}
+   893→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   894→        {renderKPICard('Total Issued', totalCreditsIssued.toLocaleString(), <Coins className="h-6 w-6" />, 'from-amber-400 to-amber-600', 'bg-amber-50', 'text-amber-600')}
+   895→        {renderKPICard('Total Used', totalCreditsUsed.toLocaleString(), <Activity className="h-6 w-6" />, 'from-orange-400 to-orange-600', 'bg-orange-50', 'text-orange-600')}
+   896→        {renderKPICard('Balance', creditsBalance.toLocaleString(), <DollarSign className="h-6 w-6" />, 'from-emerald-400 to-emerald-600', 'bg-emerald-50', 'text-emerald-600')}
+   897→        {renderKPICard('Revenue from Credits', formatCurrency(revenueFromCredits), <TrendingUp className="h-6 w-6" />, 'from-teal-400 to-teal-600', 'bg-teal-50', 'text-teal-600')}
+   898→      </div>
+   899→
+   900→      {/* Filters + Add Credits button */}
+   901→      <motion.div variants={item}>
+   902→        <Card className="border-0 shadow-sm">
+   903→          <CardContent className="p-4">
+   904→            <div className="flex flex-col sm:flex-row gap-3 items-center">
+   905→              <Select value={creditTypeFilter} onValueChange={setCreditTypeFilter}>
+   906→                <SelectTrigger className="w-full sm:w-[180px]">
+   907→                  <SelectValue placeholder="Transaction Type" />
+   908→                </SelectTrigger>
+   909→                <SelectContent>
+   910→                  <SelectItem value="all">All Types</SelectItem>
+   911→                  <SelectItem value="purchase">Purchase</SelectItem>
+   912→                  <SelectItem value="usage">Usage</SelectItem>
+   913→                  <SelectItem value="bonus">Bonus</SelectItem>
+   914→                  <SelectItem value="refund">Refund</SelectItem>
+   915→                  <SelectItem value="plan_credits">Plan Credits</SelectItem>
+   916→                </SelectContent>
+   917→              </Select>
+   918→              <div className="flex-1" />
+   919→              <Button
+   920→                className="bg-amber-500 hover:bg-amber-600 text-white"
+   921→                onClick={() => {
+   922→                  setAddCreditsUserId('')
+   923→                  setAddCreditsAmount('')
+   924→                  setAddCreditsDesc('')
+   925→                  setAddCreditsOpen(true)
+   926→                }}
+   927→              >
+   928→                <Plus className="h-4 w-4 mr-2" />
+   929→                Add Credits
+   930→              </Button>
+   931→              <Button variant="outline" size="icon" onClick={fetchCredits} className="shrink-0">
+   932→                <RefreshCw className="h-4 w-4" />
+   933→              </Button>
+   934→            </div>
+   935→          </CardContent>
+   936→        </Card>
+   937→      </motion.div>
+   938→
+   939→      {/* Credits table */}
+   940→      <motion.div variants={item}>
+   941→        <Card className="border-0 shadow-sm">
+   942→          <CardHeader className="pb-3">
+   943→            <CardTitle className="text-lg flex items-center gap-2">
+   944→              <Coins className="h-5 w-5 text-amber-500" />
+   945→              Credit Transactions
+   946→            </CardTitle>
+   947→            <CardDescription>{credits.length} transactions</CardDescription>
+   948→          </CardHeader>
+   949→          <CardContent className="p-0">
+   950→            {creditsLoading ? (
+   951→              renderLoading()
+   952→            ) : (
+   953→              <ScrollArea className="max-h-[520px]">
+   954→                <Table>
+   955→                  <TableHeader>
+   956→                    <TableRow>
+   957→                      <TableHead>User</TableHead>
+   958→                      <TableHead>Amount</TableHead>
+   959→                      <TableHead>Type</TableHead>
+   960→                      <TableHead className="hidden sm:table-cell">Description</TableHead>
+   961→                      <TableHead className="hidden md:table-cell">Date</TableHead>
+   962→                    </TableRow>
+   963→                  </TableHeader>
+   964→                  <TableBody>
+   965→                    {credits.length === 0 ? (
+   966→                      <TableRow>
+   967→                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+   968→                          No credit transactions found
+   969→                        </TableCell>
+   970→                      </TableRow>
+   971→                    ) : (
+   972→                      credits.map((tx) => (
+   973→                        <TableRow key={tx.id}>
+   974→                          <TableCell>
+   975→                            <span className="text-sm font-medium">{tx.userName}</span>
+   976→                          </TableCell>
+   977→                          <TableCell>
+   978→                            <span className={`text-sm font-bold ${tx.amount > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+   979→                              {tx.amount > 0 ? '+' : ''}{tx.amount}
+   980→                            </span>
+   981→                          </TableCell>
+   982→                          <TableCell>
+   983→                            <Badge
+   984→                              variant="outline"
+   985→                              className="text-xs"
+   986→                              style={{
+   987→                                backgroundColor: `${CREDIT_TYPE_COLORS[tx.type]}10`,
+   988→                                color: CREDIT_TYPE_COLORS[tx.type],
+   989→                                borderColor: `${CREDIT_TYPE_COLORS[tx.type]}40`,
+   990→                              }}
+   991→                            >
+   992→                              {tx.type.replace('_', ' ')}
+   993→                            </Badge>
+   994→                          </TableCell>
+   995→                          <TableCell className="hidden sm:table-cell">
+   996→                            <span className="text-xs text-muted-foreground max-w-[200px] truncate block">
+   997→                              {tx.description}
+   998→                            </span>
+   999→                          </TableCell>
+  1000→                          <TableCell className="hidden md:table-cell">
+  1001→                            <span className="text-xs text-muted-foreground">{formatDate(tx.date)}</span>
+  1002→                          </TableCell>
+  1003→                        </TableRow>
+  1004→                      ))
+  1005→                    )}
+  1006→                  </TableBody>
+  1007→                </Table>
+  1008→              </ScrollArea>
+  1009→            )}
+  1010→          </CardContent>
+  1011→        </Card>
+  1012→      </motion.div>
+  1013→
+  1014→      {/* Add Credits Dialog */}
+  1015→      <Dialog open={addCreditsOpen} onOpenChange={setAddCreditsOpen}>
+  1016→        <DialogContent>
+  1017→          <DialogHeader>
+  1018→            <DialogTitle className="flex items-center gap-2">
+  1019→              <Coins className="h-5 w-5 text-amber-500" />
+  1020→              Add Credits to User
+  1021→            </DialogTitle>
+  1022→            <DialogDescription>Add credits directly to a user&apos;s account balance.</DialogDescription>
+  1023→          </DialogHeader>
+  1024→          <div className="space-y-4">
+  1025→            <div className="space-y-2">
+  1026→              <Label>User ID</Label>
+  1027→              <Input
+  1028→                placeholder="Enter user ID"
+  1029→                value={addCreditsUserId}
+  1030→                onChange={(e) => setAddCreditsUserId(e.target.value)}
+  1031→              />
+  1032→            </div>
+  1033→            <div className="grid grid-cols-2 gap-4">
+  1034→              <div className="space-y-2">
+  1035→                <Label>Amount</Label>
+  1036→                <Input
+  1037→                  type="number"
+  1038→                  placeholder="e.g. 100"
+  1039→                  value={addCreditsAmount}
+  1040→                  onChange={(e) => setAddCreditsAmount(e.target.value)}
+  1041→                />
+  1042→              </div>
+  1043→              <div className="space-y-2">
+  1044→                <Label>Type</Label>
+  1045→                <Select value={addCreditsType} onValueChange={(v) => setAddCreditsType(v as 'bonus' | 'purchase' | 'refund')}>
+  1046→                  <SelectTrigger>
+  1047→                    <SelectValue />
+  1048→                  </SelectTrigger>
+  1049→                  <SelectContent>
+  1050→                    <SelectItem value="bonus">Bonus</SelectItem>
+  1051→                    <SelectItem value="purchase">Purchase</SelectItem>
+  1052→                    <SelectItem value="refund">Refund</SelectItem>
+  1053→                  </SelectContent>
+  1054→                </Select>
+  1055→              </div>
+  1056→            </div>
+  1057→            <div className="space-y-2">
+  1058→              <Label>Description</Label>
+  1059→              <Textarea
+  1060→                placeholder="Reason for adding credits..."
+  1061→                value={addCreditsDesc}
+  1062→                onChange={(e) => setAddCreditsDesc(e.target.value)}
+  1063→                rows={3}
+  1064→              />
+  1065→            </div>
+  1066→          </div>
+  1067→          <DialogFooter>
+  1068→            <Button variant="outline" onClick={() => setAddCreditsOpen(false)}>Cancel</Button>
+  1069→            <Button
+  1070→              className="bg-amber-500 hover:bg-amber-600 text-white"
+  1071→              onClick={handleAddCredits}
+  1072→              disabled={!addCreditsUserId || !addCreditsAmount || addCreditsSubmitting}
+  1073→            >
+  1074→              {addCreditsSubmitting ? (
+  1075→                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+  1076→              ) : (
+  1077→                <Plus className="h-4 w-4 mr-2" />
+  1078→              )}
+  1079→              Add Credits
+  1080→            </Button>
+  1081→          </DialogFooter>
+  1082→        </DialogContent>
+  1083→      </Dialog>
+  1084→    </motion.div>
+  1085→  )
+  1086→
+  1087→  // ─── Tab 4: Analytics ────────────────────────────────────────────────────
+  1088→  const renderAnalyticsTab = () => {
+  1089→    if (analyticsLoading) return renderLoading()
+  1090→    if (!analytics) return null
+  1091→
+  1092→    return (
+  1093→      <motion.div className="space-y-6" variants={container} initial="hidden" animate="show">
+  1094→        {/* KPI cards */}
+  1095→        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  1096→          {renderKPICard('Total Users', analytics.totalUsers, <Users className="h-6 w-6" />, 'from-amber-400 to-amber-600', 'bg-amber-50', 'text-amber-600', undefined, { value: 12, label: 'vs last month' })}
+  1097→          {renderKPICard('Active Users', analytics.activeUsers, <UserCheck className="h-6 w-6" />, 'from-emerald-400 to-emerald-600', 'bg-emerald-50', 'text-emerald-600', undefined, { value: 8, label: 'vs last month' })}
+  1098→          {renderKPICard('MRR', formatCurrency(analytics.mrr), <DollarSign className="h-6 w-6" />, 'from-orange-400 to-orange-600', 'bg-orange-50', 'text-orange-600', undefined, { value: 15, label: 'vs last month' })}
+  1099→          {renderKPICard('Total Revenue', formatCurrency(analytics.totalRevenue), <TrendingUp className="h-6 w-6" />, 'from-teal-400 to-teal-600', 'bg-teal-50', 'text-teal-600', undefined, { value: 22, label: 'vs last month' })}
+  1100→        </div>
+  1101→
+  1102→        {/* Charts row 1 */}
+  1103→        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  1104→          {/* Revenue trend */}
+  1105→          <motion.div variants={item}>
+  1106→            <Card className="border-0 shadow-sm">
+  1107→              <CardHeader className="pb-2">
+  1108→                <CardTitle className="text-lg flex items-center gap-2">
+  1109→                  <DollarSign className="h-5 w-5 text-amber-500" />
+  1110→                  Revenue Trend
+  1111→                </CardTitle>
+  1112→                <CardDescription>Monthly revenue over time</CardDescription>
+  1113→              </CardHeader>
+  1114→              <CardContent>
+  1115→                {analytics.revenueTrend.length > 0 && analytics.revenueTrend.some((r) => r.revenue > 0) ? (
+  1116→                  <ChartContainer config={revenueChartConfig} className="h-[280px] w-full">
+  1117→                    <AreaChart data={analytics.revenueTrend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+  1118→                      <defs>
+  1119→                        <linearGradient id="adminRevenueGrad" x1="0" y1="0" x2="0" y2="1">
+  1120→                          <stop offset="5%" stopColor={AMBER} stopOpacity={0.3} />
+  1121→                          <stop offset="95%" stopColor={AMBER} stopOpacity={0} />
+  1122→                        </linearGradient>
+  1123→                      </defs>
+  1124→                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+  1125→                      <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+  1126→                      <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v / 1000}k`} />
+  1127→                      <ChartTooltip content={<ChartTooltipContent />} />
+  1128→                      <Area type="monotone" dataKey="revenue" stroke={AMBER} strokeWidth={3} fill="url(#adminRevenueGrad)" />
+  1129→                    </AreaChart>
+  1130→                  </ChartContainer>
+  1131→                ) : (
+  1132→                  <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+  1133→                    No revenue data yet
+  1134→                  </div>
+  1135→                )}
+  1136→              </CardContent>
+  1137→            </Card>
+  1138→          </motion.div>
+  1139→
+  1140→          {/* Users by Plan - Pie */}
+  1141→          <motion.div variants={item}>
+  1142→            <Card className="border-0 shadow-sm">
+  1143→              <CardHeader className="pb-2">
+  1144→                <CardTitle className="text-lg flex items-center gap-2">
+  1145→                  <Target className="h-5 w-5 text-amber-500" />
+  1146→                  Users by Plan
+  1147→                </CardTitle>
+  1148→                <CardDescription>Distribution of users across plans</CardDescription>
+  1149→              </CardHeader>
+  1150→              <CardContent>
+  1151→                {analytics.usersByPlan.length > 0 ? (
+  1152→                  <ChartContainer config={usersByPlanConfig} className="h-[280px] w-full">
+  1153→                    <PieChart>
+  1154→                      <ChartTooltip content={<ChartTooltipContent />} />
+  1155→                      <Pie
+  1156→                        data={analytics.usersByPlan}
+  1157→                        cx="50%"
+  1158→                        cy="50%"
+  1159→                        innerRadius={60}
+  1160→                        outerRadius={100}
+  1161→                        paddingAngle={3}
+  1162→                        dataKey="count"
+  1163→                        nameKey="plan"
+  1164→                      >
+  1165→                        {analytics.usersByPlan.map((entry, i) => (
+  1166→                          <Cell
+  1167→                            key={`cell-${i}`}
+  1168→                            fill={[AMBER, ORANGE, EMERALD, SLATE, TEAL][i % 5]}
+  1169→                          />
+  1170→                        ))}
+  1171→                      </Pie>
+  1172→                    </PieChart>
+  1173→                  </ChartContainer>
+  1174→                ) : (
+  1175→                  <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+  1176→                    No plan data yet
+  1177→                  </div>
+  1178→                )}
+  1179→              </CardContent>
+  1180→            </Card>
+  1181→          </motion.div>
+  1182→        </div>
+  1183→
+  1184→        {/* Subscription Status Breakdown - Bar chart */}
+  1185→        <motion.div variants={item}>
+  1186→          <Card className="border-0 shadow-sm">
+  1187→            <CardHeader className="pb-2">
+  1188→              <CardTitle className="text-lg flex items-center gap-2">
+  1189→                <CreditCard className="h-5 w-5 text-amber-500" />
+  1190→                Subscription Status Breakdown
+  1191→              </CardTitle>
+  1192→              <CardDescription>Current subscription statuses across the platform</CardDescription>
+  1193→            </CardHeader>
+  1194→            <CardContent>
+  1195→              {analytics.subscriptionStatus.length > 0 ? (
+  1196→                <ChartContainer config={subStatusConfig} className="h-[280px] w-full">
+  1197→                  <BarChart data={analytics.subscriptionStatus} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+  1198→                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+  1199→                    <XAxis dataKey="status" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+  1200→                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+  1201→                    <ChartTooltip content={<ChartTooltipContent />} />
+  1202→                    <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+  1203→                      {analytics.subscriptionStatus.map((entry, i) => (
+  1204→                        <Cell key={`cell-${i}`} fill={SUB_STATUS_COLORS[entry.status] || SLATE} />
+  1205→                      ))}
+  1206→                    </Bar>
+  1207→                  </BarChart>
+  1208→                </ChartContainer>
+  1209→              ) : (
+  1210→                <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+  1211→                  No subscription data yet
+  1212→                </div>
+  1213→              )}
+  1214→            </CardContent>
+  1215→          </Card>
+  1216→        </motion.div>
+  1217→
+  1218→        {/* Top Users tables + Platform Stats */}
+  1219→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  1220→          {/* Top users by leads */}
+  1221→          <motion.div variants={item}>
+  1222→            <Card className="border-0 shadow-sm">
+  1223→              <CardHeader className="pb-3">
+  1224→                <CardTitle className="text-base flex items-center gap-2">
+  1225→                  <Users className="h-4 w-4 text-amber-500" />
+  1226→                  Top Users by Leads
+  1227→                </CardTitle>
+  1228→              </CardHeader>
+  1229→              <CardContent className="p-0">
+  1230→                <ScrollArea className="max-h-64">
+  1231→                  <Table>
+  1232→                    <TableHeader>
+  1233→                      <TableRow>
+  1234→                        <TableHead>Name</TableHead>
+  1235→                        <TableHead>Plan</TableHead>
+  1236→                        <TableHead className="text-right">Leads</TableHead>
+  1237→                      </TableRow>
+  1238→                    </TableHeader>
+  1239→                    <TableBody>
+  1240→                      {analytics.topUsersByLeads.length === 0 ? (
+  1241→                        <TableRow>
+  1242→                          <TableCell colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No data</TableCell>
+  1243→                        </TableRow>
+  1244→                      ) : (
+  1245→                        analytics.topUsersByLeads.map((u, i) => (
+  1246→                          <TableRow key={i}>
+  1247→                            <TableCell>
+  1248→                              <div className="flex items-center gap-2">
+  1249→                                <div className="h-6 w-6 rounded-full bg-amber-50 flex items-center justify-center text-amber-700 text-xs font-bold">
+  1250→                                  {i + 1}
+  1251→                                </div>
+  1252→                                <span className="text-sm">{u.name}</span>
+  1253→                              </div>
+  1254→                            </TableCell>
+  1255→                            <TableCell>
+  1256→                              <Badge variant="outline" className={`text-xs ${planBadgeClass(u.plan)}`}>
+  1257→                                {u.plan}
+  1258→                              </Badge>
+  1259→                            </TableCell>
+  1260→                            <TableCell className="text-right font-medium">{u.leads}</TableCell>
+  1261→                          </TableRow>
+  1262→                        ))
+  1263→                      )}
+  1264→                    </TableBody>
+  1265→                  </Table>
+  1266→                </ScrollArea>
+  1267→              </CardContent>
+  1268→            </Card>
+  1269→          </motion.div>
+  1270→
+  1271→          {/* Top users by credits */}
+  1272→          <motion.div variants={item}>
+  1273→            <Card className="border-0 shadow-sm">
+  1274→              <CardHeader className="pb-3">
+  1275→                <CardTitle className="text-base flex items-center gap-2">
+  1276→                  <Coins className="h-4 w-4 text-amber-500" />
+  1277→                  Top Users by Credits
+  1278→                </CardTitle>
+  1279→              </CardHeader>
+  1280→              <CardContent className="p-0">
+  1281→                <ScrollArea className="max-h-64">
+  1282→                  <Table>
+  1283→                    <TableHeader>
+  1284→                      <TableRow>
+  1285→                        <TableHead>Name</TableHead>
+  1286→                        <TableHead>Plan</TableHead>
+  1287→                        <TableHead className="text-right">Credits</TableHead>
+  1288→                      </TableRow>
+  1289→                    </TableHeader>
+  1290→                    <TableBody>
+  1291→                      {analytics.topUsersByCredits.length === 0 ? (
+  1292→                        <TableRow>
+  1293→                          <TableCell colSpan={3} className="text-center py-6 text-muted-foreground text-sm">No data</TableCell>
+  1294→                        </TableRow>
+  1295→                      ) : (
+  1296→                        analytics.topUsersByCredits.map((u, i) => (
+  1297→                          <TableRow key={i}>
+  1298→                            <TableCell>
+  1299→                              <div className="flex items-center gap-2">
+  1300→                                <div className="h-6 w-6 rounded-full bg-amber-50 flex items-center justify-center text-amber-700 text-xs font-bold">
+  1301→                                  {i + 1}
+  1302→                                </div>
+  1303→                                <span className="text-sm">{u.name}</span>
+  1304→                              </div>
+  1305→                            </TableCell>
+  1306→                            <TableCell>
+  1307→                              <Badge variant="outline" className={`text-xs ${planBadgeClass(u.plan)}`}>
+  1308→                                {u.plan}
+  1309→                              </Badge>
+  1310→                            </TableCell>
+  1311→                            <TableCell className="text-right font-medium">{u.credits}</TableCell>
+  1312→                          </TableRow>
+  1313→                        ))
+  1314→                      )}
+  1315→                    </TableBody>
+  1316→                  </Table>
+  1317→                </ScrollArea>
+  1318→              </CardContent>
+  1319→            </Card>
+  1320→          </motion.div>
+  1321→
+  1322→          {/* Platform stats */}
+  1323→          <motion.div variants={item}>
+  1324→            <Card className="border-0 shadow-sm">
+  1325→              <CardHeader className="pb-3">
+  1326→                <CardTitle className="text-base flex items-center gap-2">
+  1327→                  <Globe className="h-4 w-4 text-amber-500" />
+  1328→                  Platform Stats
+  1329→                </CardTitle>
+  1330→              </CardHeader>
+  1331→              <CardContent className="space-y-4">
+  1332→                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50/60">
+  1333→                  <div className="flex items-center gap-3">
+  1334→                    <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
+  1335→                      <Users className="h-5 w-5 text-amber-600" />
+  1336→                    </div>
+  1337→                    <div>
+  1338→                      <p className="text-sm text-muted-foreground">Total Leads</p>
+  1339→                      <p className="text-lg font-bold">{analytics.platformStats.totalLeads.toLocaleString()}</p>
+  1340→                    </div>
+  1341→                  </div>
+  1342→                </div>
+  1343→                <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50/60">
+  1344→                  <div className="flex items-center gap-3">
+  1345→                    <div className="h-10 w-10 rounded-xl bg-orange-100 flex items-center justify-center">
+  1346→                      <Search className="h-5 w-5 text-orange-600" />
+  1347→                    </div>
+  1348→                    <div>
+  1349→                      <p className="text-sm text-muted-foreground">Total Searches</p>
+  1350→                      <p className="text-lg font-bold">{analytics.platformStats.totalSearches.toLocaleString()}</p>
+  1351→                    </div>
+  1352→                  </div>
+  1353→                </div>
+  1354→                <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50/60">
+  1355→                  <div className="flex items-center gap-3">
+  1356→                    <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+  1357→                      <Download className="h-5 w-5 text-emerald-600" />
+  1358→                    </div>
+  1359→                    <div>
+  1360→                      <p className="text-sm text-muted-foreground">Total Exports</p>
+  1361→                      <p className="text-lg font-bold">{analytics.platformStats.totalExports.toLocaleString()}</p>
+  1362→                    </div>
+  1363→                  </div>
+  1364→                </div>
+  1365→              </CardContent>
+  1366→            </Card>
+  1367→          </motion.div>
+  1368→        </div>
+  1369→      </motion.div>
+  1370→    )
+  1371→  }
+  1372→
+  1373→  // ─── Main render ─────────────────────────────────────────────────────────
+  1374→  return (
+  1375→    <div className="space-y-6">
+  1376→      {/* Header */}
+  1377→      <motion.div
+  1378→        initial={{ opacity: 0, y: -10 }}
+  1379→        animate={{ opacity: 1, y: 0 }}
+  1380→        transition={{ duration: 0.4 }}
+  1381→        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+  1382→      >
+  1383→        <div>
+  1384→          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+  1385→            <Shield className="h-7 w-7 text-amber-500" />
+  1386→            Admin Panel
+  1387→          </h1>
+  1388→          <p className="text-muted-foreground mt-1">Manage users, subscriptions, credits, and view platform analytics.</p>
+  1389→        </div>
+  1390→      </motion.div>
+  1391→
+  1392→      {/* Tabs */}
+  1393→      <motion.div variants={fadeIn} initial="hidden" animate="show">
+  1394→        <Tabs value={activeTab} onValueChange={setActiveTab}>
+  1395→          <TabsList className="bg-slate-100 p-1 h-auto flex-wrap">
+  1396→            <TabsTrigger value="users" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white gap-1.5">
+  1397→              <Users className="h-4 w-4" />
+  1398→              <span className="hidden sm:inline">Users</span>
+  1399→            </TabsTrigger>
+  1400→            <TabsTrigger value="subscriptions" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white gap-1.5">
+  1401→              <CreditCard className="h-4 w-4" />
+  1402→              <span className="hidden sm:inline">Subscriptions</span>
+  1403→            </TabsTrigger>
+  1404→            <TabsTrigger value="credits" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white gap-1.5">
+  1405→              <Coins className="h-4 w-4" />
+  1406→              <span className="hidden sm:inline">Credits</span>
+  1407→            </TabsTrigger>
+  1408→            <TabsTrigger value="analytics" className="data-[state=active]:bg-amber-500 data-[state=active]:text-white gap-1.5">
+  1409→              <BarChart3 className="h-4 w-4" />
+  1410→              <span className="hidden sm:inline">Analytics</span>
+  1411→            </TabsTrigger>
+  1412→          </TabsList>
+  1413→
+  1414→          <TabsContent value="users" className="mt-6">
+  1415→            {renderUsersTab()}
+  1416→          </TabsContent>
+  1417→
+  1418→          <TabsContent value="subscriptions" className="mt-6">
+  1419→            {renderSubscriptionsTab()}
+  1420→          </TabsContent>
+  1421→
+  1422→          <TabsContent value="credits" className="mt-6">
+  1423→            {renderCreditsTab()}
+  1424→          </TabsContent>
+  1425→
+  1426→          <TabsContent value="analytics" className="mt-6">
+  1427→            {renderAnalyticsTab()}
+  1428→          </TabsContent>
+  1429→        </Tabs>
+  1430→      </motion.div>
+  1431→    </div>
+  1432→  )
+  1433→}
+  1434→

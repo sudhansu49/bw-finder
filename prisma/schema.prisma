@@ -26,6 +26,11 @@ model User {
   agencyId          String?
   lastLoginAt       DateTime?
   loginIp           String?
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorSecret   String?
+  passwordChangedAt DateTime?
+  failedLoginAttempts Int     @default(0)
+  lockedUntil       DateTime?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -47,6 +52,7 @@ model User {
   assignedTickets     SupportTicket[]             @relation("TicketAssignee")
   auditLogs           SystemAuditLog[]            @relation("AuditLogActor")
   teamMemberships     TeamMember[]
+  sessions            Session[]
 }
 
 model Agency {
@@ -89,6 +95,23 @@ model TeamMember {
   team Team @relation(fields: [teamId], references: [id])
 
   @@unique([userId, teamId])
+}
+
+// ─── SESSION & SECURITY ────────────────────────────────────────────────────────
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  deviceInfo   String?  // browser, os parsed from user-agent
+  ipAddress    String?
+  userAgent    String?
+  isRevoked    Boolean  @default(false)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 // ─── CORE BUSINESS MODELS ────────────────────────────────────────────────────
@@ -315,11 +338,14 @@ model SystemAuditLog {
   id         String   @id @default(cuid())
   actorId    String?
   action     String
-  category   String   // auth, user, subscription, credit, system, admin
+  category   String   // auth, user, subscription, credit, system, admin, security, api
   details    String?
   ipAddress  String?
   userAgent  String?
-  severity   String   @default("info")
+  severity   String   @default("info") // info, warning, error, critical
+  resource   String?  // target resource type (user, subscription, etc.)
+  resourceId String?  // target resource ID
+  metadata   String?  // JSON string for additional data
   createdAt  DateTime @default(now())
 
   actor User? @relation("AuditLogActor", fields: [actorId], references: [id])
