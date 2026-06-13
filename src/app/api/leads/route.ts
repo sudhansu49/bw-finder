@@ -77,8 +77,47 @@ export async function POST(request: NextRequest) {
   const rl = applyRateLimit(request, RATE_LIMITS.api)
   if (rl) return rateLimitResponse(rl)
 
-  // Auth check - get userId from JWT instead of request body
-  const authResult = await requireAuth(request)
+  // Auth check - try access token first, then try refresh token
+  let authResult = await requireAuth(request)
+  
+  if (!authResult.success) {
+    // Try refreshing the token automatically
+    try {
+      const { verifyToken, signAccessToken, createSession, revokeSession } = await import('@/lib/auth/jwt')
+      const refreshToken = request.cookies.get('bw-refresh-token')?.value
+      if (refreshToken) {
+        const payload = await verifyToken(refreshToken)
+        if (payload && payload.type === 'refresh') {
+          const session = await db.session.findUnique({ where: { refreshToken } })
+          if (session && !session.isRevoked && new Date() < session.expiresAt) {
+            const user = await db.user.findUnique({ where: { id: payload.sub } })
+            if (user && user.status !== 'suspended' && user.status !== 'banned') {
+              // Valid refresh token - auto-refresh and proceed
+              authResult = { 
+                success: true as const, 
+                payload: {
+                  sub: user.id,
+                  email: user.email,
+                  role: user.role,
+                  name: user.name,
+                  planId: user.planId,
+                  planTier: user.plan?.tier || 'free',
+                  type: 'access' as const,
+                  iat: Math.floor(Date.now() / 1000),
+                  exp: Math.floor(Date.now() / 1000) + 900,
+                  iss: 'bw-finder',
+                  aud: 'bw-finder-api',
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      // Refresh attempt failed
+    }
+  }
+
   if (!authResult.success) {
     return NextResponse.json({ error: authResult.error }, { status: authResult.status })
   }

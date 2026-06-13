@@ -28,8 +28,8 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 // Helper: retry a function with exponential backoff
 async function withRetry<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelay: number = 2000
+  maxRetries: number = 2,
+  baseDelay: number = 1500
 ): Promise<T> {
   let lastError: any
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -39,7 +39,7 @@ async function withRetry<T>(
       lastError = error
       const is429 = error?.message?.includes('429') || error?.status === 429
       if (!is429 || attempt === maxRetries) break
-      const waitTime = baseDelay * Math.pow(2, attempt) + Math.random() * 1000
+      const waitTime = baseDelay * Math.pow(2, attempt) + Math.random() * 500
       console.log(`Rate limited (429), retrying in ${Math.round(waitTime)}ms (attempt ${attempt + 1}/${maxRetries})...`)
       await delay(waitTime)
     }
@@ -47,45 +47,41 @@ async function withRetry<T>(
   throw lastError
 }
 
-// Helper: sequential web search with delays between requests
-async function sequentialWebSearch(
+// Helper: parallel web search with reduced delays - runs searches concurrently for speed
+async function parallelWebSearch(
   zai: any,
   queries: string[],
-  delayBetweenMs: number = 3000
 ): Promise<{ url: string; name: string; snippet: string; host_name: string; source: string }[][]> {
-  const results: { url: string; name: string; snippet: string; host_name: string; source: string }[][] = []
-
-  for (let i = 0; i < queries.length; i++) {
-    try {
-      const searchResult = await withRetry(
-        () => zai.functions.invoke('web_search', { query: queries[i], num: 10 }),
-        2, // max 2 retries per query
-        2000 // base delay
-      )
-      results.push(
-        (searchResult || []).map((r: any) => ({
+  // Run all searches in parallel for maximum speed
+  const results = await Promise.all(
+    queries.map(async (query, i) => {
+      try {
+        // Small staggered delay to avoid burst rate limiting
+        if (i > 0) await delay(800 * i)
+        
+        const searchResult = await withRetry(
+          () => zai.functions.invoke('web_search', { query, num: 10 }),
+          1, // max 1 retry for speed
+          1500
+        )
+        return (searchResult || []).map((r: any) => ({
           url: r.url,
           name: r.name,
           snippet: r.snippet,
           host_name: r.host_name,
           source: `search_query_${i + 1}`,
         }))
-      )
-    } catch (queryError) {
-      console.error(`Search query ${i + 1} failed:`, queryError)
-      results.push([]) // Empty result for this query, continue with others
-    }
-
-    // Delay between queries to avoid rate limiting
-    if (i < queries.length - 1) {
-      await delay(delayBetweenMs)
-    }
-  }
+      } catch (queryError) {
+        console.error(`Search query ${i + 1} failed:`, queryError)
+        return [] // Empty result for this query, continue with others
+      }
+    })
+  )
 
   return results
 }
 
-// Helper: get matching businesses from database as fallback
+// Helper: get matching businesses from database as fallback (broader matching)
 async function getDatabaseFallback(category: string, city?: string, state?: string, country?: string) {
   const where: any = {}
 
@@ -101,11 +97,60 @@ async function getDatabaseFallback(category: string, city?: string, state?: stri
     where.country = { contains: country }
   }
 
-  return db.business.findMany({
+  const exactMatches = await db.business.findMany({
     where,
     orderBy: { leadScore: 'desc' },
     take: 30,
   })
+
+  // If we got results, return them
+  if (exactMatches.length > 0) return exactMatches
+
+  // Broader fallback: same category, any location in the country
+  if (country) {
+    const broaderMatches = await db.business.findMany({
+      where: {
+        category: { contains: category },
+        country: { contains: country },
+      },
+      orderBy: { leadScore: 'desc' },
+      take: 30,
+    })
+    if (broaderMatches.length > 0) return broaderMatches
+  }
+
+  // Even broader: just same category
+  return db.business.findMany({
+    where: { category: { contains: category } },
+    orderBy: { leadScore: 'desc' },
+    take: 30,
+  })
+}
+
+// Website status detection helpers
+const socialDomains = ['facebook.com','instagram.com','linkedin.com','twitter.com','x.com','whatsapp.com','youtube.com','tiktok.com','yelp.com','justdial.com','sulekha.com','tripadvisor.com','zomato.com','swiggy.com','google.com/maps','g.page']
+
+function isSocialUrl(url: string): boolean {
+  try {
+    const h = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
+    return socialDomains.some(d => h === d.replace(/^www\./, '') || h.endsWith('.' + d.replace(/^www\./, '')))
+  } catch { return false }
+}
+
+function isValidUrl(url: string): boolean {
+  try { const p = new URL(url); return ['http:','https:'].includes(p.protocol) && p.hostname.includes('.') } catch { return false }
+}
+
+function determineWebsiteStatus(website: string | null | undefined): { websiteStatus: string; hasWebsite: boolean } {
+  if (!website || website.trim() === '') {
+    return { websiteStatus: 'NO_WEBSITE', hasWebsite: false }
+  } else if (!isValidUrl(website)) {
+    return { websiteStatus: 'NO_WEBSITE', hasWebsite: false }
+  } else if (isSocialUrl(website)) {
+    return { websiteStatus: 'SOCIAL_ONLY', hasWebsite: false }
+  } else {
+    return { websiteStatus: 'HAS_WEBSITE', hasWebsite: true }
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -152,29 +197,21 @@ export async function POST(request: NextRequest) {
 
     let savedBusinesses: any[] = []
     let usedFallback = false
-    let searchError: string | null = null
 
     try {
       const zai = await ZAI.create()
+      console.log(`[Search] Starting search for "${category}" in "${locationString}"`)
 
-      // Multi-strategy search: use multiple queries to maximize discovery
-      // Execute SEQUENTIALLY with delays to avoid rate limiting
+      // Optimized: Use just 2 focused queries instead of 4, run in parallel
       const searchQueries = [
         `${category} businesses in ${locationString} phone number address contact`,
-        `${category} in ${locationString} list directory reviews`,
+        `${category} in ${locationString} list directory reviews justdial`,
       ]
 
-      // Add location-specific search queries for better discovery
-      if (city || state) {
-        const subLocation = city || state
-        searchQueries.push(`${category} ${subLocation} justdial sulekha yellow pages`)
-      }
-      if (country === 'India') {
-        searchQueries.push(`${category} in ${locationString} google maps address phone`)
-      }
-
-      // Execute searches sequentially with delays between them
-      const searchResultsArrays = await sequentialWebSearch(zai, searchQueries, 3000)
+      // Execute searches IN PARALLEL for speed (was sequential with 3s delays)
+      const startTime = Date.now()
+      const searchResultsArrays = await parallelWebSearch(zai, searchQueries)
+      console.log(`[Search] Web searches completed in ${Date.now() - startTime}ms`)
 
       // Combine and deduplicate search results by URL
       const allResults: { url: string; name: string; snippet: string; host_name: string; source: string }[] = []
@@ -189,9 +226,11 @@ export async function POST(request: NextRequest) {
         }
       })
 
+      console.log(`[Search] Found ${allResults.length} unique search results`)
+
       if (allResults.length === 0) {
         // No web search results - try database fallback
-        console.log('No web search results found, falling back to database...')
+        console.log('[Search] No web results, falling back to database...')
         const dbBusinesses = await getDatabaseFallback(category, city, state, country)
         if (dbBusinesses.length > 0) {
           usedFallback = true
@@ -221,8 +260,9 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Prepare search results text for LLM analysis
-      const resultsText = allResults
+      // Prepare search results text for LLM analysis (limit to first 20 results for speed)
+      const limitedResults = allResults.slice(0, 20)
+      const resultsText = limitedResults
         .map(
           (result, index) =>
             `[${index + 1}] Name: ${result.name}\nURL: ${result.url}\nSnippet: ${result.snippet}\nHost: ${result.host_name}\nSource: ${result.source}`
@@ -230,6 +270,7 @@ export async function POST(request: NextRequest) {
         .join('\n\n')
 
       // Use LLM to extract structured business data from search results
+      const llmStart = Date.now()
       const llmResponse = await withRetry(
         () =>
           zai.chat.completions.create({
@@ -246,7 +287,7 @@ export async function POST(request: NextRequest) {
 - phone: Phone number with country code if available (string or null)
 - email: Email address if available (string or null)
 - website: Website URL if available (string or null)
-- hasWebsite: Whether the business has a website (boolean)
+- hasWebsite: Whether the business has a real website (boolean, false if only social media)
 - googleRating: Google rating if mentioned, e.g. 4.5 (number or null)
 - googleReviews: Number of Google reviews if mentioned (number or null)
 - reviewCount: Total review count across platforms if mentioned (number or null)
@@ -256,13 +297,12 @@ export async function POST(request: NextRequest) {
 - source: Where this data was found, e.g. "google_maps", "yelp", "justdial", "yellow_pages", "facebook", "instagram", "web_directory" (string)
 
 IMPORTANT RULES:
-1. Return ONLY a valid JSON array of business objects.
+1. Return ONLY a valid JSON array of business objects. No markdown, no explanation.
 2. If no businesses can be extracted, return an empty array.
-3. Do not include any explanation or markdown formatting, just the raw JSON array.
-4. Extract as many businesses as possible from the search results.
-5. If a business has no website URL, set hasWebsite to false and website to null.
-6. Social media URLs should be full URLs starting with https://.
-7. Be thorough - extract every business mentioned in the results.`,
+3. Extract as many businesses as possible from the search results.
+4. If a business has no website URL or only social media, set hasWebsite to false and website to null.
+5. Social media URLs should be full URLs starting with https://.
+6. Be thorough - extract every business mentioned in the results.`,
               },
               {
                 role: 'user',
@@ -271,9 +311,10 @@ IMPORTANT RULES:
             ],
             thinking: { type: 'disabled' },
           }),
-        2,
-        3000
+        1, // Only 1 retry for speed
+        2000
       )
+      console.log(`[Search] LLM extraction completed in ${Date.now() - llmStart}ms`)
 
       // Parse LLM response
       const llmContent = llmResponse.choices?.[0]?.message?.content || '[]'
@@ -305,10 +346,12 @@ IMPORTANT RULES:
           extractedBusinesses = []
         }
       } catch (parseError) {
-        console.error('Failed to parse LLM response as JSON:', parseError)
-        console.error('LLM content (first 500 chars):', llmContent.slice(0, 500))
+        console.error('[Search] Failed to parse LLM response as JSON:', parseError)
+        console.error('[Search] LLM content (first 500 chars):', llmContent.slice(0, 500))
         extractedBusinesses = []
       }
+
+      console.log(`[Search] Extracted ${extractedBusinesses.length} businesses from LLM`)
 
       // Save extracted businesses to database with deduplication
       const duplicateCount = { skipped: 0 }
@@ -318,7 +361,6 @@ IMPORTANT RULES:
 
         try {
           // Deduplication: Check by name + city + phone combination
-          // Note: SQLite doesn't support mode: "insensitive", use contains for case-insensitive matching
           const orConditions: any[] = [
             {
               name: { contains: biz.name },
@@ -340,30 +382,7 @@ IMPORTANT RULES:
             },
           })
 
-          // Determine website status using detection rules
-          const socialDomains = ['facebook.com','instagram.com','linkedin.com','twitter.com','x.com','whatsapp.com','youtube.com','tiktok.com','yelp.com','justdial.com','sulekha.com','tripadvisor.com','zomato.com','swiggy.com','google.com/maps','g.page']
-          function isSocialUrl(url: string): boolean {
-            try {
-              const h = new URL(url).hostname.toLowerCase().replace(/^www\./, '')
-              return socialDomains.some(d => h === d.replace(/^www\./, '') || h.endsWith('.' + d.replace(/^www\./, '')))
-            } catch { return false }
-          }
-          function isValidUrl(url: string): boolean {
-            try { const p = new URL(url); return ['http:','https:'].includes(p.protocol) && p.hostname.includes('.') } catch { return false }
-          }
-
-          let websiteStatus: string
-          let hasWebsite: boolean
-          if (!biz.website || biz.website.trim() === '') {
-            websiteStatus = 'NO_WEBSITE'; hasWebsite = false
-          } else if (!isValidUrl(biz.website)) {
-            websiteStatus = 'NO_WEBSITE'; hasWebsite = false
-          } else if (isSocialUrl(biz.website)) {
-            websiteStatus = 'SOCIAL_ONLY'; hasWebsite = false
-          } else {
-            websiteStatus = 'HAS_WEBSITE'; hasWebsite = true
-          }
-
+          const { websiteStatus, hasWebsite } = determineWebsiteStatus(biz.website)
           const socialPresence = (biz.facebookUrl ? 1 : 0) + (biz.instagramUrl ? 1 : 0) + (biz.linkedinUrl ? 1 : 0)
 
           if (existing) {
@@ -435,29 +454,36 @@ IMPORTANT RULES:
           })
           savedBusinesses.push(saved)
         } catch (saveError) {
-          console.error(`Failed to save business "${biz.name}":`, saveError)
+          console.error(`[Search] Failed to save business "${biz.name}":`, saveError)
         }
       }
 
-      // Auto-score all discovered businesses
-      try {
-        // Use relative URL with request header for internal scoring
-        const scoringUrl = new URL('/api/businesses/score', request.url || 'http://localhost:3000')
-        await fetch(scoringUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scoreAll: false, businessIds: savedBusinesses.map(b => b.id) }),
-        })
+      // Auto-score all discovered businesses (non-blocking - don't wait for this)
+      const scoringPromise = (async () => {
+        try {
+          const scoringUrl = new URL('/api/businesses/score', request.url || 'http://localhost:3000')
+          await fetch(scoringUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ scoreAll: false, businessIds: savedBusinesses.map(b => b.id) }),
+          })
 
-        // Re-fetch businesses with scores
-        const scoredBusinesses = await db.business.findMany({
-          where: { id: { in: savedBusinesses.map(b => b.id) } },
-        })
-        savedBusinesses.length = 0
-        savedBusinesses.push(...scoredBusinesses)
-      } catch (scoringError) {
-        console.error('Auto-scoring failed:', scoringError)
-      }
+          // Re-fetch businesses with scores
+          const scoredBusinesses = await db.business.findMany({
+            where: { id: { in: savedBusinesses.map(b => b.id) } },
+          })
+          savedBusinesses.length = 0
+          savedBusinesses.push(...scoredBusinesses)
+        } catch (scoringError) {
+          console.error('[Search] Auto-scoring failed:', scoringError)
+        }
+      })()
+
+      // Wait for scoring but with a timeout
+      await Promise.race([
+        scoringPromise,
+        new Promise<void>((resolve) => setTimeout(() => resolve(), 5000)) // 5s timeout for scoring
+      ])
 
       // Update search job as completed
       const sourcesUsed = [...new Set(allResults.map(r => r.host_name))].join(', ')
@@ -471,6 +497,8 @@ IMPORTANT RULES:
         },
       })
 
+      console.log(`[Search] Completed! Found ${savedBusinesses.length} businesses in ${Date.now() - startTime}ms`)
+
       return NextResponse.json({
         businesses: savedBusinesses,
         searchJob: {
@@ -483,8 +511,8 @@ IMPORTANT RULES:
         },
       })
     } catch (aiError: any) {
-      console.error('AI search error:', aiError)
-      searchError = aiError?.message || 'Unknown error'
+      console.error('[Search] AI search error:', aiError?.message || aiError)
+      const searchError = aiError?.message || 'Unknown error'
 
       // FALLBACK: Try to return existing database businesses matching the criteria
       try {
@@ -517,7 +545,7 @@ IMPORTANT RULES:
           })
         }
       } catch (fallbackError) {
-        console.error('Database fallback also failed:', fallbackError)
+        console.error('[Search] Database fallback also failed:', fallbackError)
       }
 
       // Update search job as failed
@@ -546,7 +574,7 @@ IMPORTANT RULES:
       })
     }
   } catch (error) {
-    console.error('Business search error:', error)
+    console.error('[Search] Business search error:', error)
     return NextResponse.json(
       {
         businesses: [],

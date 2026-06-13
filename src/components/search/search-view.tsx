@@ -145,6 +145,8 @@ export function SearchView() {
   const [searchJobInfo, setSearchJobInfo] = useState<SearchJobInfo | null>(null)
   const [addedLeads, setAddedLeads] = useState<Set<string>>(new Set())
   const [addingLead, setAddingLead] = useState<string | null>(null)
+  const [searchProgress, setSearchProgress] = useState<string>('')
+  const [elapsedTime, setElapsedTime] = useState(0)
 
   const effectiveCountry = country === 'Other' ? customCountry : country
   const effectiveCategory = category === 'Other' ? customCategory : category
@@ -162,8 +164,34 @@ export function SearchView() {
     setLoading(true)
     setSearched(true)
     setSearchJobInfo(null)
+    setSearchProgress('Searching business directories...')
+    setElapsedTime(0)
+
+    // Progress timer
+    const progressInterval = setInterval(() => {
+      setElapsedTime(prev => prev + 1)
+    }, 1000)
+
+    // Progress messages rotation
+    const progressMessages = [
+      'Searching business directories...',
+      'Scanning Google Maps listings...',
+      'Checking Justdial & Sulekha...',
+      'Extracting business details...',
+      'AI analyzing results...',
+      'Scoring leads...',
+    ]
+    let msgIndex = 0
+    const msgInterval = setInterval(() => {
+      msgIndex = (msgIndex + 1) % progressMessages.length
+      setSearchProgress(progressMessages[msgIndex])
+    }, 5000)
 
     try {
+      // Use AbortController with a generous 2-minute timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 120000)
+
       const res = await fetch('/api/businesses/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,7 +202,10 @@ export function SearchView() {
           category: effectiveCategory,
           userId: user?.id || '',
         }),
+        signal: controller.signal,
       })
+
+      clearTimeout(timeoutId)
 
       const data = res.ok ? await res.json() : null
       const businesses = data?.businesses || []
@@ -193,7 +224,7 @@ export function SearchView() {
         } else {
           toast({
             title: 'Search Complete!',
-            description: `Found ${businesses.length} businesses. ${jobInfo?.duplicatesFound || 0} duplicates were merged.`,
+            description: `Found ${businesses.length} businesses in ${elapsedTime + 1}s. ${jobInfo?.duplicatesFound || 0} duplicates were merged.`,
           })
         }
       } else if (jobInfo?.error) {
@@ -210,15 +241,27 @@ export function SearchView() {
           duration: 4000,
         })
       }
-    } catch {
-      toast({
-        title: 'Search Failed',
-        description: 'Network error. Please try again.',
-        variant: 'destructive',
-      })
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        toast({
+          title: 'Search Timed Out',
+          description: 'The search is taking too long. Please try again.',
+          variant: 'destructive',
+          duration: 5000,
+        })
+      } else {
+        toast({
+          title: 'Search Failed',
+          description: 'Network error. Please try again.',
+          variant: 'destructive',
+        })
+      }
       setResults([])
     } finally {
       setLoading(false)
+      setSearchProgress('')
+      clearInterval(progressInterval)
+      clearInterval(msgInterval)
     }
   }
 
@@ -259,6 +302,7 @@ export function SearchView() {
         await fetch('/api/leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             businessId,
             userId: user?.id || '',
@@ -298,6 +342,7 @@ export function SearchView() {
         await fetch('/api/leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({
             businessId: business.id,
             userId: user?.id || '',
@@ -487,7 +532,7 @@ export function SearchView() {
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Discovering Businesses...
+                  Discovering... {elapsedTime}s
                 </>
               ) : (
                 <>
@@ -525,8 +570,8 @@ export function SearchView() {
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-500" />
             <Search className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-amber-500" />
           </div>
-          <p className="mt-4 text-muted-foreground font-medium">Discovering businesses...</p>
-          <p className="text-sm text-muted-foreground mt-1">Searching multiple directories and business listings</p>
+          <p className="mt-4 text-muted-foreground font-medium">{searchProgress || 'Discovering businesses...'}</p>
+          <p className="text-sm text-muted-foreground mt-1">This typically takes 15-45 seconds</p>
           <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-1">
               <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
@@ -541,6 +586,7 @@ export function SearchView() {
               Data Extraction
             </div>
           </div>
+          <p className="mt-3 text-xs text-amber-600 font-medium">{elapsedTime}s elapsed</p>
         </motion.div>
       )}
 
