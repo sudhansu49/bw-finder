@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   Settings,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ interface NotificationPreference {
   icon: React.ElementType
   color: string
   bgColor: string
-  items: { id: string; label: string; enabled: boolean }[]
+  items: { id: string; itemKey: string; label: string; enabled: boolean; saving?: boolean }[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -116,6 +117,54 @@ function getTypeColor(type: string) {
       return { icon: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }
   }
 }
+
+// Default preferences structure (used before API data loads)
+const DEFAULT_PREFERENCES: NotificationPreference[] = [
+  {
+    id: 'lead-alerts',
+    category: 'lead-alerts',
+    icon: Target,
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50',
+    items: [
+      { id: '', itemKey: 'new-leads', label: 'New leads discovered', enabled: true },
+      { id: '', itemKey: 'lead-score', label: 'Lead score changes', enabled: true },
+    ],
+  },
+  {
+    id: 'outreach-updates',
+    category: 'outreach-updates',
+    icon: Mail,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    items: [
+      { id: '', itemKey: 'email-opened', label: 'Email opened', enabled: true },
+      { id: '', itemKey: 'call-reminders', label: 'Call reminders', enabled: true },
+    ],
+  },
+  {
+    id: 'system',
+    category: 'system',
+    icon: Shield,
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-100',
+    items: [
+      { id: '', itemKey: 'plan-updates', label: 'Plan updates', enabled: true },
+      { id: '', itemKey: 'maintenance', label: 'Maintenance alerts', enabled: false },
+    ],
+  },
+  {
+    id: 'marketing',
+    category: 'marketing',
+    icon: Megaphone,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+    items: [
+      { id: '', itemKey: 'tips', label: 'Tips & best practices', enabled: true },
+      { id: '', itemKey: 'offers', label: 'Offers & promotions', enabled: false },
+    ],
+  },
+]
 
 // ─── Loading Skeleton ──────────────────────────────────────────────────────────
 
@@ -193,57 +242,13 @@ export function NotificationsView() {
   const [notifications, setNotifications] = useState<ApiNotification[]>([])
   const [apiUnreadCount, setApiUnreadCount] = useState<number>(0)
   const [loading, setLoading] = useState(true)
+  const [preferencesLoading, setPreferencesLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>('all')
-  const [markingRead, setMarkingRead] = useState<string | null>(null) // notificationId being marked as read
+  const [markingRead, setMarkingRead] = useState<string | null>(null)
 
-  // Preferences state (local)
-  const [preferences, setPreferences] = useState<NotificationPreference[]>([
-    {
-      id: 'lead-alerts',
-      category: 'Lead Alerts',
-      icon: Target,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50',
-      items: [
-        { id: 'new-leads', label: 'New leads discovered', enabled: true },
-        { id: 'lead-score', label: 'Lead score changes', enabled: true },
-      ],
-    },
-    {
-      id: 'outreach-updates',
-      category: 'Outreach Updates',
-      icon: Mail,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      items: [
-        { id: 'email-opened', label: 'Email opened', enabled: true },
-        { id: 'call-reminders', label: 'Call reminders', enabled: true },
-      ],
-    },
-    {
-      id: 'system',
-      category: 'System',
-      icon: Shield,
-      color: 'text-slate-600',
-      bgColor: 'bg-slate-100',
-      items: [
-        { id: 'plan-updates', label: 'Plan updates', enabled: true },
-        { id: 'maintenance', label: 'Maintenance alerts', enabled: false },
-      ],
-    },
-    {
-      id: 'marketing',
-      category: 'Marketing',
-      icon: Megaphone,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      items: [
-        { id: 'tips', label: 'Tips & best practices', enabled: true },
-        { id: 'offers', label: 'Offers & promotions', enabled: false },
-      ],
-    },
-  ])
+  // Preferences state (loaded from API)
+  const [preferences, setPreferences] = useState<NotificationPreference[]>(DEFAULT_PREFERENCES)
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
@@ -251,7 +256,9 @@ export function NotificationsView() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/user/notifications?userId=${user.id}&limit=50`)
+      const res = await fetch('/api/user/notifications?limit=50', {
+        credentials: 'include',
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || 'Failed to fetch notifications')
@@ -272,9 +279,49 @@ export function NotificationsView() {
     }
   }, [user?.id, toast])
 
+  // Fetch preferences from API
+  const fetchPreferences = useCallback(async () => {
+    if (!user?.id) return
+    setPreferencesLoading(true)
+    try {
+      const res = await fetch('/api/user/notifications/preferences', {
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        throw new Error('Failed to fetch preferences')
+      }
+      const json = await res.json()
+      // Map API response to our local state structure
+      const apiPrefs = json.preferences as Record<string, { id: string; itemKey: string; enabled: boolean }[]>
+
+      setPreferences((prev) =>
+        prev.map((cat) => {
+          const apiItems = apiPrefs[cat.category]
+          if (!apiItems) return cat
+          return {
+            ...cat,
+            items: cat.items.map((item) => {
+              const apiItem = apiItems.find((a) => a.itemKey === item.itemKey)
+              if (apiItem) {
+                return { ...item, id: apiItem.id, enabled: apiItem.enabled }
+              }
+              return item
+            }),
+          }
+        })
+      )
+    } catch (err) {
+      console.error('Failed to fetch preferences:', err)
+      // Keep defaults on error
+    } finally {
+      setPreferencesLoading(false)
+    }
+  }, [user?.id])
+
   useEffect(() => {
     fetchNotifications()
-  }, [fetchNotifications])
+    fetchPreferences()
+  }, [fetchNotifications, fetchPreferences])
 
   // Derived state
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications])
@@ -301,7 +348,8 @@ export function NotificationsView() {
       const res = await fetch('/api/user/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, notificationId: id }),
+        credentials: 'include',
+        body: JSON.stringify({ notificationId: id }),
       })
       if (!res.ok) {
         throw new Error('Failed to mark as read')
@@ -329,7 +377,8 @@ export function NotificationsView() {
       const res = await fetch('/api/user/notifications', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, markAllRead: true }),
+        credentials: 'include',
+        body: JSON.stringify({ markAllRead: true }),
       })
       if (!res.ok) {
         throw new Error('Failed to mark all as read')
@@ -350,19 +399,101 @@ export function NotificationsView() {
     }
   }
 
-  const dismissNotification = (id: string) => {
-    // Just remove from local state (no API for delete)
-    setNotifications((prev) => prev.filter((n) => n.id !== id))
+  const dismissNotification = async (id: string) => {
+    // Optimistic update
+    const prev = notifications
+    setNotifications((ns) => ns.filter((n) => n.id !== id))
+    try {
+      const res = await fetch(`/api/user/notifications?notificationId=${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        throw new Error('Failed to delete notification')
+      }
+      toast({
+        title: 'Dismissed',
+        description: 'Notification removed.',
+      })
+    } catch (err) {
+      console.error('Failed to delete notification:', err)
+      // Rollback
+      setNotifications(prev)
+      toast({
+        title: 'Error',
+        description: 'Failed to dismiss notification.',
+        variant: 'destructive',
+      })
+    }
   }
 
-  const togglePreference = (categoryId: string, itemId: string) => {
+  const togglePreference = async (categoryId: string, itemKey: string) => {
+    // Find current value
+    const category = preferences.find((c) => c.category === categoryId)
+    const item = category?.items.find((i) => i.itemKey === itemKey)
+    if (!item) return
+
+    const newEnabled = !item.enabled
+
+    // Optimistic update
     setPreferences((prev) =>
       prev.map((cat) =>
-        cat.id === categoryId
+        cat.category === categoryId
           ? {
               ...cat,
-              items: cat.items.map((item) =>
-                item.id === itemId ? { ...item, enabled: !item.enabled } : item
+              items: cat.items.map((i) =>
+                i.itemKey === itemKey ? { ...i, enabled: newEnabled, saving: true } : i
+              ),
+            }
+          : cat
+      )
+    )
+
+    try {
+      const res = await fetch('/api/user/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ category: categoryId, itemKey, enabled: newEnabled }),
+      })
+      if (!res.ok) {
+        throw new Error('Failed to update preference')
+      }
+      toast({
+        title: 'Preference Updated',
+        description: `${item.label} ${newEnabled ? 'enabled' : 'disabled'}.`,
+      })
+    } catch (err) {
+      console.error('Failed to update preference:', err)
+      // Rollback
+      setPreferences((prev) =>
+        prev.map((cat) =>
+          cat.category === categoryId
+            ? {
+                ...cat,
+                items: cat.items.map((i) =>
+                  i.itemKey === itemKey ? { ...i, enabled: !newEnabled, saving: false } : i
+                ),
+              }
+            : cat
+        )
+      )
+      toast({
+        title: 'Error',
+        description: 'Failed to update notification preference.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Clear saving state
+    setPreferences((prev) =>
+      prev.map((cat) =>
+        cat.category === categoryId
+          ? {
+              ...cat,
+              items: cat.items.map((i) =>
+                i.itemKey === itemKey ? { ...i, saving: false } : i
               ),
             }
           : cat
@@ -396,6 +527,7 @@ export function NotificationsView() {
             <h3 className="text-lg font-semibold text-slate-700 mb-1">Failed to load notifications</h3>
             <p className="text-sm text-muted-foreground mb-4">{error}</p>
             <Button onClick={fetchNotifications} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
           </CardContent>
@@ -469,6 +601,9 @@ export function NotificationsView() {
                 <div className="flex items-center gap-2">
                   <Settings className="h-5 w-5 text-amber-500" />
                   <CardTitle className="text-lg">Notification Preferences</CardTitle>
+                  {preferencesLoading && (
+                    <RefreshCw className="h-4 w-4 text-slate-400 animate-spin" />
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
@@ -477,7 +612,7 @@ export function NotificationsView() {
                     const CategoryIcon = category.icon
                     return (
                       <motion.div
-                        key={category.id}
+                        key={category.category}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: catIdx * 0.08 }}
@@ -487,15 +622,16 @@ export function NotificationsView() {
                           <div className={`h-8 w-8 rounded-lg ${category.bgColor} flex items-center justify-center`}>
                             <CategoryIcon className={`h-4 w-4 ${category.color}`} />
                           </div>
-                          <span className="text-sm font-semibold text-slate-800">{category.category}</span>
+                          <span className="text-sm font-semibold text-slate-800">{category.id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
                         </div>
                         <div className="space-y-3">
                           {category.items.map((item) => (
-                            <div key={item.id} className="flex items-center justify-between">
+                            <div key={item.itemKey} className="flex items-center justify-between">
                               <span className="text-sm text-slate-600">{item.label}</span>
                               <Switch
                                 checked={item.enabled}
-                                onCheckedChange={() => togglePreference(category.id, item.id)}
+                                onCheckedChange={() => togglePreference(category.category, item.itemKey)}
+                                disabled={item.saving}
                                 className="data-[state=checked]:bg-amber-500"
                               />
                             </div>
@@ -543,12 +679,12 @@ export function NotificationsView() {
                     <h3 className="text-lg font-semibold text-slate-700 mb-1">
                       {activeTab === 'unread'
                         ? 'No unread notifications'
-                        : 'No notifications'}
+                        : 'No notifications yet'}
                     </h3>
                     <p className="text-sm text-muted-foreground max-w-sm">
                       {activeTab === 'unread'
                         ? "You've read everything! New notifications will appear here."
-                        : 'Your notification inbox is empty. Stay tuned for updates!'}
+                        : 'Your notification inbox is empty. Notifications will appear when leads are found, outreach is sent, or system events occur.'}
                     </p>
                   </motion.div>
                 ) : (

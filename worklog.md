@@ -81,3 +81,48 @@ Stage Summary:
 - Quick search suggestions help users find businesses immediately
 - All existing views (Dashboard, Businesses, Leads) continue to work
 - Lint passes, dev server running, search tested successfully
+
+---
+Task ID: 8
+Agent: main
+Task: Fix "Notification options not working" in BW Finder
+
+Work Log:
+- Investigated notification system codebase: notifications-view.tsx, user/notifications API, admin/notifications API
+- Identified 6 issues:
+  1. Notification preferences not persisted (only local React state, lost on refresh)
+  2. No NotificationPreference database model to store preferences
+  3. Hardcoded notification count (always "3") in header instead of real count
+  4. Bell icon sets unused `notificationsOpen` state instead of navigating to notifications
+  5. No DELETE API for dismissing notifications permanently
+  6. No seed notifications for demo/new users
+- Added NotificationPreference model to Prisma schema with unique constraint on [userId, category, itemKey]
+- Ran `bun run db:push` to sync schema
+- Created new API endpoint: `/api/user/notifications/preferences/route.ts` with GET and PUT handlers
+  - GET: Returns preferences grouped by category, auto-seeds defaults for new users
+  - PUT: Upserts a single preference (category + itemKey + enabled)
+- Added DELETE handler to `/api/user/notifications/route.ts` for permanent notification dismissal
+- Rewrote `notifications-view.tsx` to:
+  - Load preferences from API on mount (with loading indicator)
+  - Save preference toggles via PUT API (with optimistic update + rollback on error)
+  - Dismiss notifications via DELETE API (with optimistic update + rollback)
+  - Removed `userId` from query params (API uses JWT auth)
+  - Added `credentials: 'include'` to all fetch calls
+- Fixed `user-layout.tsx`:
+  - Replaced hardcoded `const notificationCount = 3` with real API count fetched from `/api/user/notifications`
+  - Added `useState` and `useEffect` imports from React
+  - Added polling for notification count every 60 seconds
+  - Changed bell icon from `setNotificationsOpen(true)` to `setCurrentView('user-notifications')`
+  - Fixed tooltip text to show proper singular/plural
+- Added seed notifications in `/api/seed/route.ts`: 5 sample notifications (system, lead, outreach, marketing, system)
+- Added welcome notification creation in `/api/auth/register/route.ts` for new users
+
+Stage Summary:
+- Notification preferences now persist to database and survive page refresh
+- Bell icon navigates to notifications view and shows real unread count
+- Mark All Read works correctly
+- Dismiss notification works permanently via DELETE API
+- New users get welcome notification on registration
+- Demo user gets 5 seed notifications
+- Lint passes cleanly
+- All features verified via agent browser testing

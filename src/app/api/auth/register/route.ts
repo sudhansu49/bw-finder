@@ -76,6 +76,20 @@ export async function POST(request: NextRequest) {
     // Audit log
     await auditRegister(user.id, ip, userAgent)
 
+    // Create welcome notification for new user
+    try {
+      await db.notification.create({
+        data: {
+          recipientId: user.id,
+          type: 'system',
+          title: 'Welcome to BW Finder!',
+          message: 'Start by searching for businesses without websites in your area. Use the Lead Finder to discover new opportunities.',
+        },
+      })
+    } catch {
+      // Silent fail - non-critical
+    }
+
     // Return user without password
     const { password: _, ...userWithoutPassword } = user
     const response = NextResponse.json({

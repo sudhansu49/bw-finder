@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { useAppStore, type UserView } from '@/store/app-store'
 import { UserSidebar } from '@/components/user/user-sidebar'
 import { DashboardView } from '@/components/dashboard/dashboard-view'
@@ -213,7 +214,27 @@ export function UserLayout() {
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
   const { theme, setTheme } = useTheme()
   const { t, translations: tr } = useTranslation()
-  const notificationCount = 3
+  const [notificationCount, setNotificationCount] = useState(0)
+
+  // Fetch real unread notification count
+  useEffect(() => {
+    if (!user?.id) return
+    const fetchCount = async () => {
+      try {
+        const res = await fetch('/api/user/notifications?limit=1', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          setNotificationCount(data.unreadCount ?? 0)
+        }
+      } catch {
+        // Silent fail
+      }
+    }
+    fetchCount()
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchCount, 60000)
+    return () => clearInterval(interval)
+  }, [user?.id])
 
   // Translated view labels
   const translatedViewLabels: Record<UserView, string> = {
@@ -359,7 +380,7 @@ export function UserLayout() {
                       variant="ghost"
                       size="icon"
                       className="h-9 w-9 text-muted-foreground hover:text-foreground relative"
-                      onClick={() => useAppStore.getState().setNotificationsOpen(true)}
+                      onClick={() => setCurrentView('user-notifications')}
                     >
                       <Bell className="h-4 w-4" />
                       {notificationCount > 0 && (
@@ -369,7 +390,7 @@ export function UserLayout() {
                       )}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>{notificationCount} notifications</TooltipContent>
+                  <TooltipContent>{notificationCount} notification{notificationCount !== 1 ? 's' : ''}</TooltipContent>
                 </Tooltip>
 
                 <div className="h-6 w-px bg-border mx-1 hidden sm:block" />

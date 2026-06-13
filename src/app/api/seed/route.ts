@@ -1130,6 +1130,52 @@ export async function POST() {
       console.error('Admin seed error:', adminSeedError)
     }
 
+    // ─── Seed Notifications ─────────────────────────────────────────────────
+    try {
+      const existingNotifications = await db.notification.count({
+        where: { recipientId: demoUser.id },
+      })
+
+      if (existingNotifications === 0) {
+        await db.notification.createMany({
+          data: [
+            {
+              recipientId: demoUser.id,
+              type: 'system',
+              title: 'Welcome to BW Finder!',
+              message: 'Start by searching for businesses without websites in your area. Use the Lead Finder to discover new opportunities.',
+            },
+            {
+              recipientId: demoUser.id,
+              type: 'lead',
+              title: 'New leads discovered',
+              message: 'We found 12 new businesses without websites in Mumbai. Check them out in the Lead Finder.',
+            },
+            {
+              recipientId: demoUser.id,
+              type: 'outreach',
+              title: 'Outreach tip',
+              message: 'Personalized emails have a 40% higher response rate. Try using the Email Generator for custom outreach messages.',
+            },
+            {
+              recipientId: demoUser.id,
+              type: 'marketing',
+              title: 'Tips & best practices',
+              message: 'Businesses with social media but no website are the best targets - they already understand digital marketing value.',
+            },
+            {
+              recipientId: demoUser.id,
+              type: 'system',
+              title: 'Plan update available',
+              message: 'Upgrade to Pro plan to unlock unlimited searches, bulk exports, and AI-powered proposal generation.',
+            },
+          ],
+        })
+      }
+    } catch (notificationSeedError) {
+      console.error('Notification seed error:', notificationSeedError)
+    }
+
     return NextResponse.json({
       message: 'Database seeded successfully',
       data: {

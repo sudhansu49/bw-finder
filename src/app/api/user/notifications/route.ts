@@ -2,6 +2,57 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/auth/jwt'
 
+export async function DELETE(request: NextRequest) {
+  const authResult = await requireAuth(request)
+  if (!authResult.success) {
+    return NextResponse.json({ error: authResult.error }, { status: authResult.status })
+  }
+
+  try {
+    const userId = authResult.payload.sub
+    const { searchParams } = new URL(request.url)
+    const notificationId = searchParams.get('notificationId')
+
+    if (!notificationId) {
+      return NextResponse.json(
+        { error: 'notificationId is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify ownership
+    const notification = await db.notification.findUnique({
+      where: { id: notificationId },
+    })
+
+    if (!notification) {
+      return NextResponse.json(
+        { error: 'Notification not found' },
+        { status: 404 }
+      )
+    }
+
+    if (notification.recipientId !== userId) {
+      return NextResponse.json(
+        { error: 'You do not have permission to delete this notification' },
+        { status: 403 }
+      )
+    }
+
+    await db.notification.delete({
+      where: { id: notificationId },
+    })
+
+    return NextResponse.json({ message: 'Notification deleted' })
+  } catch (error) {
+    console.error('Delete notification error:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete notification' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function GET(request: NextRequest) {
   const authResult = await requireAuth(request)
   if (!authResult.success) {

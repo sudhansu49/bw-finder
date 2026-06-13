@@ -48,6 +48,7 @@ model User {
   subscriptions       Subscription[]
   sentNotifications   Notification[]              @relation("NotificationSender")
   receivedNotifications Notification[]            @relation("NotificationRecipient")
+  notificationPreferences NotificationPreference[]
   supportTickets      SupportTicket[]             @relation("TicketCreator")
   assignedTickets     SupportTicket[]             @relation("TicketAssignee")
   auditLogs           SystemAuditLog[]            @relation("AuditLogActor")
@@ -355,7 +356,7 @@ model Notification {
   id          String   @id @default(cuid())
   senderId    String?
   recipientId String
-  type        String   // info, warning, success, error, system
+  type        String   // info, warning, success, error, system, lead, outreach, marketing
   title       String
   message     String
   read        Boolean  @default(false)
@@ -364,6 +365,18 @@ model Notification {
 
   sender    User?  @relation("NotificationSender", fields: [senderId], references: [id])
   recipient User   @relation("NotificationRecipient", fields: [recipientId], references: [id])
+}
+
+model NotificationPreference {
+  id       String @id @default(cuid())
+  userId   String
+  category String // lead-alerts, outreach-updates, system, marketing
+  itemKey  String // new-leads, lead-score, email-opened, call-reminders, etc.
+  enabled  Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, category, itemKey])
 }
 
 model SupportTicket {
