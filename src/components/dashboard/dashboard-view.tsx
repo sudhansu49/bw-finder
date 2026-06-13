@@ -301,7 +301,10 @@ export function DashboardView() {
 
         {/* No Website Leads */}
         <motion.div variants={item}>
-          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+          <Card
+            className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group cursor-pointer"
+            onClick={() => setCurrentView('user-website-detection')}
+          >
             <div className="h-1 bg-gradient-to-r from-red-400 to-red-600" />
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -475,7 +478,10 @@ export function DashboardView() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-sm">
+            <Card
+              className="border-0 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => setCurrentView('user-lead-scoring')}
+            >
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
@@ -639,7 +645,7 @@ export function DashboardView() {
                     const ls = getScoreColor(lead.business.leadScore)
                     const os = getScoreColor(lead.business.opportunityScore)
                     return (
-                      <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+                      <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setCurrentView('user-lead-scoring')}>
                         <td className="py-3">
                           <p className="text-sm font-medium">{lead.business.name}</p>
                           <p className="text-xs text-muted-foreground">
@@ -648,7 +654,11 @@ export function DashboardView() {
                           </p>
                         </td>
                         <td className="py-3">
-                          <Badge variant="secondary" className={`text-xs ${lead.business.hasWebsite ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                          <Badge
+                            variant="secondary"
+                            className={`text-xs cursor-pointer hover:opacity-80 transition-opacity ${lead.business.hasWebsite ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}
+                            onClick={(e) => { e.stopPropagation(); setCurrentView('user-website-detection') }}
+                          >
                             {lead.business.hasWebsite ? 'Has Site' : 'No Site'}
                           </Badge>
                         </td>
@@ -794,7 +804,10 @@ export function DashboardView() {
               </Card>
             </motion.div>
             <motion.div variants={item}>
-              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+              <Card
+                className="border-0 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => setCurrentView('user-audit')}
+              >
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -855,7 +868,7 @@ export function DashboardView() {
                     const as = getScoreColor(biz.auditScore)
                     const ls = getScoreColor(biz.leadScore)
                     return (
-                      <tr key={biz.id} className="border-b last:border-0 hover:bg-slate-50">
+                      <tr key={biz.id} className="border-b last:border-0 hover:bg-slate-50 cursor-pointer" onClick={() => setCurrentView('user-audit')}>
                         <td className="py-3">
                           <p className="text-sm font-medium">{biz.name}</p>
                           <p className="text-xs text-muted-foreground">{biz.city || ''}</p>
@@ -984,7 +997,7 @@ export function DashboardView() {
                 </thead>
                 <tbody>
                   {stats.recentLeads.map((lead) => (
-                    <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+                    <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors cursor-pointer" onClick={() => setCurrentView('user-crm')}>
                       <td className="py-3">
                         <div>
                           <p className="text-sm font-medium">{lead.business.name}</p>

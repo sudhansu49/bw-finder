@@ -1,0 +1,779 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo, useEffect, useCallback } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Switch } from '@/components/ui/switch'
+     9→import { ScrollArea } from '@/components/ui/scroll-area'
+    10→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import { Skeleton } from '@/components/ui/skeleton'
+    12→import { useToast } from '@/hooks/use-toast'
+    13→import { motion, AnimatePresence } from 'framer-motion'
+    14→import {
+    15→  Bell,
+    16→  Target,
+    17→  Mail,
+    18→  Shield,
+    19→  Megaphone,
+    20→  CheckCheck,
+    21→  X,
+    22→  Clock,
+    23→  AlertTriangle,
+    24→  Settings,
+    25→  AlertCircle,
+    26→  RefreshCw,
+    27→} from 'lucide-react'
+    28→
+    29→// ─── Types ────────────────────────────────────────────────────────────────────
+    30→
+    31→type NotificationType = 'info' | 'warning' | 'success' | 'error' | 'system' | 'lead' | 'outreach' | 'marketing'
+    32→
+    33→interface ApiNotification {
+    34→  id: string
+    35→  senderId: string | null
+    36→  recipientId: string
+    37→  type: string
+    38→  title: string
+    39→  message: string
+    40→  read: boolean
+    41→  actionUrl: string | null
+    42→  createdAt: string
+    43→  sender?: {
+    44→    id: string
+    45→    name: string
+    46→    avatar: string | null
+    47→  } | null
+    48→}
+    49→
+    50→interface NotificationPreference {
+    51→  id: string
+    52→  category: string
+    53→  icon: React.ElementType
+    54→  color: string
+    55→  bgColor: string
+    56→  items: { id: string; itemKey: string; label: string; enabled: boolean; saving?: boolean }[]
+    57→}
+    58→
+    59→// ─── Helpers ──────────────────────────────────────────────────────────────────
+    60→
+    61→function formatRelativeTime(dateStr: string): string {
+    62→  const date = new Date(dateStr)
+    63→  const now = new Date()
+    64→  const diffMs = now.getTime() - date.getTime()
+    65→  const diffSeconds = Math.floor(diffMs / 1000)
+    66→  const diffMinutes = Math.floor(diffSeconds / 60)
+    67→  const diffHours = Math.floor(diffMinutes / 60)
+    68→  const diffDays = Math.floor(diffHours / 24)
+    69→
+    70→  if (diffSeconds < 60) return 'Just now'
+    71→  if (diffMinutes < 60) return `${diffMinutes}m ago`
+    72→  if (diffHours < 24) return `${diffHours}h ago`
+    73→  if (diffDays < 7) return `${diffDays}d ago`
+    74→  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    75→}
+    76→
+    77→function getTypeIcon(type: string) {
+    78→  switch (type) {
+    79→    case 'lead':
+    80→      return Target
+    81→    case 'outreach':
+    82→      return Mail
+    83→    case 'warning':
+    84→      return AlertTriangle
+    85→    case 'success':
+    86→      return Target
+    87→    case 'error':
+    88→      return AlertTriangle
+    89→    case 'system':
+    90→      return Shield
+    91→    case 'marketing':
+    92→      return Megaphone
+    93→    case 'info':
+    94→    default:
+    95→      return Shield
+    96→  }
+    97→}
+    98→
+    99→function getTypeColor(type: string) {
+   100→  switch (type) {
+   101→    case 'lead':
+   102→      return { icon: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' }
+   103→    case 'outreach':
+   104→      return { icon: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' }
+   105→    case 'warning':
+   106→      return { icon: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' }
+   107→    case 'success':
+   108→      return { icon: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' }
+   109→    case 'error':
+   110→      return { icon: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200' }
+   111→    case 'system':
+   112→      return { icon: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }
+   113→    case 'marketing':
+   114→      return { icon: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200' }
+   115→    case 'info':
+   116→    default:
+   117→      return { icon: 'text-slate-600', bg: 'bg-slate-100', border: 'border-slate-200' }
+   118→  }
+   119→}
+   120→
+   121→// Default preferences structure (used before API data loads)
+   122→const DEFAULT_PREFERENCES: NotificationPreference[] = [
+   123→  {
+   124→    id: 'lead-alerts',
+   125→    category: 'lead-alerts',
+   126→    icon: Target,
+   127→    color: 'text-amber-600',
+   128→    bgColor: 'bg-amber-50',
+   129→    items: [
+   130→      { id: '', itemKey: 'new-leads', label: 'New leads discovered', enabled: true },
+   131→      { id: '', itemKey: 'lead-score', label: 'Lead score changes', enabled: true },
+   132→    ],
+   133→  },
+   134→  {
+   135→    id: 'outreach-updates',
+   136→    category: 'outreach-updates',
+   137→    icon: Mail,
+   138→    color: 'text-emerald-600',
+   139→    bgColor: 'bg-emerald-50',
+   140→    items: [
+   141→      { id: '', itemKey: 'email-opened', label: 'Email opened', enabled: true },
+   142→      { id: '', itemKey: 'call-reminders', label: 'Call reminders', enabled: true },
+   143→    ],
+   144→  },
+   145→  {
+   146→    id: 'system',
+   147→    category: 'system',
+   148→    icon: Shield,
+   149→    color: 'text-slate-600',
+   150→    bgColor: 'bg-slate-100',
+   151→    items: [
+   152→      { id: '', itemKey: 'plan-updates', label: 'Plan updates', enabled: true },
+   153→      { id: '', itemKey: 'maintenance', label: 'Maintenance alerts', enabled: false },
+   154→    ],
+   155→  },
+   156→  {
+   157→    id: 'marketing',
+   158→    category: 'marketing',
+   159→    icon: Megaphone,
+   160→    color: 'text-purple-600',
+   161→    bgColor: 'bg-purple-50',
+   162→    items: [
+   163→      { id: '', itemKey: 'tips', label: 'Tips & best practices', enabled: true },
+   164→      { id: '', itemKey: 'offers', label: 'Offers & promotions', enabled: false },
+   165→    ],
+   166→  },
+   167→]
+   168→
+   169→// ─── Loading Skeleton ──────────────────────────────────────────────────────────
+   170→
+   171→function NotificationsSkeleton() {
+   172→  return (
+   173→    <div className="space-y-6 max-w-3xl">
+   174→      <div className="flex items-center gap-3">
+   175→        <Skeleton className="h-10 w-10 rounded-xl" />
+   176→        <div className="space-y-2">
+   177→          <Skeleton className="h-7 w-36" />
+   178→          <Skeleton className="h-4 w-48" />
+   179→        </div>
+   180→      </div>
+   181→      <div className="flex items-center gap-2">
+   182→        <Skeleton className="h-10 w-72 rounded-lg" />
+   183→      </div>
+   184→      <Card className="border-0 shadow-sm">
+   185→        <CardHeader className="pb-3">
+   186→          <Skeleton className="h-6 w-44" />
+   187→        </CardHeader>
+   188→        <CardContent className="pt-0">
+   189→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   190→            {[1, 2, 3, 4].map((i) => (
+   191→              <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/50 p-4 space-y-3">
+   192→                <div className="flex items-center gap-2.5">
+   193→                  <Skeleton className="h-8 w-8 rounded-lg" />
+   194→                  <Skeleton className="h-4 w-24" />
+   195→                </div>
+   196→                <div className="space-y-2">
+   197→                  <div className="flex justify-between">
+   198→                    <Skeleton className="h-4 w-32" />
+   199→                    <Skeleton className="h-5 w-9 rounded-full" />
+   200→                  </div>
+   201→                  <div className="flex justify-between">
+   202→                    <Skeleton className="h-4 w-28" />
+   203→                    <Skeleton className="h-5 w-9 rounded-full" />
+   204→                  </div>
+   205→                </div>
+   206→              </div>
+   207→            ))}
+   208→          </div>
+   209→        </CardContent>
+   210→      </Card>
+   211→      <Card className="border-0 shadow-sm">
+   212→        <CardHeader className="pb-3">
+   213→          <div className="flex justify-between">
+   214→            <Skeleton className="h-6 w-40" />
+   215→            <Skeleton className="h-4 w-24" />
+   216→          </div>
+   217→        </CardHeader>
+   218→        <CardContent className="pt-0 space-y-2">
+   219→          {[1, 2, 3, 4, 5].map((i) => (
+   220→            <div key={i} className="flex items-start gap-3 rounded-xl p-4">
+   221→              <Skeleton className="h-9 w-9 rounded-lg flex-shrink-0" />
+   222→              <div className="flex-1 space-y-1.5">
+   223→                <Skeleton className="h-4 w-56" />
+   224→                <Skeleton className="h-3 w-full" />
+   225→                <Skeleton className="h-3 w-20" />
+   226→              </div>
+   227→            </div>
+   228→          ))}
+   229→        </CardContent>
+   230→      </Card>
+   231→    </div>
+   232→  )
+   233→}
+   234→
+   235→// ─── Component ────────────────────────────────────────────────────────────────
+   236→
+   237→export function NotificationsView() {
+   238→  const { user } = useAppStore()
+   239→  const { toast } = useToast()
+   240→
+   241→  // Notification state
+   242→  const [notifications, setNotifications] = useState<ApiNotification[]>([])
+   243→  const [apiUnreadCount, setApiUnreadCount] = useState<number>(0)
+   244→  const [loading, setLoading] = useState(true)
+   245→  const [preferencesLoading, setPreferencesLoading] = useState(true)
+   246→  const [error, setError] = useState<string | null>(null)
+   247→  const [activeTab, setActiveTab] = useState<string>('all')
+   248→  const [markingRead, setMarkingRead] = useState<string | null>(null)
+   249→
+   250→  // Preferences state (loaded from API)
+   251→  const [preferences, setPreferences] = useState<NotificationPreference[]>(DEFAULT_PREFERENCES)
+   252→
+   253→  // Fetch notifications
+   254→  const fetchNotifications = useCallback(async () => {
+   255→    if (!user?.id) return
+   256→    setLoading(true)
+   257→    setError(null)
+   258→    try {
+   259→      const res = await fetch('/api/user/notifications?limit=50', {
+   260→        credentials: 'include',
+   261→      })
+   262→      if (!res.ok) {
+   263→        const body = await res.json().catch(() => ({}))
+   264→        throw new Error(body.error || 'Failed to fetch notifications')
+   265→      }
+   266→      const json = await res.json()
+   267→      setNotifications(json.notifications ?? [])
+   268→      setApiUnreadCount(json.unreadCount ?? 0)
+   269→    } catch (err: any) {
+   270→      console.error('Failed to fetch notifications:', err)
+   271→      setError(err.message || 'Failed to load notifications')
+   272→      toast({
+   273→        title: 'Error',
+   274→        description: 'Failed to load notifications. Please try again.',
+   275→        variant: 'destructive',
+   276→      })
+   277→    } finally {
+   278→      setLoading(false)
+   279→    }
+   280→  }, [user?.id, toast])
+   281→
+   282→  // Fetch preferences from API
+   283→  const fetchPreferences = useCallback(async () => {
+   284→    if (!user?.id) return
+   285→    setPreferencesLoading(true)
+   286→    try {
+   287→      const res = await fetch('/api/user/notifications/preferences', {
+   288→        credentials: 'include',
+   289→      })
+   290→      if (!res.ok) {
+   291→        throw new Error('Failed to fetch preferences')
+   292→      }
+   293→      const json = await res.json()
+   294→      // Map API response to our local state structure
+   295→      const apiPrefs = json.preferences as Record<string, { id: string; itemKey: string; enabled: boolean }[]>
+   296→
+   297→      setPreferences((prev) =>
+   298→        prev.map((cat) => {
+   299→          const apiItems = apiPrefs[cat.category]
+   300→          if (!apiItems) return cat
+   301→          return {
+   302→            ...cat,
+   303→            items: cat.items.map((item) => {
+   304→              const apiItem = apiItems.find((a) => a.itemKey === item.itemKey)
+   305→              if (apiItem) {
+   306→                return { ...item, id: apiItem.id, enabled: apiItem.enabled }
+   307→              }
+   308→              return item
+   309→            }),
+   310→          }
+   311→        })
+   312→      )
+   313→    } catch (err) {
+   314→      console.error('Failed to fetch preferences:', err)
+   315→      // Keep defaults on error
+   316→    } finally {
+   317→      setPreferencesLoading(false)
+   318→    }
+   319→  }, [user?.id])
+   320→
+   321→  useEffect(() => {
+   322→    fetchNotifications()
+   323→    fetchPreferences()
+   324→  }, [fetchNotifications, fetchPreferences])
+   325→
+   326→  // Derived state
+   327→  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications])
+   328→
+   329→  const filteredNotifications = useMemo(() => {
+   330→    switch (activeTab) {
+   331→      case 'unread':
+   332→        return notifications.filter((n) => !n.read)
+   333→      default:
+   334→        return notifications
+   335→    }
+   336→  }, [notifications, activeTab])
+   337→
+   338→  // Actions
+   339→  const markAsRead = async (id: string) => {
+   340→    if (!user?.id) return
+   341→    // Optimistic update
+   342→    const prev = notifications
+   343→    setNotifications((ns) =>
+   344→      ns.map((n) => (n.id === id ? { ...n, read: true } : n))
+   345→    )
+   346→    setMarkingRead(id)
+   347→    try {
+   348→      const res = await fetch('/api/user/notifications', {
+   349→        method: 'PUT',
+   350→        headers: { 'Content-Type': 'application/json' },
+   351→        credentials: 'include',
+   352→        body: JSON.stringify({ notificationId: id }),
+   353→      })
+   354→      if (!res.ok) {
+   355→        throw new Error('Failed to mark as read')
+   356→      }
+   357→    } catch (err) {
+   358→      console.error('Failed to mark as read:', err)
+   359→      // Rollback
+   360→      setNotifications(prev)
+   361→      toast({
+   362→        title: 'Error',
+   363→        description: 'Failed to mark notification as read.',
+   364→        variant: 'destructive',
+   365→      })
+   366→    } finally {
+   367→      setMarkingRead(null)
+   368→    }
+   369→  }
+   370→
+   371→  const markAllAsRead = async () => {
+   372→    if (!user?.id) return
+   373→    // Optimistic update
+   374→    const prev = notifications
+   375→    setNotifications((ns) => ns.map((n) => ({ ...n, read: true })))
+   376→    try {
+   377→      const res = await fetch('/api/user/notifications', {
+   378→        method: 'PUT',
+   379→        headers: { 'Content-Type': 'application/json' },
+   380→        credentials: 'include',
+   381→        body: JSON.stringify({ markAllRead: true }),
+   382→      })
+   383→      if (!res.ok) {
+   384→        throw new Error('Failed to mark all as read')
+   385→      }
+   386→      toast({
+   387→        title: 'Success',
+   388→        description: 'All notifications marked as read.',
+   389→      })
+   390→    } catch (err) {
+   391→      console.error('Failed to mark all as read:', err)
+   392→      // Rollback
+   393→      setNotifications(prev)
+   394→      toast({
+   395→        title: 'Error',
+   396→        description: 'Failed to mark all notifications as read.',
+   397→        variant: 'destructive',
+   398→      })
+   399→    }
+   400→  }
+   401→
+   402→  const dismissNotification = async (id: string) => {
+   403→    // Optimistic update
+   404→    const prev = notifications
+   405→    setNotifications((ns) => ns.filter((n) => n.id !== id))
+   406→    try {
+   407→      const res = await fetch(`/api/user/notifications?notificationId=${id}`, {
+   408→        method: 'DELETE',
+   409→        credentials: 'include',
+   410→      })
+   411→      if (!res.ok) {
+   412→        throw new Error('Failed to delete notification')
+   413→      }
+   414→      toast({
+   415→        title: 'Dismissed',
+   416→        description: 'Notification removed.',
+   417→      })
+   418→    } catch (err) {
+   419→      console.error('Failed to delete notification:', err)
+   420→      // Rollback
+   421→      setNotifications(prev)
+   422→      toast({
+   423→        title: 'Error',
+   424→        description: 'Failed to dismiss notification.',
+   425→        variant: 'destructive',
+   426→      })
+   427→    }
+   428→  }
+   429→
+   430→  const togglePreference = async (categoryId: string, itemKey: string) => {
+   431→    // Find current value
+   432→    const category = preferences.find((c) => c.category === categoryId)
+   433→    const item = category?.items.find((i) => i.itemKey === itemKey)
+   434→    if (!item) return
+   435→
+   436→    const newEnabled = !item.enabled
+   437→
+   438→    // Optimistic update
+   439→    setPreferences((prev) =>
+   440→      prev.map((cat) =>
+   441→        cat.category === categoryId
+   442→          ? {
+   443→              ...cat,
+   444→              items: cat.items.map((i) =>
+   445→                i.itemKey === itemKey ? { ...i, enabled: newEnabled, saving: true } : i
+   446→              ),
+   447→            }
+   448→          : cat
+   449→      )
+   450→    )
+   451→
+   452→    try {
+   453→      const res = await fetch('/api/user/notifications/preferences', {
+   454→        method: 'PUT',
+   455→        headers: { 'Content-Type': 'application/json' },
+   456→        credentials: 'include',
+   457→        body: JSON.stringify({ category: categoryId, itemKey, enabled: newEnabled }),
+   458→      })
+   459→      if (!res.ok) {
+   460→        throw new Error('Failed to update preference')
+   461→      }
+   462→      toast({
+   463→        title: 'Preference Updated',
+   464→        description: `${item.label} ${newEnabled ? 'enabled' : 'disabled'}.`,
+   465→      })
+   466→    } catch (err) {
+   467→      console.error('Failed to update preference:', err)
+   468→      // Rollback
+   469→      setPreferences((prev) =>
+   470→        prev.map((cat) =>
+   471→          cat.category === categoryId
+   472→            ? {
+   473→                ...cat,
+   474→                items: cat.items.map((i) =>
+   475→                  i.itemKey === itemKey ? { ...i, enabled: !newEnabled, saving: false } : i
+   476→                ),
+   477→              }
+   478→            : cat
+   479→        )
+   480→      )
+   481→      toast({
+   482→        title: 'Error',
+   483→        description: 'Failed to update notification preference.',
+   484→        variant: 'destructive',
+   485→      })
+   486→      return
+   487→    }
+   488→
+   489→    // Clear saving state
+   490→    setPreferences((prev) =>
+   491→      prev.map((cat) =>
+   492→        cat.category === categoryId
+   493→          ? {
+   494→              ...cat,
+   495→              items: cat.items.map((i) =>
+   496→                i.itemKey === itemKey ? { ...i, saving: false } : i
+   497→              ),
+   498→            }
+   499→          : cat
+   500→      )
+   501→    )
+   502→  }
+   503→
+   504→  // ─── Loading State ──────────────────────────────────────────────────────
+   505→
+   506→  if (loading) return <NotificationsSkeleton />
+   507→
+   508→  // ─── Error State ────────────────────────────────────────────────────────
+   509→
+   510→  if (error && notifications.length === 0) {
+   511→    return (
+   512→      <div className="space-y-6 max-w-3xl">
+   513→        <div className="flex items-center gap-3">
+   514→          <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center">
+   515→            <Bell className="h-5 w-5 text-amber-600" />
+   516→          </div>
+   517→          <div>
+   518→            <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+   519→            <p className="text-sm text-muted-foreground">Manage your notifications</p>
+   520→          </div>
+   521→        </div>
+   522→        <Card className="border-0 shadow-sm">
+   523→          <CardContent className="p-12 flex flex-col items-center text-center">
+   524→            <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+   525→              <AlertCircle className="h-7 w-7 text-red-500" />
+   526→            </div>
+   527→            <h3 className="text-lg font-semibold text-slate-700 mb-1">Failed to load notifications</h3>
+   528→            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+   529→            <Button onClick={fetchNotifications} variant="outline">
+   530→              <RefreshCw className="h-4 w-4 mr-2" />
+   531→              Try Again
+   532→            </Button>
+   533→          </CardContent>
+   534→        </Card>
+   535→      </div>
+   536→    )
+   537→  }
+   538→
+   539→  // ─── Render ───────────────────────────────────────────────────────────────
+   540→
+   541→  return (
+   542→    <div className="space-y-6 max-w-3xl">
+   543→      {/* Header */}
+   544→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   545→        <div className="flex items-center gap-3">
+   546→          <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center">
+   547→            <Bell className="h-5 w-5 text-amber-600" />
+   548→          </div>
+   549→          <div>
+   550→            <h1 className="text-2xl font-bold text-slate-900">Notifications</h1>
+   551→            <p className="text-sm text-muted-foreground">
+   552→              {unreadCount > 0
+   553→                ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+   554→                : 'All caught up!'}
+   555→            </p>
+   556→          </div>
+   557→        </div>
+   558→        <div className="flex items-center gap-2">
+   559→          {unreadCount > 0 && (
+   560→            <Button
+   561→              variant="outline"
+   562→              size="sm"
+   563→              onClick={markAllAsRead}
+   564→              className="text-amber-600 border-amber-200 hover:bg-amber-50"
+   565→            >
+   566→              <CheckCheck className="h-4 w-4 mr-1.5" />
+   567→              Mark All Read
+   568→            </Button>
+   569→          )}
+   570→          <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs px-2.5">
+   571→            {notifications.length} total
+   572→          </Badge>
+   573→        </div>
+   574→      </div>
+   575→
+   576→      {/* Tabs: All / Unread */}
+   577→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   578→        <TabsList className="bg-slate-100 h-10 p-1">
+   579→          <TabsTrigger value="all" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm">
+   580→            All
+   581→          </TabsTrigger>
+   582→          <TabsTrigger value="unread" className="text-sm data-[state=active]:bg-white data-[state=active]:shadow-sm relative">
+   583→            Unread
+   584→            {unreadCount > 0 && (
+   585→              <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white px-1">
+   586→                {unreadCount}
+   587→              </span>
+   588→            )}
+   589→          </TabsTrigger>
+   590→        </TabsList>
+   591→
+   592→        <TabsContent value={activeTab} className="mt-4 space-y-6">
+   593→          {/* Notification Preferences Card */}
+   594→          <motion.div
+   595→            initial={{ opacity: 0, y: 20 }}
+   596→            animate={{ opacity: 1, y: 0 }}
+   597→            transition={{ duration: 0.3 }}
+   598→          >
+   599→            <Card className="border-0 shadow-sm">
+   600→              <CardHeader className="pb-3">
+   601→                <div className="flex items-center gap-2">
+   602→                  <Settings className="h-5 w-5 text-amber-500" />
+   603→                  <CardTitle className="text-lg">Notification Preferences</CardTitle>
+   604→                  {preferencesLoading && (
+   605→                    <RefreshCw className="h-4 w-4 text-slate-400 animate-spin" />
+   606→                  )}
+   607→                </div>
+   608→              </CardHeader>
+   609→              <CardContent className="pt-0">
+   610→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   611→                  {preferences.map((category, catIdx) => {
+   612→                    const CategoryIcon = category.icon
+   613→                    return (
+   614→                      <motion.div
+   615→                        key={category.category}
+   616→                        initial={{ opacity: 0, y: 10 }}
+   617→                        animate={{ opacity: 1, y: 0 }}
+   618→                        transition={{ delay: catIdx * 0.08 }}
+   619→                        className="rounded-xl border border-slate-100 bg-slate-50/50 p-4"
+   620→                      >
+   621→                        <div className="flex items-center gap-2.5 mb-3">
+   622→                          <div className={`h-8 w-8 rounded-lg ${category.bgColor} flex items-center justify-center`}>
+   623→                            <CategoryIcon className={`h-4 w-4 ${category.color}`} />
+   624→                          </div>
+   625→                          <span className="text-sm font-semibold text-slate-800">{category.id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+   626→                        </div>
+   627→                        <div className="space-y-3">
+   628→                          {category.items.map((item) => (
+   629→                            <div key={item.itemKey} className="flex items-center justify-between">
+   630→                              <span className="text-sm text-slate-600">{item.label}</span>
+   631→                              <Switch
+   632→                                checked={item.enabled}
+   633→                                onCheckedChange={() => togglePreference(category.category, item.itemKey)}
+   634→                                disabled={item.saving}
+   635→                                className="data-[state=checked]:bg-amber-500"
+   636→                              />
+   637→                            </div>
+   638→                          ))}
+   639→                        </div>
+   640→                      </motion.div>
+   641→                    )
+   642→                  })}
+   643→                </div>
+   644→              </CardContent>
+   645→            </Card>
+   646→          </motion.div>
+   647→
+   648→          {/* Notifications List */}
+   649→          <motion.div
+   650→            initial={{ opacity: 0, y: 20 }}
+   651→            animate={{ opacity: 1, y: 0 }}
+   652→            transition={{ duration: 0.3, delay: 0.1 }}
+   653→          >
+   654→            <Card className="border-0 shadow-sm">
+   655→              <CardHeader className="pb-3">
+   656→                <div className="flex items-center justify-between">
+   657→                  <CardTitle className="text-lg flex items-center gap-2">
+   658→                    <Clock className="h-5 w-5 text-amber-500" />
+   659→                    Recent Notifications
+   660→                  </CardTitle>
+   661→                  {filteredNotifications.length > 0 && (
+   662→                    <span className="text-xs text-muted-foreground">
+   663→                      {filteredNotifications.length} notification{filteredNotifications.length !== 1 ? 's' : ''}
+   664→                    </span>
+   665→                  )}
+   666→                </div>
+   667→              </CardHeader>
+   668→              <CardContent className="pt-0">
+   669→                {filteredNotifications.length === 0 ? (
+   670→                  /* Empty State */
+   671→                  <motion.div
+   672→                    initial={{ opacity: 0, scale: 0.95 }}
+   673→                    animate={{ opacity: 1, scale: 1 }}
+   674→                    className="flex flex-col items-center justify-center py-16 text-center"
+   675→                  >
+   676→                    <div className="h-16 w-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+   677→                      <Bell className="h-8 w-8 text-slate-300" />
+   678→                    </div>
+   679→                    <h3 className="text-lg font-semibold text-slate-700 mb-1">
+   680→                      {activeTab === 'unread'
+   681→                        ? 'No unread notifications'
+   682→                        : 'No notifications yet'}
+   683→                    </h3>
+   684→                    <p className="text-sm text-muted-foreground max-w-sm">
+   685→                      {activeTab === 'unread'
+   686→                        ? "You've read everything! New notifications will appear here."
+   687→                        : 'Your notification inbox is empty. Notifications will appear when leads are found, outreach is sent, or system events occur.'}
+   688→                    </p>
+   689→                  </motion.div>
+   690→                ) : (
+   691→                  <ScrollArea className="max-h-[520px] pr-1">
+   692→                    <div className="space-y-1">
+   693→                      <AnimatePresence mode="popLayout">
+   694→                        {filteredNotifications.map((notification, idx) => {
+   695→                          const TypeIcon = getTypeIcon(notification.type)
+   696→                          const colors = getTypeColor(notification.type)
+   697→
+   698→                          return (
+   699→                            <motion.div
+   700→                              key={notification.id}
+   701→                              layout
+   702→                              initial={{ opacity: 0, x: -10 }}
+   703→                              animate={{ opacity: 1, x: 0 }}
+   704→                              exit={{ opacity: 0, x: 10, height: 0, marginBottom: 0, padding: 0 }}
+   705→                              transition={{ duration: 0.2, delay: idx * 0.03 }}
+   706→                              onClick={() => {
+   707→                                if (!notification.read) markAsRead(notification.id)
+   708→                              }}
+   709→                              className={`
+   710→                                group relative flex items-start gap-3 rounded-xl p-4 cursor-pointer
+   711→                                transition-all duration-200 hover:bg-slate-50
+   712→                                ${!notification.read
+   713→                                  ? 'border-l-[3px] border-l-blue-500 bg-blue-50/40 hover:bg-blue-50/60'
+   714→                                  : 'border-l-[3px] border-l-transparent'
+   715→                                }
+   716→                              `}
+   717→                            >
+   718→                              {/* Type Icon */}
+   719→                              <div className={`
+   720→                                mt-0.5 h-9 w-9 rounded-lg ${colors.bg} flex items-center justify-center flex-shrink-0
+   721→                                group-hover:scale-105 transition-transform
+   722→                              `}>
+   723→                                <TypeIcon className={`h-4.5 w-4.5 ${colors.icon}`} />
+   724→                              </div>
+   725→
+   726→                              {/* Content */}
+   727→                              <div className="flex-1 min-w-0">
+   728→                                <div className="flex items-center gap-2 mb-0.5">
+   729→                                  <p className={`text-sm font-medium truncate ${!notification.read ? 'text-slate-900' : 'text-slate-700'}`}>
+   730→                                    {notification.title}
+   731→                                  </p>
+   732→                                  {!notification.read && (
+   733→                                    <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />
+   734→                                  )}
+   735→                                </div>
+   736→                                <p className="text-xs text-muted-foreground line-clamp-2 mb-1">
+   737→                                  {notification.message}
+   738→                                </p>
+   739→                                <div className="flex items-center gap-2">
+   740→                                  <Clock className="h-3 w-3 text-slate-400" />
+   741→                                  <span className="text-[11px] text-slate-400">
+   742→                                    {formatRelativeTime(notification.createdAt)}
+   743→                                  </span>
+   744→                                  {notification.type && (
+   745→                                    <Badge variant="secondary" className="h-4 text-[10px] px-1.5 bg-slate-50 text-slate-500 border-slate-100">
+   746→                                      {notification.type}
+   747→                                    </Badge>
+   748→                                  )}
+   749→                                </div>
+   750→                              </div>
+   751→
+   752→                              {/* Dismiss Button */}
+   753→                              <Button
+   754→                                variant="ghost"
+   755→                                size="icon"
+   756→                                className="h-7 w-7 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-red-500 hover:bg-red-50"
+   757→                                onClick={(e) => {
+   758→                                  e.stopPropagation()
+   759→                                  dismissNotification(notification.id)
+   760→                                }}
+   761→                              >
+   762→                                <X className="h-3.5 w-3.5" />
+   763→                              </Button>
+   764→                            </motion.div>
+   765→                          )
+   766→                        })}
+   767→                      </AnimatePresence>
+   768→                    </div>
+   769→                  </ScrollArea>
+   770→                )}
+   771→              </CardContent>
+   772→            </Card>
+   773→          </motion.div>
+   774→        </TabsContent>
+   775→      </Tabs>
+   776→    </div>
+   777→  )
+   778→}
+   779→

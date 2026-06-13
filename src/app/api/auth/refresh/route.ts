@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken, signAccessToken, signRefreshToken, createSession, revokeSession } from '@/lib/auth/jwt'
+import { verifyToken, signAccessToken, signRefreshToken, createSession, revokeSession, setAuthCookies } from '@/lib/auth/jwt'
 import { db } from '@/lib/db'
 import { applyRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { getRequestInfo } from '@/lib/security/audit'
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       sessionId: newSessionId,
     })
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       token: accessToken,
       user: {
         id: user.id,
@@ -81,14 +81,10 @@ export async function POST(request: NextRequest) {
         planName: user.plan?.name || 'Free',
         planTier: user.plan?.tier || 'free',
       },
-    }, {
-      headers: {
-        'Set-Cookie': [
-          `bw-access-token=${accessToken}; HttpOnly; Path=/; Max-Age=900; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`,
-          `bw-refresh-token=${newRefreshToken}; HttpOnly; Path=/; Max-Age=604800; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`,
-        ].join(', '),
-      },
     })
+
+    // Set auth cookies properly using Next.js cookie API
+    return setAuthCookies(response, accessToken, newRefreshToken)
   } catch (error) {
     console.error('Token refresh error:', error)
     return NextResponse.json(

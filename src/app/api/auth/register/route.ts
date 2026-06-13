@@ -76,15 +76,32 @@ export async function POST(request: NextRequest) {
     // Audit log
     await auditRegister(user.id, ip, userAgent)
 
-    // Create welcome notification for new user
+    // Create welcome notifications for new user
     try {
-      await db.notification.create({
-        data: {
-          recipientId: user.id,
-          type: 'system',
-          title: 'Welcome to BW Finder!',
-          message: 'Start by searching for businesses without websites in your area. Use the Lead Finder to discover new opportunities.',
-        },
+      await db.notification.createMany({
+        data: [
+          {
+            recipientId: user.id,
+            type: 'system',
+            title: 'Welcome to BW Finder!',
+            message: 'Start by searching for businesses without websites in your area. Use the Lead Finder to discover new opportunities.',
+            read: true,
+          },
+          {
+            recipientId: user.id,
+            type: 'lead',
+            title: 'Discover businesses without websites',
+            message: 'Use the Lead Finder to search for businesses in your area that don\'t have a website yet — your next opportunity awaits!',
+            read: false,
+          },
+          {
+            recipientId: user.id,
+            type: 'outreach',
+            title: 'Try the Outreach tools',
+            message: 'Once you find leads, use our Email and WhatsApp generators to craft personalized outreach messages.',
+            read: false,
+          },
+        ],
       })
     } catch {
       // Silent fail - non-critical

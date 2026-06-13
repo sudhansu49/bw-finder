@@ -1,0 +1,1117 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { useAppStore, type UserView } from '@/store/app-store'
+     5→import { useTranslation, useCurrency } from '@/lib/i18n/hooks'
+     6→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Progress } from '@/components/ui/progress'
+    10→import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+    11→import { Bar, BarChart, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart, CartesianGrid, Line, LineChart } from 'recharts'
+    12→import { motion } from 'framer-motion'
+    13→import {
+    14→  Building2,
+    15→  Unplug,
+    16→  Users,
+    17→  DollarSign,
+    18→  Search,
+    19→  UserPlus,
+    20→  BarChart3,
+    21→  Globe,
+    22→  Target,
+    23→  TrendingUp,
+    24→  ClipboardCheck,
+    25→  AlertTriangle,
+    26→  Sparkles,
+    27→  Shield,
+    28→  FileText,
+    29→  ArrowUpRight,
+    30→  ArrowDownRight,
+    31→  Clock,
+    32→  CheckCircle2,
+    33→  XCircle,
+    34→  Zap,
+    35→  Activity,
+    36→  ChevronRight,
+    37→  Calculator,
+    38→  MessageSquare,
+    39→  Mail,
+    40→} from 'lucide-react'
+    41→
+    42→interface DashboardStats {
+    43→  totalLeads: number
+    44→  totalBusinesses: number
+    45→  noWebsiteBusinesses: number
+    46→  noWebsiteLeads: number
+    47→  highOpportunityLeads: number
+    48→  mediumOpportunityLeads: number
+    49→  lowOpportunityLeads: number
+    50→  activeLeads: number
+    51→  wonLeadsCount: number
+    52→  lostLeadsCount: number
+    53→  wonDealsValue: number
+    54→  pipelineValue: number
+    55→  totalLeadsValue: number
+    56→  totalEstimatedRevenue: number
+    57→  revenueByMonth: { month: string; revenue: number; deals: number }[]
+    58→  conversionRate: number
+    59→  avgDealCycle: number
+    60→  funnelData: { stage: string; count: number }[]
+    61→  stageConversions: { from: string; to: string; rate: number }[]
+    62→  leadsByStatus: { status: string; rawStatus: string; count: number }[]
+    63→  businessesByCategory: { category: string; count: number }[]
+    64→  businessesByCountry: { country: string; count: number }[]
+    65→  websiteStatusBreakdown: { status: string; count: number }[]
+    66→  recentLeads: {
+    67→    id: string
+    68→    business: { name: string; category: string; city?: string; country?: string }
+    69→    status: string
+    70→    estimatedValue: number
+    71→    priority: string
+    72→  }[]
+    73→  topOpportunityLeads: {
+    74→    id: string
+    75→    status: string
+    76→    estimatedValue: number
+    77→    business: {
+    78→      id: string
+    79→      name: string
+    80→      category: string
+    81→      city: string | null
+    82→      hasWebsite: boolean
+    83→      leadScore: number | null
+    84→      opportunityScore: number | null
+    85→      estimatedMonthlyRevenue: number | null
+    86→    }
+    87→  }[]
+    88→  scoringStats: {
+    89→    avgLeadScore: number
+    90→    avgOpportunityScore: number
+    91→    totalEstimatedRevenue: number
+    92→    scoredCount: number
+    93→  }
+    94→  auditStats: {
+    95→    auditedCount: number
+    96→    avgAuditScore: number
+    97→    totalOpportunityValue: number
+    98→    criticalIssues: number
+    99→    warningIssues: number
+   100→    opportunities: number
+   101→  }
+   102→  topAuditOpportunities: {
+   103→    id: string
+   104→    name: string
+   105→    category: string
+   106→    city: string | null
+   107→    auditScore: number | null
+   108→    leadScore: number | null
+   109→  }[]
+   110→  searchStats: {
+   111→    totalSearches: number
+   112→    completedSearches: number
+   113→  }
+   114→}
+   115→
+   116→const statusColors: Record<string, string> = {
+   117→  New: '#94a3b8',
+   118→  'New Lead': '#94a3b8',
+   119→  Contacted: '#f59e0b',
+   120→  Interested: '#3b82f6',
+   121→  Qualified: '#10b981',
+   122→  Meeting: '#8b5cf6',
+   123→  Proposal: '#f97316',
+   124→  'Proposal Sent': '#ec4899',
+   125→  Negotiation: '#a855f7',
+   126→  Won: '#22c55e',
+   127→  Lost: '#ef4444',
+   128→}
+   129→
+   130→const categoryColors = [
+   131→  '#f59e0b', '#f97316', '#ef4444', '#10b981', '#a855f7',
+   132→  '#06b6d4', '#ec4899', '#84cc16', '#6366f1', '#14b8a6',
+   133→]
+   134→
+   135→const funnelColors = [
+   136→  '#94a3b8', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#22c55e',
+   137→]
+   138→
+   139→const container = {
+   140→  hidden: { opacity: 0 },
+   141→  show: {
+   142→    opacity: 1,
+   143→    transition: { staggerChildren: 0.08 },
+   144→  },
+   145→}
+   146→
+   147→const item = {
+   148→  hidden: { opacity: 0, y: 20 },
+   149→  show: { opacity: 1, y: 0 },
+   150→}
+   151→
+   152→function getScoreColor(score: number | null | undefined): { bg: string; text: string } {
+   153→  if (score === null || score === undefined) return { bg: 'bg-slate-100', text: 'text-slate-400' }
+   154→  if (score >= 70) return { bg: 'bg-emerald-50', text: 'text-emerald-600' }
+   155→  if (score >= 40) return { bg: 'bg-amber-50', text: 'text-amber-600' }
+   156→  return { bg: 'bg-red-50', text: 'text-red-500' }
+   157→}
+   158→
+   159→export function DashboardView() {
+   160→  const { user, setCurrentView } = useAppStore()
+   161→  const { t } = useTranslation()
+   162→  const { format: formatCurr, formatCompact: formatCompactCurr, formatNumber: formatNum, symbol } = useCurrency()
+   163→  const [stats, setStats] = useState<DashboardStats | null>(null)
+   164→  const [loading, setLoading] = useState(true)
+   165→
+   166→  useEffect(() => {
+   167→    const fetchStats = async () => {
+   168→      try {
+   169→        const userId = user?.id || 'demo'
+   170→        const res = await fetch(`/api/analytics?userId=${userId}`)
+   171→        if (res.ok) {
+   172→          const data = await res.json()
+   173→          setStats(data)
+   174→        } else {
+   175→          setStats(getEmptyStats())
+   176→        }
+   177→      } catch {
+   178→        setStats(getEmptyStats())
+   179→      } finally {
+   180→        setLoading(false)
+   181→      }
+   182→    }
+   183→    fetchStats()
+   184→  }, [user?.id])
+   185→
+   186→  if (loading) {
+   187→    return (
+   188→      <div className="flex items-center justify-center h-64">
+   189→        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+   190→      </div>
+   191→    )
+   192→  }
+   193→
+   194→  if (!stats) return null
+   195→
+   196→  const noWebsitePct = stats.totalBusinesses > 0
+   197→    ? Math.round((stats.noWebsiteBusinesses / stats.totalBusinesses) * 100)
+   198→    : 0
+   199→
+   200→  const highOppPct = stats.totalLeads > 0
+   201→    ? Math.round((stats.highOpportunityLeads / stats.totalLeads) * 100)
+   202→    : 0
+   203→
+   204→  const maxFunnelCount = Math.max(...stats.funnelData.map(f => f.count), 1)
+   205→
+   206→  const priorityColors: Record<string, string> = {
+   207→    urgent: 'bg-red-100 text-red-700',
+   208→    high: 'bg-orange-100 text-orange-700',
+   209→    medium: 'bg-amber-100 text-amber-700',
+   210→    low: 'bg-slate-100 text-slate-700',
+   211→  }
+   212→
+   213→  const revenueChartConfig = stats.revenueByMonth.reduce((acc, m) => {
+   214→    acc[m.month] = { label: m.month, color: '#f59e0b' }
+   215→    return acc
+   216→  }, {} as Record<string, { label: string; color: string }>)
+   217→
+   218→  const barChartConfig = stats.leadsByStatus.reduce((acc, s) => {
+   219→    acc[s.status] = { label: s.status, color: statusColors[s.status] || '#94a3b8' }
+   220→    return acc
+   221→  }, {} as Record<string, { label: string; color: string }>)
+   222→
+   223→  const pieChartConfig = stats.businessesByCategory.reduce((acc, c, i) => {
+   224→    acc[c.category] = { label: c.category, color: categoryColors[i % categoryColors.length] }
+   225→    return acc
+   226→  }, {} as Record<string, { label: string; color: string }>)
+   227→
+   228→  return (
+   229→    <div className="space-y-6">
+   230→      {/* Header */}
+   231→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   232→        <div>
+   233→          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+   234→          <p className="text-muted-foreground">{t('dashboard.welcome')}, {user?.name || 'User'}</p>
+   235→        </div>
+   236→        <div className="flex gap-2">
+   237→          <Button onClick={() => setCurrentView('user-lead-finder')} className="bg-amber-500 hover:bg-amber-600 text-white">
+   238→            <Search className="h-4 w-4 mr-2" /> Discover
+   239→          </Button>
+   240→          <Button onClick={() => setCurrentView('user-crm')} variant="outline">
+   241→            <Activity className="h-4 w-4 mr-2" /> Pipeline
+   242→          </Button>
+   243→        </div>
+   244→      </div>
+   245→
+   246→      {/* ── Quick Actions ──────────────────────────────── */}
+   247→      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+   248→        {[
+   249→          { label: 'Find Leads', icon: Search, view: 'user-lead-finder' as UserView, color: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' },
+   250→          { label: 'Pipeline', icon: Activity, view: 'user-crm' as UserView, color: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30' },
+   251→          { label: 'AI Audit', icon: ClipboardCheck, view: 'user-audit' as UserView, color: 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/30' },
+   252→          { label: 'Proposal', icon: FileText, view: 'user-proposal' as UserView, color: 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/30' },
+   253→          { label: 'WhatsApp', icon: MessageSquare, view: 'user-whatsapp' as UserView, color: 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/30' },
+   254→          { label: 'Email', icon: Mail, view: 'user-email' as UserView, color: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/30' },
+   255→        ].map((action) => (
+   256→          <motion.button
+   257→            key={action.label}
+   258→            whileHover={{ scale: 1.03 }}
+   259→            whileTap={{ scale: 0.97 }}
+   260→            onClick={() => setCurrentView(action.view)}
+   261→            className={`flex flex-col items-center gap-2 p-4 rounded-xl border ${action.color} hover:shadow-md transition-all duration-200 cursor-pointer`}
+   262→          >
+   263→            <action.icon className="h-6 w-6" />
+   264→            <span className="text-xs font-semibold">{action.label}</span>
+   265→          </motion.button>
+   266→        ))}
+   267→      </div>
+   268→
+   269→      {/* ── Section 1: KPI Hero Cards ──────────────────────────────── */}
+   270→      <motion.div
+   271→        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+   272→        variants={container}
+   273→        initial="hidden"
+   274→        animate="show"
+   275→      >
+   276→        {/* Total Leads */}
+   277→        <motion.div variants={item}>
+   278→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   279→            <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
+   280→            <CardContent className="p-6">
+   281→              <div className="flex items-center justify-between">
+   282→                <div className="space-y-1">
+   283→                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.totalLeads')}</p>
+   284→                  <p className="text-4xl font-bold tracking-tight">{stats.totalLeads}</p>
+   285→                  <div className="flex items-center gap-1 text-xs">
+   286→                    <span className="text-emerald-600 flex items-center">
+   287→                      <CheckCircle2 className="h-3 w-3 mr-0.5" />
+   288→                      {stats.wonLeadsCount} {t('dashboard.wonDeals').toLowerCase()}
+   289→                    </span>
+   290→                    <span className="text-muted-foreground mx-1">·</span>
+   291→                    <span className="text-amber-600">{stats.activeLeads} active</span>
+   292→                  </div>
+   293→                </div>
+   294→                <div className="h-14 w-14 rounded-2xl bg-amber-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   295→                  <Users className="h-7 w-7 text-amber-600" />
+   296→                </div>
+   297→              </div>
+   298→            </CardContent>
+   299→          </Card>
+   300→        </motion.div>
+   301→
+   302→        {/* No Website Leads */}
+   303→        <motion.div variants={item}>
+   304→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   305→            <div className="h-1 bg-gradient-to-r from-red-400 to-red-600" />
+   306→            <CardContent className="p-6">
+   307→              <div className="flex items-center justify-between">
+   308→                <div className="space-y-1">
+   309→                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.noWebsiteBusinesses')}</p>
+   310→                  <p className="text-4xl font-bold tracking-tight">{stats.noWebsiteBusinesses}</p>
+   311→                  <div className="flex items-center gap-1 text-xs">
+   312→                    <span className="text-red-600 font-semibold">{noWebsitePct}%</span>
+   313→                    <span className="text-muted-foreground">of businesses</span>
+   314→                  </div>
+   315→                </div>
+   316→                <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   317→                  <Unplug className="h-7 w-7 text-red-600" />
+   318→                </div>
+   319→              </div>
+   320→              <div className="mt-3">
+   321→                <Progress value={noWebsitePct} className="h-1.5" />
+   322→              </div>
+   323→            </CardContent>
+   324→          </Card>
+   325→        </motion.div>
+   326→
+   327→        {/* High Opportunity Leads */}
+   328→        <motion.div variants={item}>
+   329→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   330→            <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+   331→            <CardContent className="p-6">
+   332→              <div className="flex items-center justify-between">
+   333→                <div className="space-y-1">
+   334→                  <p className="text-sm font-medium text-muted-foreground">High Opportunity</p>
+   335→                  <p className="text-4xl font-bold tracking-tight">{stats.highOpportunityLeads}</p>
+   336→                  <div className="flex items-center gap-1 text-xs">
+   337→                    <Zap className="h-3 w-3 text-emerald-600" />
+   338→                    <span className="text-emerald-600 font-semibold">{highOppPct}%</span>
+   339→                    <span className="text-muted-foreground">of leads scored 70+</span>
+   340→                  </div>
+   341→                </div>
+   342→                <div className="h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   343→                  <Target className="h-7 w-7 text-emerald-600" />
+   344→                </div>
+   345→              </div>
+   346→            </CardContent>
+   347→          </Card>
+   348→        </motion.div>
+   349→
+   350→        {/* Revenue Potential */}
+   351→        <motion.div variants={item}>
+   352→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   353→            <div className="h-1 bg-gradient-to-r from-orange-400 to-orange-600" />
+   354→            <CardContent className="p-6">
+   355→              <div className="flex items-center justify-between">
+   356→                <div className="space-y-1">
+   357→                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.pipelineValue')}</p>
+   358→                  <p className="text-4xl font-bold tracking-tight">{formatCompactCurr(stats.pipelineValue)}</p>
+   359→                  <div className="flex items-center gap-1 text-xs">
+   360→                    <DollarSign className="h-3 w-3 text-orange-600" />
+   361→                    <span className="text-orange-600 font-semibold">{formatCompactCurr(stats.wonDealsValue)} {t('dashboard.wonDeals').toLowerCase()}</span>
+   362→                  </div>
+   363→                </div>
+   364→                <div className="h-14 w-14 rounded-2xl bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   365→                  <TrendingUp className="h-7 w-7 text-orange-600" />
+   366→                </div>
+   367→              </div>
+   368→            </CardContent>
+   369→          </Card>
+   370→        </motion.div>
+   371→      </motion.div>
+   372→
+   373→      {/* ── Section 5: Conversion Metrics ──────────────────────────── */}
+   374→      <div>
+   375→        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+   376→          <Calculator className="h-5 w-5 text-amber-500" />
+   377→          Conversion Metrics
+   378→        </h2>
+   379→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   380→          {/* Conversion Funnel */}
+   381→          <Card className="border-0 shadow-sm lg:col-span-2">
+   382→            <CardHeader className="pb-2">
+   383→              <CardTitle className="text-lg">Sales Funnel</CardTitle>
+   384→              <CardDescription>Leads flowing through your pipeline stages</CardDescription>
+   385→            </CardHeader>
+   386→            <CardContent>
+   387→              {stats.funnelData.length > 0 && stats.funnelData.some(f => f.count > 0) ? (
+   388→                <div className="space-y-2">
+   389→                  {stats.funnelData.map((stage, index) => {
+   390→                    const widthPct = maxFunnelCount > 0 ? Math.max((stage.count / maxFunnelCount) * 100, 8) : 8
+   391→                    const conversionFromPrev = index > 0 && stats.funnelData[index - 1].count > 0
+   392→                      ? Math.round((stage.count / stats.funnelData[index - 1].count) * 100)
+   393→                      : null
+   394→                    return (
+   395→                      <motion.div
+   396→                        key={stage.stage}
+   397→                        initial={{ opacity: 0, x: -20 }}
+   398→                        animate={{ opacity: 1, x: 0 }}
+   399→                        transition={{ delay: index * 0.1 }}
+   400→                        className="flex items-center gap-3"
+   401→                      >
+   402→                        <div className="w-28 text-right">
+   403→                          <span className="text-sm font-medium text-slate-700">{stage.stage}</span>
+   404→                        </div>
+   405→                        <div className="flex-1 flex items-center gap-2">
+   406→                          <div className="flex-1 bg-slate-100 rounded-full h-9 relative overflow-hidden">
+   407→                            <motion.div
+   408→                              initial={{ width: 0 }}
+   409→                              animate={{ width: `${widthPct}%` }}
+   410→                              transition={{ delay: index * 0.1 + 0.3, duration: 0.6, ease: 'easeOut' }}
+   411→                              className="h-full rounded-full flex items-center justify-end pr-3"
+   412→                              style={{ backgroundColor: funnelColors[index] }}
+   413→                            >
+   414→                              <span className="text-xs font-bold text-white drop-shadow-sm">{stage.count}</span>
+   415→                            </motion.div>
+   416→                          </div>
+   417→                          {conversionFromPrev !== null && (
+   418→                            <span className={`text-xs font-medium w-12 text-right ${
+   419→                              conversionFromPrev >= 50 ? 'text-emerald-600' :
+   420→                              conversionFromPrev >= 25 ? 'text-amber-600' :
+   421→                              'text-red-500'
+   422→                            }`}>
+   423→                              {conversionFromPrev}%
+   424→                            </span>
+   425→                          )}
+   426→                          {conversionFromPrev === null && <span className="w-12" />}
+   427→                        </div>
+   428→                      </motion.div>
+   429→                    )
+   430→                  })}
+   431→                </div>
+   432→              ) : (
+   433→                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+   434→                  No leads in pipeline yet. Start discovering businesses!
+   435→                </div>
+   436→              )}
+   437→            </CardContent>
+   438→          </Card>
+   439→
+   440→          {/* Key Conversion Stats */}
+   441→          <div className="space-y-4">
+   442→            <Card className="border-0 shadow-sm">
+   443→              <CardContent className="p-6">
+   444→                <div className="flex items-center justify-between">
+   445→                  <div>
+   446→                    <p className="text-sm font-medium text-muted-foreground">{t('dashboard.conversionRate')}</p>
+   447→                    <div className="flex items-baseline gap-1 mt-1">
+   448→                      <p className="text-4xl font-bold text-emerald-600">{stats.conversionRate}%</p>
+   449→                    </div>
+   450→                  </div>
+   451→                  <div className="h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+   452→                    <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+   453→                  </div>
+   454→                </div>
+   455→                <p className="text-xs text-muted-foreground mt-2">
+   456→                  {stats.wonLeadsCount} won / {stats.totalLeads} total leads
+   457→                </p>
+   458→              </CardContent>
+   459→            </Card>
+   460→
+   461→            <Card className="border-0 shadow-sm">
+   462→              <CardContent className="p-6">
+   463→                <div className="flex items-center justify-between">
+   464→                  <div>
+   465→                    <p className="text-sm font-medium text-muted-foreground">Avg Deal Cycle</p>
+   466→                    <div className="flex items-baseline gap-1 mt-1">
+   467→                      <p className="text-4xl font-bold text-amber-600">{stats.avgDealCycle}</p>
+   468→                      <span className="text-sm text-muted-foreground">days</span>
+   469→                    </div>
+   470→                  </div>
+   471→                  <div className="h-14 w-14 rounded-2xl bg-amber-50 flex items-center justify-center">
+   472→                    <Clock className="h-7 w-7 text-amber-600" />
+   473→                  </div>
+   474→                </div>
+   475→              </CardContent>
+   476→            </Card>
+   477→
+   478→            <Card className="border-0 shadow-sm">
+   479→              <CardContent className="p-6">
+   480→                <div className="flex items-center justify-between">
+   481→                  <div>
+   482→                    <p className="text-sm font-medium text-muted-foreground">Lost Rate</p>
+   483→                    <div className="flex items-baseline gap-1 mt-1">
+   484→                      <p className="text-4xl font-bold text-red-500">
+   485→                        {stats.totalLeads > 0 ? Math.round((stats.lostLeadsCount / stats.totalLeads) * 100) : 0}%
+   486→                      </p>
+   487→                    </div>
+   488→                  </div>
+   489→                  <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center">
+   490→                    <XCircle className="h-7 w-7 text-red-500" />
+   491→                  </div>
+   492→                </div>
+   493→                <p className="text-xs text-muted-foreground mt-2">
+   494→                  {stats.lostLeadsCount} {t('dashboard.lostDeals').toLowerCase()}
+   495→                </p>
+   496→              </CardContent>
+   497→            </Card>
+   498→          </div>
+   499→        </div>
+   500→      </div>
+   501→
+   502→      {/* ── Stage-to-Stage Conversion ──────────────────────────────── */}
+   503→      {stats.stageConversions.length > 0 && (
+   504→        <Card className="border-0 shadow-sm">
+   505→          <CardHeader className="pb-2">
+   506→            <CardTitle className="text-lg flex items-center gap-2">
+   507→              <TrendingUp className="h-5 w-5 text-amber-500" />
+   508→              Stage Conversion Rates
+   509→            </CardTitle>
+   510→            <CardDescription>How leads move from one stage to the next</CardDescription>
+   511→          </CardHeader>
+   512→          <CardContent>
+   513→            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+   514→              {stats.stageConversions.map((conv, i) => (
+   515→                <motion.div
+   516→                  key={i}
+   517→                  initial={{ opacity: 0, scale: 0.9 }}
+   518→                  animate={{ opacity: 1, scale: 1 }}
+   519→                  transition={{ delay: i * 0.08 }}
+   520→                  className="relative"
+   521→                >
+   522→                  <div className="bg-slate-50 rounded-xl p-4 text-center">
+   523→                    <div className="text-xs text-muted-foreground mb-1">{conv.from}</div>
+   524→                    <div className="flex items-center justify-center gap-1">
+   525→                      <ArrowDownRight className="h-4 w-4 text-slate-400" />
+   526→                    </div>
+   527→                    <div className={`text-2xl font-bold ${
+   528→                      conv.rate >= 50 ? 'text-emerald-600' :
+   529→                      conv.rate >= 25 ? 'text-amber-600' :
+   530→                      'text-red-500'
+   531→                    }`}>
+   532→                      {conv.rate}%
+   533→                    </div>
+   534→                    <div className="text-xs text-muted-foreground mt-1">→ {conv.to}</div>
+   535→                  </div>
+   536→                </motion.div>
+   537→              ))}
+   538→            </div>
+   539→          </CardContent>
+   540→        </Card>
+   541→      )}
+   542→
+   543→      {/* ── Revenue Trend ──────────────────────────────────────────── */}
+   544→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   545→        <Card className="border-0 shadow-sm">
+   546→          <CardHeader className="pb-2">
+   547→            <CardTitle className="text-lg flex items-center gap-2">
+   548→              <DollarSign className="h-5 w-5 text-amber-500" />
+   549→              Revenue Trend
+   550→            </CardTitle>
+   551→            <CardDescription>Monthly won deal value over the last 6 months</CardDescription>
+   552→          </CardHeader>
+   553→          <CardContent>
+   554→            {stats.revenueByMonth.some(m => m.revenue > 0) ? (
+   555→              <ChartContainer config={revenueChartConfig} className="h-[280px] w-full">
+   556→                <AreaChart data={stats.revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+   557→                  <defs>
+   558→                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+   559→                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+   560→                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+   561→                    </linearGradient>
+   562→                  </defs>
+   563→                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+   564→                  <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   565→                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} tickFormatter={(v) => formatCompactCurr(v)} />
+   566→                  <ChartTooltip content={<ChartTooltipContent />} />
+   567→                  <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={3} fill="url(#revenueGradient)" />
+   568→                </AreaChart>
+   569→              </ChartContainer>
+   570→            ) : (
+   571→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   572→                No revenue data yet. Win your first deal!
+   573→              </div>
+   574→            )}
+   575→          </CardContent>
+   576→        </Card>
+   577→
+   578→        {/* Leads by Status */}
+   579→        <Card className="border-0 shadow-sm">
+   580→          <CardHeader className="pb-2">
+   581→            <CardTitle className="text-lg">Leads by Status</CardTitle>
+   582→            <CardDescription>Distribution across pipeline stages</CardDescription>
+   583→          </CardHeader>
+   584→          <CardContent>
+   585→            {stats.leadsByStatus.length > 0 ? (
+   586→              <ChartContainer config={barChartConfig} className="h-[280px] w-full">
+   587→                <BarChart data={stats.leadsByStatus} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+   588→                  <XAxis dataKey="status" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+   589→                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   590→                  <ChartTooltip content={<ChartTooltipContent />} />
+   591→                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+   592→                    {stats.leadsByStatus.map((entry, index) => (
+   593→                      <Cell key={`cell-${index}`} fill={statusColors[entry.status] || '#94a3b8'} />
+   594→                    ))}
+   595→                  </Bar>
+   596→                </BarChart>
+   597→              </ChartContainer>
+   598→            ) : (
+   599→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   600→                No lead data yet. Start discovering businesses!
+   601→              </div>
+   602→            )}
+   603→          </CardContent>
+   604→        </Card>
+   605→      </div>
+   606→
+   607→      {/* ── Top Opportunity Leads ──────────────────────────────────── */}
+   608→      {stats.topOpportunityLeads && stats.topOpportunityLeads.length > 0 && (
+   609→        <Card className="border-0 shadow-sm">
+   610→          <CardHeader className="pb-2">
+   611→            <div className="flex items-center justify-between">
+   612→              <div>
+   613→                <CardTitle className="text-lg flex items-center gap-2">
+   614→                  <Target className="h-5 w-5 text-amber-500" />
+   615→                  {t('dashboard.topOpportunities')}
+   616→                </CardTitle>
+   617→                <CardDescription>Highest-scoring leads ranked by AI opportunity score</CardDescription>
+   618→              </div>
+   619→              <Button variant="ghost" size="sm" onClick={() => setCurrentView('leads')} className="text-amber-600">
+   620→                View All <ChevronRight className="h-4 w-4" />
+   621→              </Button>
+   622→            </div>
+   623→          </CardHeader>
+   624→          <CardContent>
+   625→            <div className="overflow-x-auto">
+   626→              <table className="w-full">
+   627→                <thead>
+   628→                  <tr className="border-b text-left">
+   629→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+   630→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Website</th>
+   631→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Lead Score</th>
+   632→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Opp. Score</th>
+   633→                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Est. Revenue/mo</th>
+   634→                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Deal Value</th>
+   635→                  </tr>
+   636→                </thead>
+   637→                <tbody>
+   638→                  {stats.topOpportunityLeads.map((lead) => {
+   639→                    const ls = getScoreColor(lead.business.leadScore)
+   640→                    const os = getScoreColor(lead.business.opportunityScore)
+   641→                    return (
+   642→                      <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+   643→                        <td className="py-3">
+   644→                          <p className="text-sm font-medium">{lead.business.name}</p>
+   645→                          <p className="text-xs text-muted-foreground">
+   646→                            {lead.business.category}
+   647→                            {lead.business.city && ` · ${lead.business.city}`}
+   648→                          </p>
+   649→                        </td>
+   650→                        <td className="py-3">
+   651→                          <Badge variant="secondary" className={`text-xs ${lead.business.hasWebsite ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+   652→                            {lead.business.hasWebsite ? 'Has Site' : 'No Site'}
+   653→                          </Badge>
+   654→                        </td>
+   655→                        <td className="py-3">
+   656→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${ls.bg}`}>
+   657→                            <span className={`text-xs font-bold ${ls.text}`}>{lead.business.leadScore !== null && lead.business.leadScore !== undefined ? lead.business.leadScore : '-'}</span>
+   658→                          </div>
+   659→                        </td>
+   660→                        <td className="py-3">
+   661→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${os.bg}`}>
+   662→                            <span className={`text-xs font-bold ${os.text}`}>{lead.business.opportunityScore !== null && lead.business.opportunityScore !== undefined ? lead.business.opportunityScore : '-'}</span>
+   663→                          </div>
+   664→                        </td>
+   665→                        <td className="py-3 text-sm font-medium text-right">
+   666→                          {lead.business.estimatedMonthlyRevenue ? formatCurr(lead.business.estimatedMonthlyRevenue) : '-'}
+   667→                        </td>
+   668→                        <td className="py-3 text-sm font-medium text-right">
+   669→                          {lead.estimatedValue ? formatCurr(lead.estimatedValue) : '-'}
+   670→                        </td>
+   671→                      </tr>
+   672→                    )
+   673→                  })}
+   674→                </tbody>
+   675→              </table>
+   676→            </div>
+   677→          </CardContent>
+   678→        </Card>
+   679→      )}
+   680→
+   681→      {/* ── AI Scoring Overview ────────────────────────────────────── */}
+   682→      <div>
+   683→        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+   684→          <Sparkles className="h-5 w-5 text-amber-500" />
+   685→          AI Lead Scoring
+   686→        </h2>
+   687→        <motion.div
+   688→          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+   689→          variants={container}
+   690→          initial="hidden"
+   691→          animate="show"
+   692→        >
+   693→          <motion.div variants={item}>
+   694→            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   695→              <CardContent className="p-6">
+   696→                <div className="flex items-center justify-between">
+   697→                  <div>
+   698→                    <p className="text-sm font-medium text-muted-foreground">Avg Lead Score</p>
+   699→                    <div className="flex items-baseline gap-1">
+   700→                      <p className="text-3xl font-bold mt-1">{stats.scoringStats?.avgLeadScore || 0}</p>
+   701→                      <span className="text-sm text-muted-foreground">/100</span>
+   702→                    </div>
+   703→                  </div>
+   704→                  <div className={`h-12 w-12 rounded-xl ${(stats.scoringStats?.avgLeadScore || 0) >= 70 ? 'bg-emerald-50' : 'bg-amber-50'} flex items-center justify-center`}>
+   705→                    <Target className={`h-6 w-6 ${(stats.scoringStats?.avgLeadScore || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600'}`} />
+   706→                  </div>
+   707→                </div>
+   708→              </CardContent>
+   709→            </Card>
+   710→          </motion.div>
+   711→          <motion.div variants={item}>
+   712→            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   713→              <CardContent className="p-6">
+   714→                <div className="flex items-center justify-between">
+   715→                  <div>
+   716→                    <p className="text-sm font-medium text-muted-foreground">Avg Opportunity</p>
+   717→                    <div className="flex items-baseline gap-1">
+   718→                      <p className="text-3xl font-bold mt-1">{stats.scoringStats?.avgOpportunityScore || 0}</p>
+   719→                      <span className="text-sm text-muted-foreground">/100</span>
+   720→                    </div>
+   721→                  </div>
+   722→                  <div className={`h-12 w-12 rounded-xl ${(stats.scoringStats?.avgOpportunityScore || 0) >= 70 ? 'bg-emerald-50' : 'bg-amber-50'} flex items-center justify-center`}>
+   723→                    <TrendingUp className={`h-6 w-6 ${(stats.scoringStats?.avgOpportunityScore || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600'}`} />
+   724→                  </div>
+   725→                </div>
+   726→              </CardContent>
+   727→            </Card>
+   728→          </motion.div>
+   729→          <motion.div variants={item}>
+   730→            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   731→              <CardContent className="p-6">
+   732→                <div className="flex items-center justify-between">
+   733→                  <div>
+   734→                    <p className="text-sm font-medium text-muted-foreground">Total Est. Revenue</p>
+   735→                    <div className="flex items-baseline gap-1">
+   736→                      <p className="text-3xl font-bold mt-1">{formatCompactCurr(stats.scoringStats?.totalEstimatedRevenue || 0)}</p>
+   737→                      <span className="text-sm text-muted-foreground">/mo</span>
+   738→                    </div>
+   739→                  </div>
+   740→                  <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
+   741→                    <DollarSign className="h-6 w-6 text-orange-600" />
+   742→                  </div>
+   743→                </div>
+   744→              </CardContent>
+   745→            </Card>
+   746→          </motion.div>
+   747→        </motion.div>
+   748→      </div>
+   749→
+   750→      {/* ── AI Business Audit Overview ─────────────────────────────── */}
+   751→      {stats.auditStats && stats.auditStats.auditedCount > 0 && (
+   752→        <div>
+   753→          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+   754→            <ClipboardCheck className="h-5 w-5 text-amber-500" />
+   755→            AI Business Audit
+   756→          </h2>
+   757→          <motion.div
+   758→            className="grid grid-cols-1 sm:grid-cols-4 gap-4"
+   759→            variants={container}
+   760→            initial="hidden"
+   761→            animate="show"
+   762→          >
+   763→            <motion.div variants={item}>
+   764→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   765→                <CardContent className="p-6">
+   766→                  <div className="flex items-center justify-between">
+   767→                    <div>
+   768→                      <p className="text-sm font-medium text-muted-foreground">Audited</p>
+   769→                      <p className="text-3xl font-bold mt-1">{stats.auditStats.auditedCount}</p>
+   770→                    </div>
+   771→                    <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+   772→                      <ClipboardCheck className="h-6 w-6 text-emerald-600" />
+   773→                    </div>
+   774→                  </div>
+   775→                </CardContent>
+   776→              </Card>
+   777→            </motion.div>
+   778→            <motion.div variants={item}>
+   779→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   780→                <CardContent className="p-6">
+   781→                  <div className="flex items-center justify-between">
+   782→                    <div>
+   783→                      <p className="text-sm font-medium text-muted-foreground">Avg Audit Score</p>
+   784→                      <div className="flex items-baseline gap-1">
+   785→                        <p className="text-3xl font-bold mt-1">{stats.auditStats.avgAuditScore}</p>
+   786→                        <span className="text-sm text-muted-foreground">/100</span>
+   787→                      </div>
+   788→                    </div>
+   789→                    <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
+   790→                      <Shield className="h-6 w-6 text-amber-600" />
+   791→                    </div>
+   792→                  </div>
+   793→                </CardContent>
+   794→              </Card>
+   795→            </motion.div>
+   796→            <motion.div variants={item}>
+   797→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   798→                <CardContent className="p-6">
+   799→                  <div className="flex items-center justify-between">
+   800→                    <div>
+   801→                      <p className="text-sm font-medium text-muted-foreground">Critical Issues</p>
+   802→                      <p className="text-3xl font-bold text-red-600 mt-1">{stats.auditStats.criticalIssues}</p>
+   803→                    </div>
+   804→                    <div className="h-12 w-12 rounded-xl bg-red-50 flex items-center justify-center">
+   805→                      <AlertTriangle className="h-6 w-6 text-red-600" />
+   806→                    </div>
+   807→                  </div>
+   808→                </CardContent>
+   809→              </Card>
+   810→            </motion.div>
+   811→            <motion.div variants={item}>
+   812→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   813→                <CardContent className="p-6">
+   814→                  <div className="flex items-center justify-between">
+   815→                    <div>
+   816→                      <p className="text-sm font-medium text-muted-foreground">Opp. Value</p>
+   817→                      <p className="text-3xl font-bold text-orange-600 mt-1">
+   818→                        {formatCompactCurr(stats.auditStats.totalOpportunityValue)}
+   819→                      </p>
+   820→                    </div>
+   821→                    <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
+   822→                      <Sparkles className="h-6 w-6 text-orange-600" />
+   823→                    </div>
+   824→                  </div>
+   825→                </CardContent>
+   826→              </Card>
+   827→            </motion.div>
+   828→          </motion.div>
+   829→        </div>
+   830→      )}
+   831→
+   832→      {/* ── Top Audit Opportunities ────────────────────────────────── */}
+   833→      {stats.topAuditOpportunities && stats.topAuditOpportunities.length > 0 && (
+   834→        <Card className="border-0 shadow-sm">
+   835→          <CardHeader className="pb-2">
+   836→            <CardTitle className="text-lg flex items-center gap-2">
+   837→              <Sparkles className="h-5 w-5 text-amber-500" />
+   838→              Top Audit Opportunities
+   839→            </CardTitle>
+   840→            <CardDescription>Businesses with the most digital gaps — best opportunities for your services</CardDescription>
+   841→          </CardHeader>
+   842→          <CardContent>
+   843→            <div className="overflow-x-auto">
+   844→              <table className="w-full">
+   845→                <thead>
+   846→                  <tr className="border-b text-left">
+   847→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+   848→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Category</th>
+   849→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Audit Score</th>
+   850→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Lead Score</th>
+   851→                  </tr>
+   852→                </thead>
+   853→                <tbody>
+   854→                  {stats.topAuditOpportunities.map((biz) => {
+   855→                    const as = getScoreColor(biz.auditScore)
+   856→                    const ls = getScoreColor(biz.leadScore)
+   857→                    return (
+   858→                      <tr key={biz.id} className="border-b last:border-0 hover:bg-slate-50">
+   859→                        <td className="py-3">
+   860→                          <p className="text-sm font-medium">{biz.name}</p>
+   861→                          <p className="text-xs text-muted-foreground">{biz.city || ''}</p>
+   862→                        </td>
+   863→                        <td className="py-3">
+   864→                          <Badge variant="secondary" className="text-xs">{biz.category}</Badge>
+   865→                        </td>
+   866→                        <td className="py-3">
+   867→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${as.bg}`}>
+   868→                            <span className={`text-xs font-bold ${as.text}`}>{biz.auditScore !== null && biz.auditScore !== undefined ? biz.auditScore : '-'}</span>
+   869→                          </div>
+   870→                        </td>
+   871→                        <td className="py-3">
+   872→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${ls.bg}`}>
+   873→                            <span className={`text-xs font-bold ${ls.text}`}>{biz.leadScore !== null && biz.leadScore !== undefined ? biz.leadScore : '-'}</span>
+   874→                          </div>
+   875→                        </td>
+   876→                      </tr>
+   877→                    )
+   878→                  })}
+   879→                </tbody>
+   880→              </table>
+   881→            </div>
+   882→          </CardContent>
+   883→        </Card>
+   884→      )}
+   885→
+   886→      {/* ── Businesses by Category + Country ────────────────────────── */}
+   887→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   888→        <Card className="border-0 shadow-sm">
+   889→          <CardHeader className="pb-2">
+   890→            <CardTitle className="text-lg">Businesses by Category</CardTitle>
+   891→            <CardDescription>Top business categories discovered</CardDescription>
+   892→          </CardHeader>
+   893→          <CardContent>
+   894→            {stats.businessesByCategory.length > 0 ? (
+   895→              <ChartContainer config={pieChartConfig} className="h-[280px] w-full">
+   896→                <PieChart>
+   897→                  <ChartTooltip content={<ChartTooltipContent />} />
+   898→                  <Pie
+   899→                    data={stats.businessesByCategory}
+   900→                    dataKey="count"
+   901→                    nameKey="category"
+   902→                    cx="50%"
+   903→                    cy="50%"
+   904→                    outerRadius={100}
+   905→                    innerRadius={50}
+   906→                    strokeWidth={2}
+   907→                    stroke="#fff"
+   908→                  >
+   909→                    {stats.businessesByCategory.map((_, index) => (
+   910→                      <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
+   911→                    ))}
+   912→                  </Pie>
+   913→                </PieChart>
+   914→              </ChartContainer>
+   915→            ) : (
+   916→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   917→                No business data yet. Run a discovery search!
+   918→              </div>
+   919→            )}
+   920→          </CardContent>
+   921→        </Card>
+   922→
+   923→        <Card className="border-0 shadow-sm">
+   924→          <CardHeader className="pb-2">
+   925→            <CardTitle className="text-lg flex items-center gap-2">
+   926→              <Globe className="h-5 w-5 text-amber-500" />
+   927→              Businesses by Country
+   928→            </CardTitle>
+   929→            <CardDescription>Geographic distribution of discovered businesses</CardDescription>
+   930→          </CardHeader>
+   931→          <CardContent>
+   932→            {stats.businessesByCountry.length > 0 ? (
+   933→              <ChartContainer
+   934→                config={stats.businessesByCountry.reduce((acc, c, i) => {
+   935→                  acc[c.country] = { label: c.country, color: categoryColors[i % categoryColors.length] }
+   936→                  return acc
+   937→                }, {} as Record<string, { label: string; color: string }>)}
+   938→                className="h-[280px] w-full"
+   939→              >
+   940→                <BarChart data={stats.businessesByCountry} layout="vertical" margin={{ top: 5, right: 10, left: 60, bottom: 5 }}>
+   941→                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   942→                  <YAxis dataKey="country" type="category" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   943→                  <ChartTooltip content={<ChartTooltipContent />} />
+   944→                  <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+   945→                    {stats.businessesByCountry.map((_, index) => (
+   946→                      <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
+   947→                    ))}
+   948→                  </Bar>
+   949→                </BarChart>
+   950→              </ChartContainer>
+   951→            ) : (
+   952→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   953→                No country data yet. Discover businesses in different locations!
+   954→              </div>
+   955→            )}
+   956→          </CardContent>
+   957→        </Card>
+   958→      </div>
+   959→
+   960→      {/* ── Recent Leads ───────────────────────────────────────────── */}
+   961→      <Card className="border-0 shadow-sm">
+   962→        <CardHeader className="pb-2">
+   963→          <div className="flex items-center justify-between">
+   964→            <div>
+   965→              <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
+   966→              <CardDescription>Latest leads in your pipeline</CardDescription>
+   967→            </div>
+   968→            <Button variant="ghost" size="sm" onClick={() => setCurrentView('leads')} className="text-amber-600">
+   969→              View All <ChevronRight className="h-4 w-4" />
+   970→            </Button>
+   971→          </div>
+   972→        </CardHeader>
+   973→        <CardContent>
+   974→          {stats.recentLeads.length > 0 ? (
+   975→            <div className="overflow-x-auto">
+   976→              <table className="w-full">
+   977→                <thead>
+   978→                  <tr className="border-b text-left">
+   979→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+   980→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Status</th>
+   981→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Priority</th>
+   982→                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Value</th>
+   983→                  </tr>
+   984→                </thead>
+   985→                <tbody>
+   986→                  {stats.recentLeads.map((lead) => (
+   987→                    <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+   988→                      <td className="py-3">
+   989→                        <div>
+   990→                          <p className="text-sm font-medium">{lead.business.name}</p>
+   991→                          <p className="text-xs text-muted-foreground">
+   992→                            {lead.business.category}
+   993→                            {lead.business.city && ` · ${lead.business.city}`}
+   994→                            {lead.business.country && `, ${lead.business.country}`}
+   995→                          </p>
+   996→                        </div>
+   997→                      </td>
+   998→                      <td className="py-3">
+   999→                        <Badge
+  1000→                          variant="secondary"
+  1001→                          className="text-xs"
+  1002→                          style={{
+  1003→                            backgroundColor: statusColors[lead.status] + '20',
+  1004→                            color: statusColors[lead.status],
+  1005→                          }}
+  1006→                        >
+  1007→                          {lead.status}
+  1008→                        </Badge>
+  1009→                      </td>
+  1010→                      <td className="py-3">
+  1011→                        <Badge variant="secondary" className={`text-xs ${priorityColors[lead.priority] || ''}`}>
+  1012→                          {lead.priority}
+  1013→                        </Badge>
+  1014→                      </td>
+  1015→                      <td className="py-3 text-sm font-medium text-right">
+  1016→                        {formatCurr(lead.estimatedValue)}
+  1017→                      </td>
+  1018→                    </tr>
+  1019→                  ))}
+  1020→                </tbody>
+  1021→              </table>
+  1022→            </div>
+  1023→          ) : (
+  1024→            <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
+  1025→              No leads yet. Start discovering businesses!
+  1026→            </div>
+  1027→          )}
+  1028→        </CardContent>
+  1029→      </Card>
+  1030→
+  1031→      {/* ── Quick Actions ──────────────────────────────────────────── */}
+  1032→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+  1033→        <Button
+  1034→          onClick={() => setCurrentView('search')}
+  1035→          className="h-16 bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-2 text-sm"
+  1036→        >
+  1037→          <Search className="h-4 w-4" />
+  1038→          Discover
+  1039→        </Button>
+  1040→        <Button
+  1041→          onClick={() => setCurrentView('audit')}
+  1042→          variant="outline"
+  1043→          className="h-16 border-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 flex items-center gap-2 text-sm"
+  1044→        >
+  1045→          <ClipboardCheck className="h-4 w-4" />
+  1046→          AI Audit
+  1047→        </Button>
+  1048→        <Button
+  1049→          onClick={() => setCurrentView('proposal')}
+  1050→          variant="outline"
+  1051→          className="h-16 border-2 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 flex items-center gap-2 text-sm"
+  1052→        >
+  1053→          <FileText className="h-4 w-4" />
+  1054→          Proposals
+  1055→        </Button>
+  1056→        <Button
+  1057→          onClick={() => setCurrentView('crm')}
+  1058→          variant="outline"
+  1059→          className="h-16 border-2 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 flex items-center gap-2 text-sm"
+  1060→        >
+  1061→          <Activity className="h-4 w-4" />
+  1062→          Pipeline
+  1063→        </Button>
+  1064→        <Button
+  1065→          onClick={() => setCurrentView('leads')}
+  1066→          variant="outline"
+  1067→          className="h-16 border-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 flex items-center gap-2 text-sm"
+  1068→        >
+  1069→          <UserPlus className="h-4 w-4" />
+  1070→          Add Lead
+  1071→        </Button>
+  1072→      </div>
+  1073→    </div>
+  1074→  )
+  1075→}
+  1076→
+  1077→function getEmptyStats(): DashboardStats {
+  1078→  return {
+  1079→    totalLeads: 0,
+  1080→    totalBusinesses: 0,
+  1081→    noWebsiteBusinesses: 0,
+  1082→    noWebsiteLeads: 0,
+  1083→    highOpportunityLeads: 0,
+  1084→    mediumOpportunityLeads: 0,
+  1085→    lowOpportunityLeads: 0,
+  1086→    activeLeads: 0,
+  1087→    wonLeadsCount: 0,
+  1088→    lostLeadsCount: 0,
+  1089→    wonDealsValue: 0,
+  1090→    pipelineValue: 0,
+  1091→    totalLeadsValue: 0,
+  1092→    totalEstimatedRevenue: 0,
+  1093→    revenueByMonth: [],
+  1094→    conversionRate: 0,
+  1095→    avgDealCycle: 0,
+  1096→    funnelData: [
+  1097→      { stage: 'New Lead', count: 0 },
+  1098→      { stage: 'Contacted', count: 0 },
+  1099→      { stage: 'Interested', count: 0 },
+  1100→      { stage: 'Meeting', count: 0 },
+  1101→      { stage: 'Proposal', count: 0 },
+  1102→      { stage: 'Won', count: 0 },
+  1103→    ],
+  1104→    stageConversions: [],
+  1105→    leadsByStatus: [],
+  1106→    businessesByCategory: [],
+  1107→    businessesByCountry: [],
+  1108→    websiteStatusBreakdown: [],
+  1109→    recentLeads: [],
+  1110→    topOpportunityLeads: [],
+  1111→    scoringStats: { avgLeadScore: 0, avgOpportunityScore: 0, totalEstimatedRevenue: 0, scoredCount: 0 },
+  1112→    auditStats: { auditedCount: 0, avgAuditScore: 0, totalOpportunityValue: 0, criticalIssues: 0, warningIssues: 0, opportunities: 0 },
+  1113→    topAuditOpportunities: [],
+  1114→    searchStats: { totalSearches: 0, completedSearches: 0 },
+  1115→  }
+  1116→}
+  1117→
