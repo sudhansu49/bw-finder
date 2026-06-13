@@ -65,6 +65,7 @@ import {
   ArrowLeftRight,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { motion, AnimatePresence } from 'framer-motion'
 
 const viewLabels: Record<AdminView, string> = {
   'admin-dashboard': 'Dashboard',
@@ -119,56 +120,70 @@ const viewGroups: Record<string, string> = {
 }
 
 function ViewRenderer({ view }: { view: AdminView }) {
-  switch (view) {
-    case 'admin-dashboard':
-      return <AdminDashboard />
-    case 'admin-users':
-      return <AdminUsers />
-    case 'admin-subscriptions':
-      return <AdminSubscriptions />
-    case 'admin-credits':
-      return <AdminCredits />
-    case 'admin-agencies':
-      return <AdminAgencies />
-    case 'admin-payments':
-      return <AdminPayments />
-    case 'admin-transactions':
-      return <AdminTransactions />
-    case 'admin-leads':
-      return <AdminLeads />
-    case 'admin-categories':
-      return <AdminCategories />
-    case 'admin-locations':
-      return <AdminLocations />
-    case 'admin-api-usage':
-      return <AdminApiUsage />
-    case 'admin-system-health':
-      return <AdminSystemHealth />
-    case 'admin-audit-logs':
-      return <AdminAuditLogs />
-    case 'admin-reports':
-      return <AdminReports />
-    case 'admin-support':
-      return <AdminSupport />
-    case 'admin-announcements':
-      return <AdminAnnouncements />
-    case 'admin-email-broadcast':
-      return <AdminEmailBroadcast />
-    case 'admin-whatsapp-broadcast':
-      return <AdminWhatsappBroadcast />
-    case 'admin-marketing':
-      return <AdminMarketing />
-    case 'admin-integrations':
-      return <AdminIntegrations />
-    case 'admin-ai-usage':
-      return <AdminAiUsage />
-    case 'admin-feature-flags':
-      return <AdminFeatureFlags />
-    case 'admin-settings':
-      return <AdminSettings />
-    default:
-      return <AdminDashboard />
-  }
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={view}
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -8 }}
+        transition={{ duration: 0.2, ease: 'easeInOut' }}
+      >
+        {(() => {
+          switch (view) {
+            case 'admin-dashboard':
+              return <AdminDashboard />
+            case 'admin-users':
+              return <AdminUsers />
+            case 'admin-subscriptions':
+              return <AdminSubscriptions />
+            case 'admin-credits':
+              return <AdminCredits />
+            case 'admin-agencies':
+              return <AdminAgencies />
+            case 'admin-payments':
+              return <AdminPayments />
+            case 'admin-transactions':
+              return <AdminTransactions />
+            case 'admin-leads':
+              return <AdminLeads />
+            case 'admin-categories':
+              return <AdminCategories />
+            case 'admin-locations':
+              return <AdminLocations />
+            case 'admin-api-usage':
+              return <AdminApiUsage />
+            case 'admin-system-health':
+              return <AdminSystemHealth />
+            case 'admin-audit-logs':
+              return <AdminAuditLogs />
+            case 'admin-reports':
+              return <AdminReports />
+            case 'admin-support':
+              return <AdminSupport />
+            case 'admin-announcements':
+              return <AdminAnnouncements />
+            case 'admin-email-broadcast':
+              return <AdminEmailBroadcast />
+            case 'admin-whatsapp-broadcast':
+              return <AdminWhatsappBroadcast />
+            case 'admin-marketing':
+              return <AdminMarketing />
+            case 'admin-integrations':
+              return <AdminIntegrations />
+            case 'admin-ai-usage':
+              return <AdminAiUsage />
+            case 'admin-feature-flags':
+              return <AdminFeatureFlags />
+            case 'admin-settings':
+              return <AdminSettings />
+            default:
+              return <AdminDashboard />
+          }
+        })()}
+      </motion.div>
+    </AnimatePresence>
+  )
 }
 
 function getInitials(name: string): string {
@@ -231,6 +246,12 @@ export function AdminLayout() {
                 >
                   <Menu className="h-5 w-5" />
                 </Button>
+
+                {/* Admin Panel Badge */}
+                <Badge variant="outline" className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-red-50 dark:bg-red-500/10 text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/30 font-semibold">
+                  <Shield className="h-2.5 w-2.5" />
+                  Admin Panel
+                </Badge>
 
                 <Breadcrumb>
                   <BreadcrumbList>

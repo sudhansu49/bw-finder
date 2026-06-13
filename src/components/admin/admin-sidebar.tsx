@@ -134,8 +134,8 @@ export function AdminSidebar() {
   const {
     currentAdminView,
     setCurrentAdminView,
-    sidebarCollapsed,
-    toggleSidebar,
+    adminSidebarCollapsed,
+    toggleAdminSidebar,
     sidebarMobileOpen,
     setSidebarMobileOpen,
     user,
@@ -162,7 +162,7 @@ export function AdminSidebar() {
     const isActive = currentAdminView === item.view
     const Icon = item.icon
 
-    if (sidebarCollapsed) {
+    if (adminSidebarCollapsed) {
       return (
         <Tooltip key={item.view}>
           <TooltipTrigger asChild>
@@ -230,7 +230,7 @@ export function AdminSidebar() {
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-red-600 text-white">
             <Shield className="h-5 w-5" />
           </div>
-          {!sidebarCollapsed && (
+          {!adminSidebarCollapsed && (
             <div className="overflow-hidden">
               <span className="text-lg font-bold tracking-tight text-white block truncate">
                 Admin Console
@@ -239,7 +239,7 @@ export function AdminSidebar() {
             </div>
           )}
         </div>
-        {!sidebarCollapsed && (
+        {!adminSidebarCollapsed && (
           <Button
             variant="ghost"
             size="icon"
@@ -254,7 +254,7 @@ export function AdminSidebar() {
       <Separator className="bg-slate-700/50 shrink-0" />
 
       {/* Search bar */}
-      {!sidebarCollapsed && (
+      {!adminSidebarCollapsed && (
         <div className="px-3 pt-3 shrink-0">
           <button
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 text-slate-500 text-sm hover:bg-slate-800 transition-colors"
@@ -272,12 +272,12 @@ export function AdminSidebar() {
         <div className="space-y-4">
           {navGroups.map((group) => (
             <div key={group.title}>
-              {!sidebarCollapsed && (
+              {!adminSidebarCollapsed && (
                 <h3 className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
                   {group.title}
                 </h3>
               )}
-              {sidebarCollapsed && <div className="my-1" />}
+              {adminSidebarCollapsed && <div className="my-1" />}
               <div className="space-y-0.5">
                 {group.items.map((item) => renderNavItem(item))}
               </div>
@@ -290,7 +290,7 @@ export function AdminSidebar() {
 
       {/* User section - compact */}
       <div className="p-3 shrink-0">
-        {sidebarCollapsed ? (
+        {adminSidebarCollapsed ? (
           <div className="flex flex-col items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -388,9 +388,9 @@ export function AdminSidebar() {
           variant="ghost"
           size="sm"
           className="w-full text-slate-500 hover:text-white hover:bg-slate-800 h-8"
-          onClick={toggleSidebar}
+          onClick={toggleAdminSidebar}
         >
-          {sidebarCollapsed ? (
+          {adminSidebarCollapsed ? (
             <ChevronRight className="h-4 w-4" />
           ) : (
             <>
@@ -433,7 +433,7 @@ export function AdminSidebar() {
         className={`
           hidden lg:flex flex-col h-screen sticky top-0 bg-slate-900 text-white
           transition-all duration-300 ease-in-out shrink-0 overflow-hidden
-          ${sidebarCollapsed ? 'w-20' : 'w-[280px]'}
+          ${adminSidebarCollapsed ? 'w-20' : 'w-[280px]'}
         `}
       >
         {sidebarContent}

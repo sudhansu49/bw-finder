@@ -88,10 +88,13 @@ interface AppState {
   currentAdminView: AdminView
   setCurrentAdminView: (view: AdminView) => void
 
-  // Sidebar state
-  sidebarCollapsed: boolean
-  setSidebarCollapsed: (collapsed: boolean) => void
-  toggleSidebar: () => void
+  // Sidebar state - separate per panel
+  userSidebarCollapsed: boolean
+  setUserSidebarCollapsed: (collapsed: boolean) => void
+  toggleUserSidebar: () => void
+  adminSidebarCollapsed: boolean
+  setAdminSidebarCollapsed: (collapsed: boolean) => void
+  toggleAdminSidebar: () => void
   sidebarMobileOpen: boolean
   setSidebarMobileOpen: (open: boolean) => void
 
@@ -123,7 +126,8 @@ export const useAppStore = create<AppState>()(
       activePanel: 'user',
       setActivePanel: (panel) => set({
         activePanel: panel,
-        sidebarCollapsed: false,
+        userSidebarCollapsed: false,
+        adminSidebarCollapsed: false,
       }),
 
       // User Panel views
@@ -134,10 +138,13 @@ export const useAppStore = create<AppState>()(
       currentAdminView: 'admin-dashboard',
       setCurrentAdminView: (view) => set({ currentAdminView: view }),
 
-      // Sidebar
-      sidebarCollapsed: false,
-      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
-      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+      // Sidebar - separate per panel
+      userSidebarCollapsed: false,
+      setUserSidebarCollapsed: (collapsed) => set({ userSidebarCollapsed: collapsed }),
+      toggleUserSidebar: () => set((s) => ({ userSidebarCollapsed: !s.userSidebarCollapsed })),
+      adminSidebarCollapsed: false,
+      setAdminSidebarCollapsed: (collapsed) => set({ adminSidebarCollapsed: collapsed }),
+      toggleAdminSidebar: () => set((s) => ({ adminSidebarCollapsed: !s.adminSidebarCollapsed })),
       sidebarMobileOpen: false,
       setSidebarMobileOpen: (open) => set({ sidebarMobileOpen: open }),
 
@@ -159,7 +166,8 @@ export const useAppStore = create<AppState>()(
       name: 'bw-finder-store',
       partialize: (state) => ({
         activePanel: state.activePanel,
-        sidebarCollapsed: state.sidebarCollapsed,
+        userSidebarCollapsed: state.userSidebarCollapsed,
+        adminSidebarCollapsed: state.adminSidebarCollapsed,
         authMode: state.authMode,
       }),
       // Skip hydration to avoid SSR/client mismatch — rehydrate after mount

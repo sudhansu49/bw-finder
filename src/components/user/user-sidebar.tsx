@@ -112,8 +112,8 @@ export function UserSidebar() {
   const {
     currentView,
     setCurrentView,
-    sidebarCollapsed,
-    toggleSidebar,
+    userSidebarCollapsed,
+    toggleUserSidebar,
     sidebarMobileOpen,
     setSidebarMobileOpen,
     user,
@@ -142,7 +142,7 @@ export function UserSidebar() {
     const isActive = currentView === item.view
     const Icon = item.icon
 
-    if (sidebarCollapsed) {
+    if (userSidebarCollapsed) {
       return (
         <Tooltip key={item.view}>
           <TooltipTrigger asChild>
@@ -210,7 +210,7 @@ export function UserSidebar() {
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white">
             <Search className="h-5 w-5" />
           </div>
-          {!sidebarCollapsed && (
+          {!userSidebarCollapsed && (
             <div className="overflow-hidden">
               <span className="text-lg font-bold tracking-tight text-white block truncate">
                 BW Finder
@@ -219,7 +219,7 @@ export function UserSidebar() {
             </div>
           )}
         </div>
-        {!sidebarCollapsed && (
+        {!userSidebarCollapsed && (
           <Button
             variant="ghost"
             size="icon"
@@ -233,17 +233,31 @@ export function UserSidebar() {
 
       <Separator className="bg-slate-700/50 shrink-0" />
 
+      {/* Search bar */}
+      {!userSidebarCollapsed && (
+        <div className="px-3 pt-3 shrink-0">
+          <button
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-800/50 text-slate-500 text-sm hover:bg-slate-800 transition-colors"
+            onClick={() => useAppStore.getState().setCommandPaletteOpen(true)}
+          >
+            <Search className="h-4 w-4" />
+            <span>Search...</span>
+            <kbd className="ml-auto text-[10px] bg-slate-700 px-1.5 py-0.5 rounded text-slate-400">⌘K</kbd>
+          </button>
+        </div>
+      )}
+
       {/* Navigation - scrollable area takes all available space */}
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="space-y-4">
           {navGroups.map((group) => (
             <div key={group.title}>
-              {!sidebarCollapsed && (
+              {!userSidebarCollapsed && (
                 <h3 className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
                   {group.title}
                 </h3>
               )}
-              {sidebarCollapsed && <div className="my-1" />}
+              {userSidebarCollapsed && <div className="my-1" />}
               <div className="space-y-0.5">
                 {group.items.map((item) => renderNavItem(item))}
               </div>
@@ -256,7 +270,7 @@ export function UserSidebar() {
 
       {/* User section - compact, fixed at bottom */}
       <div className="p-3 shrink-0">
-        {sidebarCollapsed ? (
+        {userSidebarCollapsed ? (
           <div className="flex flex-col items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -364,9 +378,9 @@ export function UserSidebar() {
           variant="ghost"
           size="sm"
           className="w-full text-slate-500 hover:text-white hover:bg-slate-800 h-8"
-          onClick={toggleSidebar}
+          onClick={toggleUserSidebar}
         >
-          {sidebarCollapsed ? (
+          {userSidebarCollapsed ? (
             <ChevronRight className="h-4 w-4" />
           ) : (
             <>
@@ -409,7 +423,7 @@ export function UserSidebar() {
         className={`
           hidden lg:flex flex-col h-screen sticky top-0 bg-slate-900 text-white
           transition-all duration-300 ease-in-out shrink-0 overflow-hidden
-          ${sidebarCollapsed ? 'w-20' : 'w-[280px]'}
+          ${userSidebarCollapsed ? 'w-20' : 'w-[280px]'}
         `}
       >
         {sidebarContent}

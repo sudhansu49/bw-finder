@@ -236,6 +236,12 @@ export function UserLayout() {
                   <Menu className="h-5 w-5" />
                 </Button>
 
+                {/* User Panel Badge */}
+                <Badge variant="outline" className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-500/30 font-semibold">
+                  <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                  User Panel
+                </Badge>
+
                 <Breadcrumb>
                   <BreadcrumbList>
                     <BreadcrumbItem>
