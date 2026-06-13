@@ -1,0 +1,1156 @@
+     1→import { NextResponse } from 'next/server'
+     2→import { db } from '@/lib/db'
+     3→import { createHashedPassword } from '@/lib/auth-utils'
+     4→
+     5→export async function POST() {
+     6→  try {
+     7→    // Check if demo user already exists
+     8→    const existingUser = await db.user.findUnique({
+     9→      where: { email: 'demo@finder.com' },
+    10→    })
+    11→
+    12→    let demoUser = existingUser
+    13→
+    14→    if (!demoUser) {
+    15→      // Create demo user
+    16→      const hashedPassword = createHashedPassword('demo123')
+    17→      demoUser = await db.user.create({
+    18→        data: {
+    19→          email: 'demo@finder.com',
+    20→          name: 'Demo User',
+    21→          password: hashedPassword,
+    22→          company: 'WebFinder Pro',
+    23→          role: 'admin',
+    24→        },
+    25→      })
+    26→    }
+    27→
+    28→    // Create sample businesses with new fields
+    29→    const businessesData = [
+    30→      {
+    31→        name: 'Mario\'s Pizza Palace',
+    32→        category: 'Restaurant',
+    33→        address: '123 Main Street',
+    34→        city: 'Mumbai',
+    35→        state: 'Maharashtra',
+    36→        country: 'India',
+    37→        phone: '+91 98765 43210',
+    38→        email: 'mario@mariospizza.in',
+    39→        website: null,
+    40→        hasWebsite: false,
+    41→        googleRating: 4.3,
+    42→        googleReviews: 127,
+    43→        reviewCount: 145,
+    44→        facebookUrl: 'https://facebook.com/mariospizzamumbai',
+    45→        instagramUrl: 'https://instagram.com/mariospizza_mumbai',
+    46→        linkedinUrl: null,
+    47→        source: 'web_search',
+    48→        sourceDetail: 'google_maps',
+    49→        notes: 'Family-owned Italian restaurant, popular lunch spot',
+    50→      },
+    51→      {
+    52→        name: 'Glamour Hair Studio',
+    53→        category: 'Salon',
+    54→        address: '456 Oak Avenue',
+    55→        city: 'Mumbai',
+    56→        state: 'Maharashtra',
+    57→        country: 'India',
+    58→        phone: '+91 98765 43211',
+    59→        email: null,
+    60→        website: null,
+    61→        hasWebsite: false,
+    62→        googleRating: 4.7,
+    63→        googleReviews: 89,
+    64→        reviewCount: 95,
+    65→        facebookUrl: 'https://facebook.com/glamourhairstudio',
+    66→        instagramUrl: 'https://instagram.com/glamourhair_mum',
+    67→        linkedinUrl: null,
+    68→        source: 'web_search',
+    69→        sourceDetail: 'justdial',
+    70→        notes: 'High-end hair salon, strong local following',
+    71→      },
+    72→      {
+    73→        name: 'Mike\'s Auto Repair',
+    74→        category: 'Mechanic',
+    75→        address: '789 Industrial Blvd',
+    76→        city: 'Delhi',
+    77→        state: 'Delhi',
+    78→        country: 'India',
+    79→        phone: '+91 98765 43212',
+    80→        email: 'mike@mikesauto.in',
+    81→        website: 'https://mikesautorepair.in',
+    82→        hasWebsite: true,
+    83→        googleRating: 4.1,
+    84→        googleReviews: 203,
+    85→        reviewCount: 230,
+    86→        facebookUrl: 'https://facebook.com/mikesautodelhi',
+    87→        instagramUrl: null,
+    88→        linkedinUrl: null,
+    89→        source: 'web_search',
+    90→        sourceDetail: 'google_maps',
+    91→        notes: 'Full-service auto repair, 20 years in business',
+    92→      },
+    93→      {
+    94→        name: 'Quick Fix Plumbing',
+    95→        category: 'Plumber',
+    96→        address: '321 Elm Street',
+    97→        city: 'Bengaluru',
+    98→        state: 'Karnataka',
+    99→        country: 'India',
+   100→        phone: '+91 98765 43213',
+   101→        email: null,
+   102→        website: null,
+   103→        hasWebsite: false,
+   104→        googleRating: 3.9,
+   105→        googleReviews: 56,
+   106→        reviewCount: 60,
+   107→        facebookUrl: null,
+   108→        instagramUrl: null,
+   109→        linkedinUrl: null,
+   110→        source: 'web_search',
+   111→        sourceDetail: 'sulekha',
+   112→        notes: 'Emergency plumbing services, 24/7 availability',
+   113→      },
+   114→      {
+   115→        name: 'Sunrise Bakery',
+   116→        category: 'Bakery',
+   117→        address: '555 Maple Drive',
+   118→        city: 'Pune',
+   119→        state: 'Maharashtra',
+   120→        country: 'India',
+   121→        phone: '+91 98765 43214',
+   122→        email: 'hello@sunrisebakery.in',
+   123→        website: null,
+   124→        hasWebsite: false,
+   125→        googleRating: 4.8,
+   126→        googleReviews: 312,
+   127→        reviewCount: 350,
+   128→        facebookUrl: 'https://facebook.com/sunrisebakerypune',
+   129→        instagramUrl: 'https://instagram.com/sunrise_bakery_pune',
+   130→        linkedinUrl: null,
+   131→        source: 'web_search',
+   132→        sourceDetail: 'google_maps',
+   133→        notes: 'Artisan bakery, wedding cakes specialty',
+   134→      },
+   135→      {
+   136→        name: 'FitZone Gym',
+   137→        category: 'Gym',
+   138→        address: '100 Fitness Way',
+   139→        city: 'Hyderabad',
+   140→        state: 'Telangana',
+   141→        country: 'India',
+   142→        phone: '+91 98765 43215',
+   143→        email: null,
+   144→        website: null,
+   145→        hasWebsite: false,
+   146→        googleRating: 4.2,
+   147→        googleReviews: 78,
+   148→        reviewCount: 85,
+   149→        facebookUrl: 'https://facebook.com/fitzonehyd',
+   150→        instagramUrl: 'https://instagram.com/fitzone_hyd',
+   151→        linkedinUrl: null,
+   152→        source: 'web_search',
+   153→        sourceDetail: 'justdial',
+   154→        notes: 'Local gym with personal training services',
+   155→      },
+   156→      {
+   157→        name: 'Bright Smile Dental',
+   158→        category: 'Dentist',
+   159→        address: '200 Health Park Lane',
+   160→        city: 'Chennai',
+   161→        state: 'Tamil Nadu',
+   162→        country: 'India',
+   163→        phone: '+91 98765 43216',
+   164→        email: 'info@brightsmile.in',
+   165→        website: 'https://brightsmiledental.in',
+   166→        hasWebsite: true,
+   167→        googleRating: 4.6,
+   168→        googleReviews: 189,
+   169→        reviewCount: 210,
+   170→        facebookUrl: 'https://facebook.com/brightsmilechennai',
+   171→        instagramUrl: 'https://instagram.com/brightsmile_chennai',
+   172→        linkedinUrl: 'https://linkedin.com/company/bright-smile-dental',
+   173→        source: 'web_search',
+   174→        sourceDetail: 'practo',
+   175→        notes: 'Cosmetic dentistry specialist',
+   176→      },
+   177→      {
+   178→        name: 'Green Thumb Landscaping',
+   179→        category: 'Real Estate',
+   180→        address: '750 Garden Road',
+   181→        city: 'Bengaluru',
+   182→        state: 'Karnataka',
+   183→        country: 'India',
+   184→        phone: '+91 98765 43217',
+   185→        email: null,
+   186→        website: null,
+   187→        hasWebsite: false,
+   188→        googleRating: 4.0,
+   189→        googleReviews: 42,
+   190→        reviewCount: 48,
+   191→        facebookUrl: null,
+   192→        instagramUrl: null,
+   193→        linkedinUrl: null,
+   194→        source: 'web_search',
+   195→        sourceDetail: 'google_maps',
+   196→        notes: 'Residential and commercial landscaping',
+   197→      },
+   198→      {
+   199→        name: 'Paws & Claws Vet',
+   200→        category: 'Clinic',
+   201→        address: '880 Pet Care Blvd',
+   202→        city: 'Mumbai',
+   203→        state: 'Maharashtra',
+   204→        country: 'India',
+   205→        phone: '+91 98765 43218',
+   206→        email: 'vet@pawsclaws.in',
+   207→        website: null,
+   208→        hasWebsite: false,
+   209→        googleRating: 4.9,
+   210→        googleReviews: 234,
+   211→        reviewCount: 260,
+   212→        facebookUrl: 'https://facebook.com/pawsclawsmumbai',
+   213→        instagramUrl: 'https://instagram.com/pawsclaws_mum',
+   214→        linkedinUrl: null,
+   215→        source: 'web_search',
+   216→        sourceDetail: 'justdial',
+   217→        notes: 'Full-service veterinary clinic, exotic animals welcome',
+   218→      },
+   219→      {
+   220→        name: 'Ace Accounting Services',
+   221→        category: 'Accountant',
+   222→        address: '400 Finance Street',
+   223→        city: 'Delhi',
+   224→        state: 'Delhi',
+   225→        country: 'India',
+   226→        phone: '+91 98765 43219',
+   227→        email: 'tax@aceaccounting.in',
+   228→        website: 'https://aceaccountingservices.in',
+   229→        hasWebsite: true,
+   230→        googleRating: 4.4,
+   231→        googleReviews: 67,
+   232→        reviewCount: 72,
+   233→        facebookUrl: null,
+   234→        instagramUrl: null,
+   235→        linkedinUrl: 'https://linkedin.com/company/ace-accounting',
+   236→        source: 'web_search',
+   237→        sourceDetail: 'google_maps',
+   238→        notes: 'Small business tax and accounting specialist',
+   239→      },
+   240→      {
+   241→        name: 'Bella Nails Spa',
+   242→        category: 'Beauty Parlour',
+   243→        address: '660 Beauty Lane',
+   244→        city: 'Pune',
+   245→        state: 'Maharashtra',
+   246→        country: 'India',
+   247→        phone: '+91 98765 43220',
+   248→        email: null,
+   249→        website: null,
+   250→        hasWebsite: false,
+   251→        googleRating: 4.5,
+   252→        googleReviews: 156,
+   253→        reviewCount: 170,
+   254→        facebookUrl: 'https://facebook.com/bellanailspune',
+   255→        instagramUrl: 'https://instagram.com/bellanails_pune',
+   256→        linkedinUrl: null,
+   257→        source: 'web_search',
+   258→        sourceDetail: 'google_maps',
+   259→        notes: 'Nail salon with spa services, walk-ins welcome',
+   260→      },
+   261→      {
+   262→        name: 'Metro Cleaners',
+   263→        category: 'Other',
+   264→        address: '1122 Commerce Ave',
+   265→        city: 'Hyderabad',
+   266→        state: 'Telangana',
+   267→        country: 'India',
+   268→        phone: '+91 98765 43221',
+   269→        email: null,
+   270→        website: null,
+   271→        hasWebsite: false,
+   272→        googleRating: 3.8,
+   273→        googleReviews: 31,
+   274→        reviewCount: 35,
+   275→        facebookUrl: null,
+   276→        instagramUrl: null,
+   277→        linkedinUrl: null,
+   278→        source: 'web_search',
+   279→        sourceDetail: 'sulekha',
+   280→        notes: 'Same-day dry cleaning and alterations',
+   281→      },
+   282→      {
+   283→        name: 'Spa Serenity',
+   284→        category: 'Spa',
+   285→        address: '900 Wellness Street',
+   286→        city: 'Goa',
+   287→        state: 'Goa',
+   288→        country: 'India',
+   289→        phone: '+91 98765 43222',
+   290→        email: 'relax@spaserenity.in',
+   291→        website: null,
+   292→        hasWebsite: false,
+   293→        googleRating: 4.8,
+   294→        googleReviews: 312,
+   295→        reviewCount: 340,
+   296→        facebookUrl: 'https://facebook.com/spaserenitygoa',
+   297→        instagramUrl: 'https://instagram.com/spaserenity_goa',
+   298→        linkedinUrl: null,
+   299→        source: 'web_search',
+   300→        sourceDetail: 'google_maps',
+   301→        notes: 'Premium spa and wellness center',
+   302→      },
+   303→      {
+   304→        name: 'Sharp Cuts Barbershop',
+   305→        category: 'Salon',
+   306→        address: '340 Main Street',
+   307→        city: 'Jaipur',
+   308→        state: 'Rajasthan',
+   309→        country: 'India',
+   310→        phone: '+91 98765 43223',
+   311→        email: null,
+   312→        website: null,
+   313→        hasWebsite: false,
+   314→        googleRating: 4.7,
+   315→        googleReviews: 198,
+   316→        reviewCount: 215,
+   317→        facebookUrl: 'https://facebook.com/sharpcutsjaipur',
+   318→        instagramUrl: 'https://instagram.com/sharpcuts_jaipur',
+   319→        linkedinUrl: null,
+   320→        source: 'web_search',
+   321→        sourceDetail: 'justdial',
+   322→        notes: 'Classic barbershop, hot towel shaves',
+   323→      },
+   324→      {
+   325→        name: 'Sunrise International School',
+   326→        category: 'School',
+   327→        address: '2200 Education Drive',
+   328→        city: 'Delhi',
+   329→        state: 'Delhi',
+   330→        country: 'India',
+   331→        phone: '+91 98765 43224',
+   332→        email: 'admissions@sunriseschool.in',
+   333→        website: 'https://sunriseschooldelhi.in',
+   334→        hasWebsite: true,
+   335→        googleRating: 4.6,
+   336→        googleReviews: 445,
+   337→        reviewCount: 500,
+   338→        facebookUrl: 'https://facebook.com/sunriseschooldelhi',
+   339→        instagramUrl: 'https://instagram.com/sunrise_school_delhi',
+   340→        linkedinUrl: 'https://linkedin.com/company/sunrise-international-school',
+   341→        source: 'web_search',
+   342→        sourceDetail: 'google_maps',
+   343→        notes: 'K-12 international school with CBSE and IB curriculum',
+   344→      },
+   345→      {
+   346→        name: 'Reliable Electric Co.',
+   347→        category: 'Electrician',
+   348→        address: '550 Power Lane',
+   349→        city: 'Bengaluru',
+   350→        state: 'Karnataka',
+   351→        country: 'India',
+   352→        phone: '+91 98765 43225',
+   353→        email: null,
+   354→        website: null,
+   355→        hasWebsite: false,
+   356→        googleRating: 4.1,
+   357→        googleReviews: 48,
+   358→        reviewCount: 52,
+   359→        facebookUrl: null,
+   360→        instagramUrl: null,
+   361→        linkedinUrl: null,
+   362→        source: 'web_search',
+   363→        sourceDetail: 'sulekha',
+   364→        notes: 'Licensed electrician, residential and commercial',
+   365→      },
+   366→      {
+   367→        name: 'Law Chambers Associates',
+   368→        category: 'Lawyer',
+   369→        address: '1800 Legal Circle',
+   370→        city: 'Mumbai',
+   371→        state: 'Maharashtra',
+   372→        country: 'India',
+   373→        phone: '+91 98765 43226',
+   374→        email: 'info@lawchambers.in',
+   375→        website: null,
+   376→        hasWebsite: false,
+   377→        googleRating: 4.5,
+   378→        googleReviews: 89,
+   379→        reviewCount: 95,
+   380→        facebookUrl: null,
+   381→        instagramUrl: null,
+   382→        linkedinUrl: 'https://linkedin.com/company/law-chambers-associates',
+   383→        source: 'web_search',
+   384→        sourceDetail: 'google_maps',
+   385→        notes: 'Corporate law and litigation specialists',
+   386→      },
+   387→      {
+   388→        name: 'Hotel Raj Palace',
+   389→        category: 'Hotel',
+   390→        address: 'MG Road',
+   391→        city: 'Jaipur',
+   392→        state: 'Rajasthan',
+   393→        country: 'India',
+   394→        phone: '+91 98765 43227',
+   395→        email: 'reservations@rajpalace.in',
+   396→        website: null,
+   397→        hasWebsite: false,
+   398→        googleRating: 4.3,
+   399→        googleReviews: 267,
+   400→        reviewCount: 290,
+   401→        facebookUrl: 'https://facebook.com/hotelrajpalace',
+   402→        instagramUrl: 'https://instagram.com/rajpalace_jaipur',
+   403→        linkedinUrl: null,
+   404→        source: 'web_search',
+   405→        sourceDetail: 'tripadvisor',
+   406→        notes: 'Heritage hotel near city center',
+   407→      },
+   408→    ]
+   409→
+   410→    // Create businesses (skip if already exist)
+   411→    const businesses = []
+   412→    for (const bizData of businessesData) {
+   413→      const existing = await db.business.findFirst({
+   414→        where: {
+   415→          name: bizData.name,
+   416→          city: bizData.city,
+   417→        },
+   418→      })
+   419→      if (existing) {
+   420→        businesses.push(existing)
+   421→      } else {
+   422→        const business = await db.business.create({ data: bizData })
+   423→        businesses.push(business)
+   424→      }
+   425→    }
+   426→
+   427→    // Create leads (using pipeline stages: new_lead, contacted, interested, meeting_scheduled, proposal_sent, won, lost)
+   428→    const leadsData = [
+   429→      { businessIndex: 0, status: 'interested', priority: 'high', estimatedValue: 499.00, notes: 'Interested in website redesign' },
+   430→      { businessIndex: 1, status: 'contacted', priority: 'medium', estimatedValue: 299.00, notes: 'Called, asked for pricing info' },
+   431→      { businessIndex: 3, status: 'proposal_sent', priority: 'high', estimatedValue: 798.00, notes: 'Needs website + SEO package' },
+   432→      { businessIndex: 4, status: 'won', priority: 'high', estimatedValue: 1098.00, notes: 'Signed! Full package deal' },
+   433→      { businessIndex: 5, status: 'new_lead', priority: 'medium', estimatedValue: 499.00, notes: 'Found via web search, no website' },
+   434→      { businessIndex: 7, status: 'contacted', priority: 'low', estimatedValue: 299.00, notes: 'Emailed, awaiting response' },
+   435→      { businessIndex: 8, status: 'interested', priority: 'high', estimatedValue: 898.00, notes: 'Wants website + CRM setup' },
+   436→      { businessIndex: 10, status: 'new_lead', priority: 'medium', estimatedValue: 499.00, notes: 'No website, good candidate' },
+   437→      { businessIndex: 11, status: 'lost', priority: 'low', estimatedValue: 299.00, notes: 'Chose competitor, price too high' },
+   438→      { businessIndex: 12, status: 'meeting_scheduled', priority: 'high', estimatedValue: 1098.00, notes: 'Very interested in full digital package' },
+   439→      { businessIndex: 13, status: 'new_lead', priority: 'medium', estimatedValue: 499.00, notes: 'Popular barbershop, no online presence' },
+   440→      { businessIndex: 16, status: 'interested', priority: 'medium', estimatedValue: 598.00, notes: 'Needs website and WhatsApp marketing' },
+   441→    ]
+   442→
+   443→    const leads = []
+   444→    for (const leadData of leadsData) {
+   445→      const business = businesses[leadData.businessIndex]
+   446→      if (!business) continue
+   447→
+   448→      const existingLead = await db.lead.findFirst({
+   449→        where: {
+   450→          businessId: business.id,
+   451→          userId: demoUser.id,
+   452→        },
+   453→      })
+   454→
+   455→      if (existingLead) {
+   456→        leads.push(existingLead)
+   457→      } else {
+   458→        const lead = await db.lead.create({
+   459→          data: {
+   460→            businessId: business.id,
+   461→            userId: demoUser.id,
+   462→            status: leadData.status,
+   463→            priority: leadData.priority,
+   464→            estimatedValue: leadData.estimatedValue,
+   465→            notes: leadData.notes,
+   466→            lastContactedAt: leadData.status === 'contacted' || leadData.status === 'interested' || leadData.status === 'proposal_sent' || leadData.status === 'meeting_scheduled'
+   467→              ? new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000)
+   468→              : null,
+   469→          },
+   470→        })
+   471→        leads.push(lead)
+   472→      }
+   473→    }
+   474→
+   475→    // Create outreach entries
+   476→    const outreachData = [
+   477→      { leadIndex: 0, type: 'email', subject: 'Website Redesign Proposal', notes: 'Sent initial proposal with pricing', outcome: 'interested' },
+   478→      { leadIndex: 1, type: 'phone', subject: 'Initial Contact Call', notes: 'Discussed their needs, they want more info', outcome: 'follow-up' },
+   479→      { leadIndex: 2, type: 'email', subject: 'Comprehensive Digital Package', notes: 'Sent full package proposal', outcome: 'reviewing' },
+   480→      { leadIndex: 4, type: 'whatsapp', subject: 'Service Introduction', notes: 'Sent intro message via WhatsApp', outcome: 'read' },
+   481→      { leadIndex: 5, type: 'email', subject: 'SEO Services Overview', notes: 'Emailed SEO pricing sheet', outcome: 'no-response' },
+   482→      { leadIndex: 7, type: 'phone', subject: 'Follow-up Call', notes: 'Had detailed discussion about website + CRM', outcome: 'interested' },
+   483→      { leadIndex: 9, type: 'email', subject: 'Full Digital Package Offer', notes: 'Sent comprehensive proposal for website + SEO + marketing', outcome: 'reviewing' },
+   484→      { leadIndex: 3, type: 'email', subject: 'Welcome Onboarding', notes: 'Sent welcome package and onboarding details', outcome: 'positive' },
+   485→    ]
+   486→
+   487→    const outreachEntries = []
+   488→    for (const outreachItem of outreachData) {
+   489→      const lead = leads[outreachItem.leadIndex]
+   490→      if (!lead) continue
+   491→
+   492→      const existingOutreach = await db.outreach.findFirst({
+   493→        where: {
+   494→          leadId: lead.id,
+   495→          userId: demoUser.id,
+   496→          subject: outreachItem.subject,
+   497→        },
+   498→      })
+   499→
+   500→      if (existingOutreach) {
+   501→        outreachEntries.push(existingOutreach)
+   502→      } else {
+   503→        const outreach = await db.outreach.create({
+   504→          data: {
+   505→            leadId: lead.id,
+   506→            userId: demoUser.id,
+   507→            type: outreachItem.type,
+   508→            subject: outreachItem.subject,
+   509→            notes: outreachItem.notes,
+   510→            outcome: outreachItem.outcome,
+   511→          },
+   512→        })
+   513→        outreachEntries.push(outreach)
+   514→      }
+   515→    }
+   516→
+   517→    // Create services
+   518→    const servicesData = [
+   519→      {
+   520→        name: 'Website Design',
+   521→        description: 'Professional website design and development tailored to your business. Mobile-responsive, SEO-friendly, and built to convert visitors into customers.',
+   522→        category: 'Web Design',
+   523→        basePrice: 499,
+   524→        features: 'Custom Design,Mobile Responsive,SEO Optimized,Contact Form,Social Media Integration,1 Year Hosting',
+   525→        popular: true,
+   526→      },
+   527→      {
+   528→        name: 'SEO Optimization',
+   529→        description: 'Comprehensive SEO optimization to improve your search engine rankings. Includes keyword research, on-page optimization, and monthly reporting.',
+   530→        category: 'Marketing',
+   531→        basePrice: 299,
+   532→        features: 'Keyword Research,On-Page SEO,Google My Business,Monthly Reports,Competitor Analysis,Local SEO',
+   533→        popular: true,
+   534→      },
+   535→      {
+   536→        name: 'WhatsApp Marketing',
+   537→        description: 'Harness the power of WhatsApp for business communication. Automated messages, broadcast lists, and customer engagement strategies.',
+   538→        category: 'Marketing',
+   539→        basePrice: 199,
+   540→        features: 'Business Profile Setup,Auto-Reply,Broadcast Lists,Customer Segmentation,Message Templates,Analytics Dashboard',
+   541→        popular: false,
+   542→      },
+   543→      {
+   544→        name: 'CRM Setup',
+   545→        description: 'Set up a customer relationship management system to track leads, manage customer interactions, and grow your business efficiently.',
+   546→        category: 'Business Tools',
+   547→        basePrice: 399,
+   548→        features: 'CRM Configuration,Lead Pipeline,Contact Management,Email Integration,Task Automation,Staff Training',
+   549→        popular: false,
+   550→      },
+   551→      {
+   552→        name: 'Automation Package',
+   553→        description: 'Streamline your business operations with automation. From appointment scheduling to invoice generation, save time and reduce errors.',
+   554→        category: 'Business Tools',
+   555→        basePrice: 599,
+   556→        features: 'Appointment Scheduling,Invoice Automation,Email Sequences,Social Media Scheduling,Review Management,Analytics & Reporting',
+   557→        popular: true,
+   558→      },
+   559→    ]
+   560→
+   561→    const services = []
+   562→    for (const serviceData of servicesData) {
+   563→      const existingService = await db.service.findFirst({
+   564→        where: { name: serviceData.name },
+   565→      })
+   566→
+   567→      if (existingService) {
+   568→        services.push(existingService)
+   569→      } else {
+   570→        const service = await db.service.create({ data: serviceData })
+   571→        services.push(service)
+   572→      }
+   573→    }
+   574→
+   575→    // Run website detection, scoring & audit directly (avoid self-referential fetch)
+   576→    try {
+   577→      // Website Detection
+   578→      const allBusinesses = await db.business.findMany()
+   579→      const SOCIAL_DOMAINS = [
+   580→        'facebook.com', 'fb.com', 'instagram.com', 'linkedin.com', 'twitter.com', 'x.com',
+   581→        'whatsapp.com', 'youtube.com', 'tiktok.com', 'yelp.com', 'justdial.com', 'sulekha.com',
+   582→        'google.com/maps', 'tripadvisor.com', 'zomato.com', 'swiggy.com',
+   583→      ]
+   584→      for (const biz of allBusinesses) {
+   585→        let websiteStatus: string
+   586→        let hasWebsite: boolean
+   587→        let socialPresence = 0
+   588→        if (biz.facebookUrl) socialPresence++
+   589→        if (biz.instagramUrl) socialPresence++
+   590→        if (biz.linkedinUrl) socialPresence++
+   591→
+   592→        if (!biz.website || biz.website.trim() === '') {
+   593→          websiteStatus = 'NO_WEBSITE'
+   594→          hasWebsite = false
+   595→        } else {
+   596→          try {
+   597→            const parsed = new URL(biz.website)
+   598→            const hostname = parsed.hostname.toLowerCase().replace(/^www\./, '')
+   599→            const isSocial = SOCIAL_DOMAINS.some(d => {
+   600→              const cd = d.replace(/^www\./, '')
+   601→              return hostname === cd || hostname.endsWith('.' + cd)
+   602→            })
+   603→            if (isSocial) { websiteStatus = 'SOCIAL_ONLY'; hasWebsite = false }
+   604→            else if (!parsed.hostname.includes('.') || !['http:', 'https:'].includes(parsed.protocol)) { websiteStatus = 'NO_WEBSITE'; hasWebsite = false }
+   605→            else { websiteStatus = 'HAS_WEBSITE'; hasWebsite = true }
+   606→          } catch { websiteStatus = 'NO_WEBSITE'; hasWebsite = false }
+   607→        }
+   608→        await db.business.update({ where: { id: biz.id }, data: { websiteStatus, hasWebsite, socialPresence } })
+   609→      }
+   610→
+   611→      // Lead Scoring (simplified)
+   612→      const CITY_POPS: Record<string, number> = {
+   613→        'mumbai': 12400000, 'delhi': 11000000, 'bengaluru': 8400000, 'hyderabad': 6800000,
+   614→        'chennai': 4600000, 'pune': 3100000, 'jaipur': 3100000, 'goa': 400000,
+   615→      }
+   616→      const CAT_SCORES: Record<string, number> = {
+   617→        'hotel': 20, 'real estate': 19, 'school': 18, 'lawyer': 17, 'clinic': 16, 'dentist': 16,
+   618→        'restaurant': 14, 'gym': 13, 'spa': 12, 'salon': 11, 'beauty parlour': 11,
+   619→        'accountant': 15, 'bakery': 10, 'mechanic': 9, 'plumber': 8, 'electrician': 8,
+   620→      }
+   621→      const CAT_REVENUE: Record<string, { base: number; perReview: number }> = {
+   622→        'restaurant': { base: 15000, perReview: 50 }, 'hotel': { base: 40000, perReview: 200 },
+   623→        'salon': { base: 8000, perReview: 30 }, 'beauty parlour': { base: 7000, perReview: 25 },
+   624→        'spa': { base: 12000, perReview: 40 }, 'gym': { base: 10000, perReview: 35 },
+   625→        'clinic': { base: 25000, perReview: 100 }, 'dentist': { base: 20000, perReview: 80 },
+   626→        'lawyer': { base: 30000, perReview: 150 }, 'real estate': { base: 50000, perReview: 200 },
+   627→        'school': { base: 35000, perReview: 100 }, 'mechanic': { base: 8000, perReview: 20 },
+   628→        'plumber': { base: 6000, perReview: 15 }, 'electrician': { base: 7000, perReview: 15 },
+   629→        'bakery': { base: 8000, perReview: 25 }, 'accountant': { base: 15000, perReview: 50 },
+   630→      }
+   631→
+   632→      const scoredBusinesses = await db.business.findMany()
+   633→      for (const biz of scoredBusinesses) {
+   634→        const reviews = biz.reviewCount || biz.googleReviews || 0
+   635→        const rating = biz.googleRating || 0
+   636→        const cityPop = CITY_POPS[(biz.city || '').toLowerCase().trim()] || 500000
+   637→        const catKey = biz.category.toLowerCase()
+   638→        const catScore = CAT_SCORES[catKey] || 10
+   639→        const revMult = CAT_REVENUE[catKey] || { base: 10000, perReview: 30 }
+   640→
+   641→        let reviewScore = reviews >= 500 ? 20 : reviews >= 200 ? 16 : reviews >= 100 ? 12 : reviews >= 50 ? 8 : reviews >= 20 ? 5 : reviews >= 5 ? 3 : 1
+   642→        let ratingScore = rating >= 4.5 ? 20 : rating >= 4.0 ? 16 : rating >= 3.5 ? 12 : rating >= 3.0 ? 8 : rating > 0 ? 4 : 0
+   643→        let popScore = cityPop >= 5000000 ? 20 : cityPop >= 1000000 ? 16 : cityPop >= 500000 ? 12 : cityPop >= 200000 ? 8 : 5
+   644→        let socialScore = (biz.socialPresence || 0) >= 3 ? 18 : (biz.socialPresence || 0) === 2 ? 12 : (biz.socialPresence || 0) === 1 ? 6 : 2
+   645→        let websitePenalty = biz.websiteStatus === 'HAS_WEBSITE' ? -15 : biz.websiteStatus === 'SOCIAL_ONLY' ? -5 : 5
+   646→
+   647→        const leadScore = Math.max(0, Math.min(100, reviewScore + ratingScore + popScore + catScore + socialScore + websitePenalty))
+   648→        const opportunityRaw = (popScore * 0.3 + catScore * 0.3 + reviewScore * 0.2 + socialScore * 0.1 + Math.max(0, websitePenalty) * 0.1) * 100 / 20
+   649→        const opportunityScore = Math.max(0, Math.min(100, Math.round(opportunityRaw * 5)))
+   650→        const estimatedMonthlyRevenue = Math.round(revMult.base + reviews * revMult.perReview)
+   651→
+   652→        await db.business.update({
+   653→          where: { id: biz.id },
+   654→          data: { leadScore, opportunityScore, estimatedMonthlyRevenue, scoreFactors: JSON.stringify({ reviewScore, ratingScore, populationScore: popScore, categoryScore: catScore, socialScore, websitePenalty }) },
+   655→        })
+   656→      }
+   657→
+   658→      // Audit (simplified - just save a basic report)
+   659→      const auditedBusinesses = await db.business.findMany()
+   660→      for (const biz of auditedBusinesses) {
+   661→        const items = []
+   662→        let auditScore = 100
+   663→        const services: string[] = []
+   664→        let totalOppValue = 0
+   665→
+   666→        // Website Missing
+   667→        if (!biz.hasWebsite || biz.websiteStatus === 'NO_WEBSITE' || biz.websiteStatus === 'SOCIAL_ONLY') {
+   668→          const isSocialOnly = biz.websiteStatus === 'SOCIAL_ONLY'
+   669→          const webVal = CAT_REVENUE[biz.category.toLowerCase()]?.base ? Math.round(CAT_REVENUE[biz.category.toLowerCase()].base * 0.2) : 2500
+   670→          items.push({
+   671→            id: 'website_missing',
+   672→            title: isSocialOnly ? 'No Professional Website' : 'Website Missing',
+   673→            status: 'critical',
+   674→            description: `${biz.name} ${isSocialOnly ? 'only has social media pages but no dedicated website' : 'does not have a website'}.`,
+   675→            recommendation: `Build a professional website for ${biz.name} with service pages, contact form, and mobile-responsive design.`,
+   676→            impact: 'high',
+   677→            estimatedValue: webVal,
+   678→          })
+   679→          auditScore -= 30
+   680→          services.push('Website Design & Development')
+   681→          totalOppValue += webVal
+   682→        } else {
+   683→          items.push({ id: 'website_missing', title: 'Website Present', status: 'good', description: `${biz.name} has a website.`, recommendation: 'Conduct a detailed website audit.', impact: 'low', estimatedValue: 500 })
+   684→        }
+   685→
+   686→        // SEO Missing
+   687→        if (!biz.hasWebsite || !(biz.googleReviews && biz.googleReviews > 20)) {
+   688→          const seoVal = CAT_REVENUE[biz.category.toLowerCase()]?.base ? Math.round(CAT_REVENUE[biz.category.toLowerCase()].base * 0.12) : 1500
+   689→          items.push({ id: 'seo_missing', title: 'SEO Missing', status: biz.hasWebsite ? 'warning' : 'critical', description: `No SEO presence detected.`, recommendation: `Implement local SEO strategy.`, impact: 'high', estimatedValue: seoVal })
+   690→          auditScore -= biz.hasWebsite ? 15 : 25
+   691→          services.push('Local SEO Optimization')
+   692→          totalOppValue += seoVal
+   693→        } else {
+   694→          items.push({ id: 'seo_missing', title: 'Basic SEO Present', status: 'good', description: 'Some SEO indicators present.', recommendation: 'Continue building SEO authority.', impact: 'low', estimatedValue: 300 })
+   695→        }
+   696→
+   697→        // Booking Missing
+   698→        const bookingCats = ['salon', 'beauty parlour', 'spa', 'gym', 'clinic', 'dentist', 'hotel', 'restaurant', 'school']
+   699→        if (bookingCats.some(c => biz.category.toLowerCase().includes(c))) {
+   700→          const bookVal = Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.1)
+   701→          items.push({ id: 'booking_missing', title: 'Online Booking Missing', status: 'critical', description: `${biz.category} business without online booking.`, recommendation: 'Implement an online booking system.', impact: 'high', estimatedValue: bookVal })
+   702→          auditScore -= 20
+   703→          services.push('Online Booking System')
+   704→          totalOppValue += bookVal
+   705→        } else {
+   706→          items.push({ id: 'booking_missing', title: 'Booking System', status: 'opportunity', description: 'Could benefit from scheduling.', recommendation: 'Consider adding scheduling.', impact: 'medium', estimatedValue: 800 })
+   707→          totalOppValue += 800
+   708→        }
+   709→
+   710→        // Lead Capture Missing
+   711→        if (!biz.hasWebsite || !biz.email) {
+   712→          const lcVal = Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.08)
+   713→          items.push({ id: 'lead_capture_missing', title: 'Lead Capture Missing', status: biz.hasWebsite ? 'warning' : 'critical', description: 'No lead capture mechanism.', recommendation: 'Add strategic lead capture forms.', impact: 'high', estimatedValue: lcVal })
+   714→          auditScore -= biz.hasWebsite ? 10 : 20
+   715→          services.push('Lead Capture & CRM')
+   716→          totalOppValue += lcVal
+   717→        } else {
+   718→          items.push({ id: 'lead_capture_missing', title: 'Basic Lead Capture', status: 'good', description: 'Basic contact information available.', recommendation: 'Add automated lead nurturing.', impact: 'medium', estimatedValue: 600 })
+   719→        }
+   720→
+   721→        // Google Ranking Opportunity
+   722→        if (!biz.hasWebsite || !(biz.googleReviews && biz.googleReviews > 0)) {
+   723→          const grVal = Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.1)
+   724→          items.push({ id: 'google_ranking_opportunity', title: 'Google Ranking Opportunity', status: 'opportunity', description: 'Low Google visibility.', recommendation: 'Optimize Google Business Profile and target local keywords.', impact: 'high', estimatedValue: grVal })
+   725→          auditScore -= 15
+   726→          services.push('Google Business Profile Optimization')
+   727→          totalOppValue += grVal
+   728→        } else {
+   729→          items.push({ id: 'google_ranking_opportunity', title: 'Google Presence Exists', status: 'good', description: 'Has Google presence.', recommendation: 'Boost with content marketing.', impact: 'medium', estimatedValue: 500 })
+   730→          totalOppValue += 500
+   731→        }
+   732→
+   733→        // WhatsApp Opportunity
+   734→        items.push({
+   735→          id: 'whatsapp_opportunity', title: 'WhatsApp Business Opportunity', status: 'opportunity',
+   736→          description: 'Can leverage WhatsApp Business for direct customer engagement.',
+   737→          recommendation: 'Set up WhatsApp Business with automated greetings, quick replies, and catalog.',
+   738→          impact: 'medium',
+   739→          estimatedValue: Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.06),
+   740→        })
+   741→        services.push('WhatsApp Business Setup')
+   742→        totalOppValue += Math.round((CAT_REVENUE[biz.category.toLowerCase()]?.base || 10000) * 0.06)
+   743→
+   744→        auditScore = Math.max(0, Math.min(100, auditScore))
+   745→        const criticalCount = items.filter(i => i.status === 'critical').length
+   746→
+   747→        const report = {
+   748→          businessName: biz.name,
+   749→          category: biz.category,
+   750→          city: biz.city,
+   751→          country: biz.country,
+   752→          auditDate: new Date().toISOString(),
+   753→          overallScore: auditScore,
+   754→          items,
+   755→          summary: criticalCount >= 3
+   756→            ? `${biz.name} has significant digital presence gaps with ${criticalCount} critical issues. Total opportunity value: $${totalOppValue.toLocaleString()}+.`
+   757→            : criticalCount >= 1
+   758→              ? `${biz.name} has ${criticalCount} critical issue(s). A targeted digital services package could be worth $${totalOppValue.toLocaleString()}.`
+   759→              : `${biz.name} has a basic digital presence but growth opportunities. Potential value: $${totalOppValue.toLocaleString()}.`,
+   760→          totalOpportunityValue: totalOppValue,
+   761→          servicesRecommended: services,
+   762→        }
+   763→
+   764→        await db.business.update({
+   765→          where: { id: biz.id },
+   766→          data: { auditReport: JSON.stringify(report), auditScore, auditDate: new Date() },
+   767→        })
+   768→      }
+   769→    } catch (postSeedError) {
+   770→      console.error('Post-seed processing failed:', postSeedError)
+   771→    }
+   772→
+   773→    // Seed CRM data (notes, tasks, reminders, activities) for leads
+   774→    try {
+   775→      const allLeads = await db.lead.findMany({ take: 12 })
+   776→      for (let i = 0; i < allLeads.length; i++) {
+   777→        const lead = allLeads[i]
+   778→
+   779→        // Add initial activity
+   780→        await db.activityLog.create({
+   781→          data: {
+   782→            leadId: lead.id,
+   783→            userId: demoUser.id,
+   784→            action: 'created',
+   785→            details: JSON.stringify({ message: 'Lead created' }),
+   786→          },
+   787→        })
+   788→
+   789→        // Add notes for some leads
+   790→        if (i % 2 === 0) {
+   791→          await db.leadNote.create({
+   792→            data: {
+   793→              leadId: lead.id,
+   794→              userId: demoUser.id,
+   795→              content: i === 0
+   796→                ? 'Had a great initial conversation. Business owner is very interested in getting a website. Follow up with proposal next week.'
+   797→                : i === 2
+   798→                  ? 'Sent proposal via email. Awaiting response. Client mentioned budget concerns — may need to offer starter package.'
+   799→                  : i === 4
+   800→                    ? 'Found this business through Google Maps search. No website, no social media. Perfect candidate for our services.'
+   801→                    : 'General note: Business seems interested but needs more information about ROI.',
+   802→            },
+   803→          })
+   804→          await db.activityLog.create({
+   805→            data: {
+   806→              leadId: lead.id,
+   807→              userId: demoUser.id,
+   808→              action: 'note_added',
+   809→              details: JSON.stringify({ preview: 'Added initial notes' }),
+   810→            },
+   811→          })
+   812→        }
+   813→
+   814→        // Add tasks for some leads
+   815→        if (i < 6) {
+   816→          await db.leadTask.create({
+   817→            data: {
+   818→              leadId: lead.id,
+   819→              userId: demoUser.id,
+   820→              title: i === 0 ? 'Send website proposal' : i === 2 ? 'Follow up on proposal' : i === 4 ? 'Research competitor websites' : 'Schedule intro call',
+   821→              description: 'Important task for this lead',
+   822→              dueDate: new Date(Date.now() + (i + 1) * 24 * 60 * 60 * 1000),
+   823→              completed: i === 3,
+   824→              completedAt: i === 3 ? new Date() : null,
+   825→            },
+   826→          })
+   827→          await db.activityLog.create({
+   828→            data: {
+   829→              leadId: lead.id,
+   830→              userId: demoUser.id,
+   831→              action: i === 3 ? 'task_completed' : 'task_added',
+   832→              details: JSON.stringify({ title: i === 0 ? 'Send website proposal' : i === 2 ? 'Follow up on proposal' : 'Schedule intro call' }),
+   833→            },
+   834→          })
+   835→        }
+   836→
+   837→        // Add reminders for some leads
+   838→        if (i === 0 || i === 2 || i === 4) {
+   839→          await db.reminder.create({
+   840→            data: {
+   841→              leadId: lead.id,
+   842→              userId: demoUser.id,
+   843→              title: i === 0 ? 'Follow up call with owner' : i === 2 ? 'Proposal deadline reminder' : 'Check if they saw our email',
+   844→              dueDate: new Date(Date.now() + (i === 2 ? 2 : 3) * 24 * 60 * 60 * 1000),
+   845→            },
+   846→          })
+   847→          await db.activityLog.create({
+   848→            data: {
+   849→              leadId: lead.id,
+   850→              userId: demoUser.id,
+   851→              action: 'reminder_added',
+   852→              details: JSON.stringify({ title: 'Reminder set' }),
+   853→            },
+   854→          })
+   855→        }
+   856→
+   857→        // Log status change for leads not in new_lead
+   858→        if (lead.status !== 'new_lead') {
+   859→          await db.activityLog.create({
+   860→            data: {
+   861→              leadId: lead.id,
+   862→              userId: demoUser.id,
+   863→              action: 'status_change',
+   864→              details: JSON.stringify({ from: 'New Lead', to: lead.status }),
+   865→            },
+   866→          })
+   867→        }
+   868→      }
+   869→    } catch (crmSeedError) {
+   870→      console.error('CRM seed error:', crmSeedError)
+   871→    }
+   872→
+   873→    // Seed Plans, Subscriptions, Credits & extra users for Admin Panel
+   874→    try {
+   875→      // Create Plans - SaaS Billing Tiers: Starter, Agency, Enterprise
+   876→      const plansData = [
+   877→        // Starter Monthly
+   878→        {
+   879→          name: 'Starter Monthly',
+   880→          description: 'Perfect for freelancers and solopreneurs getting started with lead generation',
+   881→          price: 1499,
+   882→          yearlyPrice: 14990,
+   883→          credits: 500,
+   884→          features: JSON.stringify(['500 leads/month', '50 searches/month', '20 exports/month', 'Basic lead scoring', 'Email outreach templates', 'WhatsApp script generator', '1 user seat', 'Email support', 'Basic CRM pipeline']),
+   885→          popular: false,
+   886→          maxLeads: 500,
+   887→          maxSearches: 50,
+   888→          maxExports: 20,
+   889→          tier: 'starter',
+   890→          interval: 'monthly',
+   891→        },
+   892→        // Starter Yearly
+   893→        {
+   894→          name: 'Starter Yearly',
+   895→          description: 'Perfect for freelancers and solopreneurs getting started with lead generation',
+   896→          price: 14990,
+   897→          yearlyPrice: 14990,
+   898→          credits: 6000,
+   899→          features: JSON.stringify(['500 leads/month', '50 searches/month', '20 exports/month', 'Basic lead scoring', 'Email outreach templates', 'WhatsApp script generator', '1 user seat', 'Email support', 'Basic CRM pipeline']),
+   900→          popular: false,
+   901→          maxLeads: 500,
+   902→          maxSearches: 50,
+   903→          maxExports: 20,
+   904→          tier: 'starter',
+   905→          interval: 'yearly',
+   906→        },
+   907→        // Agency Monthly
+   908→        {
+   909→          name: 'Agency Monthly',
+   910→          description: 'Ideal for growing agencies and teams that need more power and collaboration',
+   911→          price: 4999,
+   912→          yearlyPrice: 49990,
+   913→          credits: 2500,
+   914→          features: JSON.stringify(['2,500 leads/month', '200 searches/month', '100 exports/month', 'Advanced lead scoring', 'AI website audit', 'Proposal generator', '5 user seats', 'Priority support', 'Full CRM pipeline', 'Custom email templates', 'Team collaboration', 'Bulk outreach']),
+   915→          popular: true,
+   916→          maxLeads: 2500,
+   917→          maxSearches: 200,
+   918→          maxExports: 100,
+   919→          tier: 'agency',
+   920→          interval: 'monthly',
+   921→        },
+   922→        // Agency Yearly
+   923→        {
+   924→          name: 'Agency Yearly',
+   925→          description: 'Ideal for growing agencies and teams that need more power and collaboration',
+   926→          price: 49990,
+   927→          yearlyPrice: 49990,
+   928→          credits: 30000,
+   929→          features: JSON.stringify(['2,500 leads/month', '200 searches/month', '100 exports/month', 'Advanced lead scoring', 'AI website audit', 'Proposal generator', '5 user seats', 'Priority support', 'Full CRM pipeline', 'Custom email templates', 'Team collaboration', 'Bulk outreach']),
+   930→          popular: true,
+   931→          maxLeads: 2500,
+   932→          maxSearches: 200,
+   933→          maxExports: 100,
+   934→          tier: 'agency',
+   935→          interval: 'yearly',
+   936→        },
+   937→        // Enterprise Monthly
+   938→        {
+   939→          name: 'Enterprise Monthly',
+   940→          description: 'For large organizations needing unlimited access, custom integrations, and dedicated support',
+   941→          price: 14999,
+   942→          yearlyPrice: 149990,
+   943→          credits: 999999,
+   944→          features: JSON.stringify(['Unlimited leads', 'Unlimited searches', 'Unlimited exports', 'AI-powered insights', 'Custom integrations & API', 'White-label proposals', 'Unlimited user seats', '24/7 dedicated support', 'Advanced CRM + automation', 'Custom reports & analytics', 'SLA guarantee', 'Onboarding & training']),
+   945→          popular: false,
+   946→          maxLeads: 999999,
+   947→          maxSearches: 999999,
+   948→          maxExports: 999999,
+   949→          tier: 'enterprise',
+   950→          interval: 'monthly',
+   951→        },
+   952→        // Enterprise Yearly
+   953→        {
+   954→          name: 'Enterprise Yearly',
+   955→          description: 'For large organizations needing unlimited access, custom integrations, and dedicated support',
+   956→          price: 149990,
+   957→          yearlyPrice: 149990,
+   958→          credits: 999999,
+   959→          features: JSON.stringify(['Unlimited leads', 'Unlimited searches', 'Unlimited exports', 'AI-powered insights', 'Custom integrations & API', 'White-label proposals', 'Unlimited user seats', '24/7 dedicated support', 'Advanced CRM + automation', 'Custom reports & analytics', 'SLA guarantee', 'Onboarding & training']),
+   960→          popular: false,
+   961→          maxLeads: 999999,
+   962→          maxSearches: 999999,
+   963→          maxExports: 999999,
+   964→          tier: 'enterprise',
+   965→          interval: 'yearly',
+   966→        },
+   967→        // Keep Free tier
+   968→        {
+   969→          name: 'Free',
+   970→          description: 'Get started with basic features',
+   971→          price: 0,
+   972→          yearlyPrice: 0,
+   973→          credits: 50,
+   974→          features: JSON.stringify(['5 searches/day', '20 leads', 'Basic audit', 'Email support']),
+   975→          popular: false,
+   976→          maxLeads: 20,
+   977→          maxSearches: 5,
+   978→          maxExports: 5,
+   979→          tier: 'free',
+   980→          interval: 'monthly',
+   981→        },
+   982→      ]
+   983→
+   984→      const plans = []
+   985→      for (const planData of plansData) {
+   986→        const existing = await db.plan.findFirst({ where: { name: planData.name } })
+   987→        if (existing) {
+   988→          plans.push(existing)
+   989→        } else {
+   990→          const plan = await db.plan.create({ data: planData })
+   991→          plans.push(plan)
+   992→        }
+   993→      }
+   994→
+   995→      // Assign Agency Monthly plan to demo user
+   996→      const agencyPlan = plans.find(p => p.name === 'Agency Monthly')
+   997→      if (agencyPlan && !demoUser.planId) {
+   998→        await db.user.update({
+   999→          where: { id: demoUser.id },
+  1000→          data: { planId: agencyPlan.id, credits: 2200 },
+  1001→        })
+  1002→      }
+  1003→
+  1004→      // Create demo user subscription
+  1005→      if (agencyPlan) {
+  1006→        const existingSub = await db.subscription.findFirst({
+  1007→          where: { userId: demoUser.id, planId: agencyPlan.id },
+  1008→        })
+  1009→        if (!existingSub) {
+  1010→          await db.subscription.create({
+  1011→            data: {
+  1012→              userId: demoUser.id,
+  1013→              planId: agencyPlan.id,
+  1014→              status: 'active',
+  1015→              interval: 'monthly',
+  1016→              currentPeriodStart: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+  1017→              currentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+  1018→              stripeSubscriptionId: `sub_demo_${Date.now()}`,
+  1019→              stripeCustomerId: `cus_demo_${Date.now()}`,
+  1020→            },
+  1021→          })
+  1022→        }
+  1023→      }
+  1024→
+  1025→      // Create additional demo users
+  1026→      const extraUsers = [
+  1027→        { name: 'Priya Sharma', email: 'priya@agency.com', company: 'Digital Solutions', role: 'user', credits: 450, planName: 'Starter Monthly' },
+  1028→        { name: 'Rahul Patel', email: 'rahul@webpro.com', company: 'WebPro India', role: 'user', credits: 1200, planName: 'Agency Monthly' },
+  1029→        { name: 'Anita Desai', email: 'anita@marketguru.in', company: 'Market Guru', role: 'user', credits: 3200, planName: 'Enterprise Monthly' },
+  1030→        { name: 'Vikram Singh', email: 'vikram@freelance.dev', company: null, role: 'user', credits: 30, planName: 'Free' },
+  1031→        { name: 'Meera Joshi', email: 'meera@socialsmart.com', company: 'SocialSmart', role: 'user', credits: 180, planName: 'Starter Monthly' },
+  1032→        { name: 'Arjun Reddy', email: 'arjun@leadfactory.in', company: 'Lead Factory', role: 'user', credits: 750, planName: 'Agency Monthly' },
+  1033→        { name: 'Sneha Kapoor', email: 'sneka@designhub.co', company: 'DesignHub', role: 'admin', credits: 2000, planName: 'Enterprise Monthly' },
+  1034→      ]
+  1035→
+  1036→      for (const userData of extraUsers) {
+  1037→        const existingUser = await db.user.findUnique({ where: { email: userData.email } })
+  1038→        if (!existingUser) {
+  1039→          const hashedPassword = createHashedPassword('demo123')
+  1040→          const plan = plans.find(p => p.name === userData.planName)
+  1041→          const newUser = await db.user.create({
+  1042→            data: {
+  1043→              name: userData.name,
+  1044→              email: userData.email,
+  1045→              password: hashedPassword,
+  1046→              company: userData.company,
+  1047→              role: userData.role,
+  1048→              credits: userData.credits,
+  1049→              planId: plan?.id || null,
+  1050→              lastLoginAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
+  1051→            },
+  1052→          })
+  1053→
+  1054→          // Create subscription for non-Free plan users
+  1055→          if (plan && userData.planName !== 'Free') {
+  1056→            const statuses = ['active', 'active', 'active', 'active', 'canceled', 'expired']
+  1057→            const subStatus = statuses[Math.floor(Math.random() * statuses.length)]
+  1058→            await db.subscription.create({
+  1059→              data: {
+  1060→                userId: newUser.id,
+  1061→                planId: plan.id,
+  1062→                status: subStatus,
+  1063→                interval: plan.interval || 'monthly',
+  1064→                currentPeriodStart: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+  1065→                currentPeriodEnd: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+  1066→                cancelAtPeriodEnd: subStatus === 'canceled',
+  1067→              },
+  1068→            })
+  1069→          }
+  1070→        }
+  1071→      }
+  1072→
+  1073→      // Create credit transactions for demo user
+  1074→      const creditTxs = [
+  1075→        { amount: 2500, type: 'subscription', description: 'Agency plan monthly credits' },
+  1076→        { amount: -50, type: 'usage', description: 'Business search - Mumbai restaurants' },
+  1077→        { amount: -30, type: 'usage', description: 'Lead export to CSV' },
+  1078→        { amount: -25, type: 'usage', description: 'Audit report - Mario\'s Pizza Palace' },
+  1079→        { amount: 500, type: 'purchase', description: 'Credit pack purchase - 500 credits' },
+  1080→        { amount: -100, type: 'usage', description: 'Bulk lead scoring' },
+  1081→        { amount: 200, type: 'bonus', description: 'Referral bonus - invited priya@agency.com' },
+  1082→        { amount: -45, type: 'usage', description: 'Proposal generation - Spa Serenity' },
+  1083→        { amount: 50, type: 'refund', description: 'Refund for failed audit' },
+  1084→        { amount: -200, type: 'usage', description: 'Email outreach campaign - 20 leads' },
+  1085→      ]
+  1086→
+  1087→      let balance = 0
+  1088→      for (const tx of creditTxs) {
+  1089→        balance += tx.amount
+  1090→        const existingTx = await db.creditTransaction.findFirst({
+  1091→          where: { userId: demoUser.id, description: tx.description },
+  1092→        })
+  1093→        if (!existingTx) {
+  1094→          await db.creditTransaction.create({
+  1095→            data: {
+  1096→              userId: demoUser.id,
+  1097→              amount: tx.amount,
+  1098→              balance,
+  1099→              type: tx.type,
+  1100→              description: tx.description,
+  1101→              createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
+  1102→            },
+  1103→          })
+  1104→        }
+  1105→      }
+  1106→
+  1107→      // Create credit transactions for other users
+  1108→      const allUsers = await db.user.findMany({ where: { email: { not: 'demo@finder.com' } } })
+  1109→      for (const user of allUsers) {
+  1110→        const txCount = Math.floor(Math.random() * 5) + 2
+  1111→        let userBalance = 0
+  1112→        for (let i = 0; i < txCount; i++) {
+  1113→          const txTypes = ['plan_credits', 'usage', 'purchase', 'bonus', 'usage']
+  1114→          const type = txTypes[i % txTypes.length]
+  1115→          const amount = type === 'usage' ? -(Math.floor(Math.random() * 50) + 10) : Math.floor(Math.random() * 500) + 50
+  1116→          userBalance += amount
+  1117→          await db.creditTransaction.create({
+  1118→            data: {
+  1119→              userId: user.id,
+  1120→              amount,
+  1121→              balance: userBalance,
+  1122→              type,
+  1123→              description: type === 'plan_credits' ? `${user.planId ? 'Plan' : 'Free'} credits` : type === 'usage' ? `Service usage` : type === 'purchase' ? 'Credit purchase' : 'Bonus credits',
+  1124→              createdAt: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000),
+  1125→            },
+  1126→          })
+  1127→        }
+  1128→      }
+  1129→    } catch (adminSeedError) {
+  1130→      console.error('Admin seed error:', adminSeedError)
+  1131→    }
+  1132→
+  1133→    return NextResponse.json({
+  1134→      message: 'Database seeded successfully',
+  1135→      data: {
+  1136→        user: {
+  1137→          id: demoUser.id,
+  1138→          email: demoUser.email,
+  1139→          name: demoUser.name,
+  1140→          company: demoUser.company,
+  1141→        },
+  1142→        businessesCreated: businesses.length,
+  1143→        leadsCreated: leads.length,
+  1144→        outreachCreated: outreachEntries.length,
+  1145→        servicesCreated: services.length,
+  1146→      },
+  1147→    })
+  1148→  } catch (error) {
+  1149→    console.error('Seed error:', error)
+  1150→    return NextResponse.json(
+  1151→      { error: 'Failed to seed database' },
+  1152→      { status: 500 }
+  1153→    )
+  1154→  }
+  1155→}
+  1156→

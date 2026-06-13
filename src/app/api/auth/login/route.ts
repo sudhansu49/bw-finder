@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     // Find the user with plan info
     const user = await db.user.findUnique({
       where: { email },
-      include: { plan: { select: { name: true } } },
+      include: { plan: { select: { name: true, tier: true } } },
     })
 
     if (!user) {
@@ -37,12 +37,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Return user without password, include plan name
+    // Return user without password, include plan name and tier
     const { password: _, plan, ...userWithoutPassword } = user
     return NextResponse.json({ 
       user: { 
         ...userWithoutPassword, 
-        planName: plan?.name || 'Free' 
+        planName: plan?.name || 'Free',
+        planTier: plan?.tier || 'free'
       } 
     })
   } catch (error) {

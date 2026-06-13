@@ -872,12 +872,113 @@ export async function POST() {
 
     // Seed Plans, Subscriptions, Credits & extra users for Admin Panel
     try {
-      // Create Plans
+      // Create Plans - SaaS Billing Tiers: Starter, Agency, Enterprise
       const plansData = [
-        { name: 'Free', description: 'Get started with basic features', price: 0, credits: 50, features: JSON.stringify(['5 searches/day', '20 leads', 'Basic audit', 'Email support']), popular: false, maxLeads: 20, maxSearches: 5, maxExports: 5 },
-        { name: 'Starter', description: 'Perfect for freelancers and small teams', price: 29, credits: 200, features: JSON.stringify(['50 searches/day', '100 leads', 'Full audit', 'Proposal builder', 'CSV export', 'Priority support']), popular: false, maxLeads: 100, maxSearches: 50, maxExports: 20 },
-        { name: 'Pro', description: 'For growing agencies and power users', price: 79, credits: 1000, features: JSON.stringify(['Unlimited searches', '500 leads', 'Full audit + scoring', 'Proposal builder', 'All exports', 'CRM pipeline', 'WhatsApp & Email AI', 'API access']), popular: true, maxLeads: 500, maxSearches: 200, maxExports: 100 },
-        { name: 'Enterprise', description: 'Unlimited access for large organizations', price: 199, credits: 5000, features: JSON.stringify(['Unlimited everything', 'Unlimited leads', 'Advanced analytics', 'White-label proposals', 'Custom integrations', 'Dedicated support', 'SLA guarantee']), popular: false, maxLeads: 9999, maxSearches: 9999, maxExports: 9999 },
+        // Starter Monthly
+        {
+          name: 'Starter Monthly',
+          description: 'Perfect for freelancers and solopreneurs getting started with lead generation',
+          price: 1499,
+          yearlyPrice: 14990,
+          credits: 500,
+          features: JSON.stringify(['500 leads/month', '50 searches/month', '20 exports/month', 'Basic lead scoring', 'Email outreach templates', 'WhatsApp script generator', '1 user seat', 'Email support', 'Basic CRM pipeline']),
+          popular: false,
+          maxLeads: 500,
+          maxSearches: 50,
+          maxExports: 20,
+          tier: 'starter',
+          interval: 'monthly',
+        },
+        // Starter Yearly
+        {
+          name: 'Starter Yearly',
+          description: 'Perfect for freelancers and solopreneurs getting started with lead generation',
+          price: 14990,
+          yearlyPrice: 14990,
+          credits: 6000,
+          features: JSON.stringify(['500 leads/month', '50 searches/month', '20 exports/month', 'Basic lead scoring', 'Email outreach templates', 'WhatsApp script generator', '1 user seat', 'Email support', 'Basic CRM pipeline']),
+          popular: false,
+          maxLeads: 500,
+          maxSearches: 50,
+          maxExports: 20,
+          tier: 'starter',
+          interval: 'yearly',
+        },
+        // Agency Monthly
+        {
+          name: 'Agency Monthly',
+          description: 'Ideal for growing agencies and teams that need more power and collaboration',
+          price: 4999,
+          yearlyPrice: 49990,
+          credits: 2500,
+          features: JSON.stringify(['2,500 leads/month', '200 searches/month', '100 exports/month', 'Advanced lead scoring', 'AI website audit', 'Proposal generator', '5 user seats', 'Priority support', 'Full CRM pipeline', 'Custom email templates', 'Team collaboration', 'Bulk outreach']),
+          popular: true,
+          maxLeads: 2500,
+          maxSearches: 200,
+          maxExports: 100,
+          tier: 'agency',
+          interval: 'monthly',
+        },
+        // Agency Yearly
+        {
+          name: 'Agency Yearly',
+          description: 'Ideal for growing agencies and teams that need more power and collaboration',
+          price: 49990,
+          yearlyPrice: 49990,
+          credits: 30000,
+          features: JSON.stringify(['2,500 leads/month', '200 searches/month', '100 exports/month', 'Advanced lead scoring', 'AI website audit', 'Proposal generator', '5 user seats', 'Priority support', 'Full CRM pipeline', 'Custom email templates', 'Team collaboration', 'Bulk outreach']),
+          popular: true,
+          maxLeads: 2500,
+          maxSearches: 200,
+          maxExports: 100,
+          tier: 'agency',
+          interval: 'yearly',
+        },
+        // Enterprise Monthly
+        {
+          name: 'Enterprise Monthly',
+          description: 'For large organizations needing unlimited access, custom integrations, and dedicated support',
+          price: 14999,
+          yearlyPrice: 149990,
+          credits: 999999,
+          features: JSON.stringify(['Unlimited leads', 'Unlimited searches', 'Unlimited exports', 'AI-powered insights', 'Custom integrations & API', 'White-label proposals', 'Unlimited user seats', '24/7 dedicated support', 'Advanced CRM + automation', 'Custom reports & analytics', 'SLA guarantee', 'Onboarding & training']),
+          popular: false,
+          maxLeads: 999999,
+          maxSearches: 999999,
+          maxExports: 999999,
+          tier: 'enterprise',
+          interval: 'monthly',
+        },
+        // Enterprise Yearly
+        {
+          name: 'Enterprise Yearly',
+          description: 'For large organizations needing unlimited access, custom integrations, and dedicated support',
+          price: 149990,
+          yearlyPrice: 149990,
+          credits: 999999,
+          features: JSON.stringify(['Unlimited leads', 'Unlimited searches', 'Unlimited exports', 'AI-powered insights', 'Custom integrations & API', 'White-label proposals', 'Unlimited user seats', '24/7 dedicated support', 'Advanced CRM + automation', 'Custom reports & analytics', 'SLA guarantee', 'Onboarding & training']),
+          popular: false,
+          maxLeads: 999999,
+          maxSearches: 999999,
+          maxExports: 999999,
+          tier: 'enterprise',
+          interval: 'yearly',
+        },
+        // Keep Free tier
+        {
+          name: 'Free',
+          description: 'Get started with basic features',
+          price: 0,
+          yearlyPrice: 0,
+          credits: 50,
+          features: JSON.stringify(['5 searches/day', '20 leads', 'Basic audit', 'Email support']),
+          popular: false,
+          maxLeads: 20,
+          maxSearches: 5,
+          maxExports: 5,
+          tier: 'free',
+          interval: 'monthly',
+        },
       ]
 
       const plans = []
@@ -891,28 +992,31 @@ export async function POST() {
         }
       }
 
-      // Assign Pro plan to demo user
-      const proPlan = plans.find(p => p.name === 'Pro')
-      if (proPlan && !demoUser.planId) {
+      // Assign Agency Monthly plan to demo user
+      const agencyPlan = plans.find(p => p.name === 'Agency Monthly')
+      if (agencyPlan && !demoUser.planId) {
         await db.user.update({
           where: { id: demoUser.id },
-          data: { planId: proPlan.id, credits: 850 },
+          data: { planId: agencyPlan.id, credits: 2200 },
         })
       }
 
       // Create demo user subscription
-      if (proPlan) {
+      if (agencyPlan) {
         const existingSub = await db.subscription.findFirst({
-          where: { userId: demoUser.id, planId: proPlan.id },
+          where: { userId: demoUser.id, planId: agencyPlan.id },
         })
         if (!existingSub) {
           await db.subscription.create({
             data: {
               userId: demoUser.id,
-              planId: proPlan.id,
+              planId: agencyPlan.id,
               status: 'active',
+              interval: 'monthly',
               currentPeriodStart: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
               currentPeriodEnd: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
+              stripeSubscriptionId: `sub_demo_${Date.now()}`,
+              stripeCustomerId: `cus_demo_${Date.now()}`,
             },
           })
         }
@@ -920,13 +1024,13 @@ export async function POST() {
 
       // Create additional demo users
       const extraUsers = [
-        { name: 'Priya Sharma', email: 'priya@agency.com', company: 'Digital Solutions', role: 'user', credits: 450, planName: 'Starter' },
-        { name: 'Rahul Patel', email: 'rahul@webpro.com', company: 'WebPro India', role: 'user', credits: 1200, planName: 'Pro' },
-        { name: 'Anita Desai', email: 'anita@marketguru.in', company: 'Market Guru', role: 'user', credits: 3200, planName: 'Enterprise' },
+        { name: 'Priya Sharma', email: 'priya@agency.com', company: 'Digital Solutions', role: 'user', credits: 450, planName: 'Starter Monthly' },
+        { name: 'Rahul Patel', email: 'rahul@webpro.com', company: 'WebPro India', role: 'user', credits: 1200, planName: 'Agency Monthly' },
+        { name: 'Anita Desai', email: 'anita@marketguru.in', company: 'Market Guru', role: 'user', credits: 3200, planName: 'Enterprise Monthly' },
         { name: 'Vikram Singh', email: 'vikram@freelance.dev', company: null, role: 'user', credits: 30, planName: 'Free' },
-        { name: 'Meera Joshi', email: 'meera@socialsmart.com', company: 'SocialSmart', role: 'user', credits: 180, planName: 'Starter' },
-        { name: 'Arjun Reddy', email: 'arjun@leadfactory.in', company: 'Lead Factory', role: 'user', credits: 750, planName: 'Pro' },
-        { name: 'Sneha Kapoor', email: 'sneka@designhub.co', company: 'DesignHub', role: 'admin', credits: 2000, planName: 'Enterprise' },
+        { name: 'Meera Joshi', email: 'meera@socialsmart.com', company: 'SocialSmart', role: 'user', credits: 180, planName: 'Starter Monthly' },
+        { name: 'Arjun Reddy', email: 'arjun@leadfactory.in', company: 'Lead Factory', role: 'user', credits: 750, planName: 'Agency Monthly' },
+        { name: 'Sneha Kapoor', email: 'sneka@designhub.co', company: 'DesignHub', role: 'admin', credits: 2000, planName: 'Enterprise Monthly' },
       ]
 
       for (const userData of extraUsers) {
@@ -956,6 +1060,7 @@ export async function POST() {
                 userId: newUser.id,
                 planId: plan.id,
                 status: subStatus,
+                interval: plan.interval || 'monthly',
                 currentPeriodStart: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
                 currentPeriodEnd: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
                 cancelAtPeriodEnd: subStatus === 'canceled',
@@ -967,7 +1072,7 @@ export async function POST() {
 
       // Create credit transactions for demo user
       const creditTxs = [
-        { amount: 1000, type: 'plan_credits', description: 'Pro plan monthly credits' },
+        { amount: 2500, type: 'subscription', description: 'Agency plan monthly credits' },
         { amount: -50, type: 'usage', description: 'Business search - Mumbai restaurants' },
         { amount: -30, type: 'usage', description: 'Lead export to CSV' },
         { amount: -25, type: 'usage', description: 'Audit report - Mario\'s Pizza Palace' },

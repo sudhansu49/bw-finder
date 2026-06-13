@@ -5,12 +5,20 @@ import { useAppStore } from '@/store/app-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Crown,
   Check,
@@ -27,800 +35,691 @@ import {
   AlertCircle,
   Calendar,
   Clock,
+  Rocket,
+  Sparkles,
+  Loader2,
+  Users,
+  Building2,
+  Infinity,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
+import { formatPrice } from '@/lib/stripe'
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
-interface PlanFeature {
-  label: string
-  included: boolean
-}
-
-interface ApiPlan {
-  id: string
-  name: string
-  description: string
+interface PlanPricing {
   price: number
   credits: number
-  features: string // JSON string
-  popular: boolean
   maxLeads: number
   maxSearches: number
   maxExports: number
+  planId: string | null
+  stripePriceId: string | null
 }
 
-interface DisplayPlan {
-  id: string
+interface PlanData {
+  tier: string
   name: string
-  price: number
-  period: string
   description: string
-  icon: React.ReactNode
-  features: PlanFeature[]
-  highlight?: boolean
-  current?: boolean
-  enterprise?: boolean
+  icon: string
+  color: string
+  gradient: string
+  popular: boolean
+  monthly: PlanPricing
+  yearly: PlanPricing & {
+    monthlyEquivalent: number
+    savingsPercent: number
+  }
+  features: string[]
 }
 
 interface SubscriptionInfo {
   id: string
   status: string
-  currentPeriodStart: string
+  interval: string
   currentPeriodEnd: string
   cancelAtPeriodEnd: boolean
-  trialEnd: string | null
-  createdAt: string
-}
-
-interface UsageData {
-  leads: { used: number; limit: number }
-  searches: { used: number; limit: number }
-  exports: { used: number; limit: number }
-  credits: { remaining: number; total: number }
-}
-
-interface BillingRecord {
-  id: string
-  amount: number
-  balance: number
-  type: string
-  description: string
-  referenceId: string | null
-  createdAt: string
-}
-
-interface SubscriptionApiData {
-  currentPlan: ApiPlan | null
-  subscription: SubscriptionInfo | null
-  usage: UsageData
-  allPlans: ApiPlan[]
-  billingHistory: BillingRecord[]
-}
-
-// ─── FAQ Data (static) ──────────────────────────────────────────────────────────
-
-const faqItems = [
-  {
-    question: 'Can I switch plans at any time?',
-    answer:
-      'Yes! You can upgrade or downgrade your plan at any time. When upgrading, you\'ll be charged the prorated difference immediately. When downgrading, the new rate takes effect at the start of your next billing cycle.',
-  },
-  {
-    question: 'What happens when I reach my plan limits?',
-    answer:
-      'You\'ll receive a notification when you reach 80% and 100% of your plan limits. Once you hit the limit, additional leads and searches will be paused until the next billing cycle or until you upgrade your plan.',
-  },
-  {
-    question: 'Can I cancel my subscription anytime?',
-    answer:
-      'Absolutely. You can cancel your subscription at any time from this page. Your access will continue until the end of the current billing period. No cancellation fees apply.',
-  },
-  {
-    question: 'Do you offer refunds?',
-    answer:
-      'We offer a full refund within 14 days of your first payment if you\'re not satisfied. After that, we don\'t provide refunds for partial billing periods, but you can cancel anytime and use the service until the end of your billing cycle.',
-  },
-  {
-    question: 'What\'s included in API access for Enterprise?',
-    answer:
-      'The Enterprise plan includes full REST API access with up to 5,000 requests per day. You get endpoints for lead search, business data, scoring, and export. Detailed API documentation and SDKs are available.',
-  },
-  {
-    question: 'Is there a discount for annual billing?',
-    answer:
-      'Yes! We offer a 20% discount when you choose annual billing. That brings the Pro plan to $23/mo and Enterprise to $79/mo, billed annually. Contact our sales team for custom enterprise agreements.',
-  },
-]
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-
-function parseFeatures(featuresJson: string): PlanFeature[] {
-  try {
-    const parsed = JSON.parse(featuresJson)
-    if (Array.isArray(parsed)) {
-      return parsed.map((f: string | PlanFeature) => {
-        if (typeof f === 'string') {
-          return { label: f, included: true }
-        }
-        return f as PlanFeature
-      })
-    }
-    return []
-  } catch {
-    return []
+  plan: {
+    id: string
+    name: string
+    tier: string
+    price: number
   }
 }
 
-function getPlanIcon(name: string): React.ReactNode {
-  const lower = name.toLowerCase()
-  if (lower.includes('enterprise') || lower.includes('team') || lower.includes('agency')) {
-    return <Globe className="h-5 w-5" />
-  }
-  if (lower.includes('pro') || lower.includes('professional')) {
-    return <Crown className="h-5 w-5" />
-  }
-  return <Zap className="h-5 w-5" />
-}
-
-function formatNumber(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
-  return n.toString()
-}
-
-function getUsagePercentage(used: number, total: number): number {
-  if (total === 0) return 0
-  return Math.min(Math.round((used / total) * 100), 100)
-}
-
-function getUsageColor(percent: number): string {
-  if (percent >= 90) return 'bg-red-500'
-  if (percent >= 70) return 'bg-amber-500'
-  return 'bg-emerald-500'
-}
-
-function formatDate(dateStr: string): string {
-  try {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  } catch {
-    return dateStr
-  }
-}
-
-function formatCurrency(amount: number): string {
-  return `$${Math.abs(amount).toFixed(2)}`
-}
-
-function getBillingStatusBadge(type: string, amount: number) {
-  if (type === 'refund') {
-    return <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-0 text-xs">Refund</Badge>
-  }
-  if (type === 'purchase') {
-    return <Badge className="bg-blue-50 text-blue-700 hover:bg-blue-50 border-0 text-xs">Purchase</Badge>
-  }
-  if (type === 'subscription') {
-    return <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-0 text-xs">Subscription</Badge>
-  }
-  return <Badge className="bg-slate-50 text-slate-700 hover:bg-slate-50 border-0 text-xs">{type}</Badge>
-}
-
-// ─── Animation Variants ────────────────────────────────────────────────────────
+// ─── Animation ──────────────────────────────────────────────────────────────
 
 const container = {
   hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.08 },
-  },
+  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
 }
 
 const item = {
   hidden: { opacity: 0, y: 20 },
-  show: { opacity: 1, y: 0 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
 }
 
-// ─── Loading Skeleton ──────────────────────────────────────────────────────────
+// ─── Plan Icon Mapping ──────────────────────────────────────────────────────
 
-function SubscriptionSkeleton() {
-  return (
-    <div className="space-y-8 max-w-6xl">
-      <div>
-        <Skeleton className="h-8 w-48 mb-2" />
-        <Skeleton className="h-4 w-72" />
-      </div>
-      <Card className="border-2 border-amber-500 shadow-sm overflow-hidden">
-        <div className="h-1.5 bg-amber-100" />
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <Skeleton className="h-14 w-14 rounded-2xl" />
-            <div className="space-y-2 flex-1">
-              <Skeleton className="h-6 w-40" />
-              <Skeleton className="h-4 w-64" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="border-0 shadow-sm">
-            <CardContent className="p-6 space-y-4">
-              <Skeleton className="h-10 w-10 rounded-xl" />
-              <Skeleton className="h-6 w-24" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-10 w-20" />
-              <div className="space-y-2">
-                {[1, 2, 3, 4].map((j) => (
-                  <Skeleton key={j} className="h-4 w-full" />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <Skeleton className="h-6 w-56" />
-          <Skeleton className="h-4 w-72" />
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="space-y-2">
-                <div className="flex justify-between">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-                <Skeleton className="h-3 w-full rounded-full" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-      <Card className="border-0 shadow-sm">
-        <CardHeader>
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-4 w-64" />
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="flex gap-4">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-4 w-20" />
-              <Skeleton className="h-4 flex-1" />
-              <Skeleton className="h-4 w-16" />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  )
+function getPlanIcon(tier: string, className?: string) {
+  switch (tier) {
+    case 'starter':
+      return <Rocket className={className || 'h-6 w-6'} />
+    case 'agency':
+      return <Zap className={className || 'h-6 w-6'} />
+    case 'enterprise':
+      return <Crown className={className || 'h-6 w-6'} />
+    default:
+      return <Star className={className || 'h-6 w-6'} />
+  }
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+function getPlanIconBg(tier: string) {
+  switch (tier) {
+    case 'starter':
+      return 'bg-slate-100 text-slate-600'
+    case 'agency':
+      return 'bg-amber-100 text-amber-600'
+    case 'enterprise':
+      return 'bg-emerald-100 text-emerald-600'
+    default:
+      return 'bg-slate-100 text-slate-600'
+  }
+}
+
+function getPlanCardBorder(tier: string, popular: boolean) {
+  if (popular) return 'ring-2 ring-amber-400 shadow-lg shadow-amber-500/10'
+  switch (tier) {
+    case 'starter':
+      return 'border-slate-200'
+    case 'agency':
+      return 'border-amber-200'
+    case 'enterprise':
+      return 'border-emerald-200'
+    default:
+      return ''
+  }
+}
+
+function getPlanButtonStyle(tier: string, popular: boolean, isCurrent: boolean) {
+  if (isCurrent) return 'bg-slate-100 text-slate-500 cursor-default'
+  if (popular) return 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-amber-500/25'
+  switch (tier) {
+    case 'starter':
+      return 'bg-slate-800 text-white hover:bg-slate-900'
+    case 'agency':
+      return 'bg-amber-500 text-white hover:bg-amber-600'
+    case 'enterprise':
+      return 'bg-emerald-600 text-white hover:bg-emerald-700'
+    default:
+      return ''
+  }
+}
+
+function formatCredits(credits: number): string {
+  if (credits === -1 || credits >= 999999) return 'Unlimited'
+  return credits.toLocaleString('en-IN')
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────────
 
 export function SubscriptionView() {
   const { user } = useAppStore()
   const { toast } = useToast()
-
-  const [data, setData] = useState<SubscriptionApiData | null>(null)
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
+  const [plans, setPlans] = useState<PlanData[]>([])
+  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [subscribing, setSubscribing] = useState<string | null>(null)
+  const [cancelDialog, setCancelDialog] = useState(false)
+  const [canceling, setCanceling] = useState(false)
+  const [showAllFeatures, setShowAllFeatures] = useState<string | null>(null)
 
-  const fetchSubscription = useCallback(async () => {
-    if (!user?.id) return
+  const fetchData = useCallback(async () => {
     setLoading(true)
-    setError(null)
     try {
-      const res = await fetch(`/api/user/subscription?userId=${user.id}`)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || 'Failed to fetch subscription data')
+      const [plansRes, subRes] = await Promise.all([
+        fetch('/api/stripe/plans'),
+        fetch(`/api/user/subscription?userId=${user?.id}`),
+      ])
+
+      if (plansRes.ok) {
+        const data = await plansRes.json()
+        setPlans(data.plans || [])
       }
-      const json = await res.json()
-      setData(json)
-    } catch (err: any) {
-      console.error('Failed to fetch subscription:', err)
-      setError(err.message || 'Failed to load subscription data')
-      toast({
-        title: 'Error',
-        description: 'Failed to load subscription data. Please try again.',
-        variant: 'destructive',
-      })
+
+      if (subRes.ok) {
+        const data = await subRes.json()
+        if (data.subscription) {
+          setSubscription({
+            id: data.subscription.id,
+            status: data.subscription.status,
+            interval: data.subscription.interval || 'monthly',
+            currentPeriodEnd: data.subscription.currentPeriodEnd,
+            cancelAtPeriodEnd: data.subscription.cancelAtPeriodEnd || false,
+            plan: {
+              id: data.currentPlan?.id || '',
+              name: data.currentPlan?.name || 'Free',
+              tier: data.currentPlan?.tier || 'free',
+              price: data.currentPlan?.price || 0,
+            },
+          })
+        }
+      }
+    } catch {
+      // Silent fail
     } finally {
       setLoading(false)
     }
-  }, [user?.id, toast])
+  }, [user?.id])
 
   useEffect(() => {
-    fetchSubscription()
-  }, [fetchSubscription])
+    if (user?.id) fetchData()
+  }, [user?.id, fetchData])
 
-  if (loading) return <SubscriptionSkeleton />
+  const handleSubscribe = async (tier: string) => {
+    if (!user?.id) return
+    setSubscribing(tier)
 
-  if (error && !data) {
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          tier,
+          interval: billingInterval,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        if (data.demo) {
+          toast({
+            title: 'Subscription Activated!',
+            description: `${tier.charAt(0).toUpperCase() + tier.slice(1)} plan (${billingInterval}) is now active. Credits have been added to your account.`,
+          })
+          // Refresh data
+          fetchData()
+        } else if (data.url) {
+          // Redirect to Stripe Checkout
+          window.location.href = data.url
+        }
+      } else {
+        toast({
+          title: 'Error',
+          description: data.error || 'Failed to start checkout',
+          variant: 'destructive',
+        })
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubscribing(null)
+    }
+  }
+
+  const handleCancel = async (immediately: boolean) => {
+    if (!user?.id) return
+    setCanceling(true)
+
+    try {
+      const res = await fetch('/api/stripe/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, immediately }),
+      })
+
+      if (res.ok) {
+        toast({
+          title: immediately ? 'Subscription Canceled' : 'Scheduled Cancellation',
+          description: immediately
+            ? 'Your subscription has been canceled.'
+            : 'Your subscription will be canceled at the end of the billing period.',
+        })
+        fetchData()
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to cancel subscription', variant: 'destructive' })
+    } finally {
+      setCanceling(false)
+      setCancelDialog(false)
+    }
+  }
+
+  const isCurrentPlan = (tier: string) => {
+    return subscription?.plan?.tier === tier
+  }
+
+  // ─── Loading State ───────────────────────────────────────────────────
+
+  if (loading) {
     return (
-      <div className="space-y-8 max-w-6xl">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Subscription</h1>
-          <p className="text-muted-foreground">Manage your plan, usage, and billing</p>
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-xl" />
+          <div>
+            <Skeleton className="h-7 w-48 mb-1" />
+            <Skeleton className="h-4 w-64" />
+          </div>
         </div>
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-12 flex flex-col items-center text-center">
-            <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
-              <AlertCircle className="h-7 w-7 text-red-500" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-700 mb-1">Failed to load subscription data</h3>
-            <p className="text-sm text-muted-foreground mb-4">{error}</p>
-            <Button onClick={fetchSubscription} variant="outline">
-              Try Again
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex justify-center py-4">
+          <Skeleton className="h-10 w-64 rounded-full" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-[520px] rounded-2xl" />
+          ))}
+        </div>
       </div>
     )
   }
 
-  if (!data) return null
+  // ─── Current Subscription Banner ─────────────────────────────────────
 
-  // Build display plans from API data
-  const currentPlanId = data.currentPlan?.id ?? user?.planId ?? ''
-  const displayPlans: DisplayPlan[] = (data.allPlans ?? []).map((plan) => {
-    const isCurrent = plan.id === currentPlanId
-    const nameLower = plan.name.toLowerCase()
-    const isEnterprise = nameLower.includes('enterprise') || nameLower.includes('team') || nameLower.includes('agency')
-
-    return {
-      id: plan.id,
-      name: plan.name,
-      price: plan.price,
-      period: '/mo',
-      description: plan.description,
-      icon: getPlanIcon(plan.name),
-      features: parseFeatures(plan.features),
-      highlight: isCurrent || plan.popular,
-      current: isCurrent,
-      enterprise: isEnterprise,
-    }
-  })
-
-  // Build usage items from API data
-  const usageItems = [
-    {
-      label: 'Leads',
-      used: data.usage.leads.used,
-      total: data.usage.leads.limit,
-      icon: <Target className="h-4 w-4" />,
-      color: 'text-amber-600',
-    },
-    {
-      label: 'Searches',
-      used: data.usage.searches.used,
-      total: data.usage.searches.limit,
-      icon: <BarChart3 className="h-4 w-4" />,
-      color: 'text-emerald-600',
-    },
-    {
-      label: 'Exports',
-      used: data.usage.exports.used,
-      total: data.usage.exports.limit,
-      icon: <Code className="h-4 w-4" />,
-      color: 'text-violet-600',
-    },
-    {
-      label: 'Credits',
-      used: data.usage.credits.total - data.usage.credits.remaining,
-      total: data.usage.credits.total,
-      icon: <Zap className="h-4 w-4" />,
-      color: 'text-orange-600',
-    },
-  ]
-
-  const currentPlan = data.currentPlan
-  const subscription = data.subscription
-
-  // Format period dates
-  const periodStart = subscription?.currentPeriodStart
-    ? formatDate(subscription.currentPeriodStart)
-    : null
-  const periodEnd = subscription?.currentPeriodEnd
-    ? formatDate(subscription.currentPeriodEnd)
-    : null
+  const currentTier = subscription?.plan?.tier || 'free'
+  const currentInterval = subscription?.interval || 'monthly'
 
   return (
-    <div className="space-y-8 max-w-6xl">
-      {/* ── Page Header ──────────────────────────────────────────── */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Subscription</h1>
-        <p className="text-muted-foreground">Manage your plan, usage, and billing</p>
-      </div>
+    <div className="space-y-6">
+      {/* Page title */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <Crown className="h-5 w-5 text-amber-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Choose Your Plan</h1>
+            <p className="text-sm text-muted-foreground">Scale your lead generation with the right plan</p>
+          </div>
+        </div>
+      </motion.div>
 
-      {/* ── Current Plan Banner ──────────────────────────────────── */}
+      {/* Current plan info */}
+      {subscription && subscription.status === 'active' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
+          <Card className={`border-0 shadow-sm overflow-hidden ${subscription.cancelAtPeriodEnd ? 'ring-2 ring-red-200' : 'ring-1 ring-emerald-200'}`}>
+            <div className={`h-1 ${subscription.cancelAtPeriodEnd ? 'bg-gradient-to-r from-red-400 to-red-600' : 'bg-gradient-to-r from-emerald-400 to-emerald-600'}`} />
+            <CardContent className="p-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${getPlanIconBg(currentTier)}`}>
+                    {getPlanIcon(currentTier, 'h-5 w-5')}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">
+                        {subscription.plan.name} Plan
+                      </h3>
+                      <Badge variant="outline" className={subscription.cancelAtPeriodEnd
+                        ? 'bg-red-50 text-red-600 border-red-200'
+                        : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                      }>
+                        {subscription.cancelAtPeriodEnd ? 'Canceling' : 'Active'}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {formatPrice(subscription.plan.price)}/{currentInterval === 'yearly' ? 'yr' : 'mo'}
+                      {' · '}
+                      Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!subscription.cancelAtPeriodEnd && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                      onClick={() => setCancelDialog(true)}
+                    >
+                      Cancel Subscription
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      const res = await fetch('/api/stripe/portal', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: user?.id }),
+                      })
+                      const data = await res.json()
+                      if (data.url) {
+                        window.location.href = data.url
+                      } else {
+                        toast({
+                          title: 'Portal Not Available',
+                          description: data.message || 'Manage your subscription from the billing page.',
+                        })
+                      }
+                    }}
+                  >
+                    Manage
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Billing interval toggle */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3, delay: 0.15 }}
+        className="flex justify-center"
+      >
+        <div className="flex items-center gap-3 bg-slate-100 rounded-full p-1.5">
+          <button
+            onClick={() => setBillingInterval('monthly')}
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+              billingInterval === 'monthly'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingInterval('yearly')}
+            className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
+              billingInterval === 'yearly'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Yearly
+            <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 border-0 font-semibold">
+              Save 17%
+            </Badge>
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Plans Grid */}
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        variants={container}
+        initial="hidden"
+        animate="show"
+      >
+        {plans.map((plan) => {
+          const isCurrent = isCurrentPlan(plan.tier)
+          const pricing = billingInterval === 'monthly' ? plan.monthly : plan.yearly
+          const isSubscribing = subscribing === plan.tier
+
+          return (
+            <motion.div key={plan.tier} variants={item}>
+              <Card className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${getPlanCardBorder(plan.tier, plan.popular)}`}>
+                {/* Popular badge */}
+                {plan.popular && (
+                  <div className="absolute top-0 right-0">
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">
+                      <Star className="h-3 w-3 inline mr-1" />
+                      MOST POPULAR
+                    </div>
+                  </div>
+                )}
+
+                <CardContent className="p-6 pt-7">
+                  {/* Plan header */}
+                  <div className="mb-5">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-3 ${getPlanIconBg(plan.tier)}`}>
+                      {getPlanIcon(plan.tier, 'h-6 w-6')}
+                    </div>
+                    <h3 className="text-xl font-bold">{plan.name}</h3>
+                    <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
+                  </div>
+
+                  {/* Price */}
+                  <div className="mb-5">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-bold">
+                        {formatPrice(billingInterval === 'yearly' ? (pricing as PlanPricing & { monthlyEquivalent: number }).monthlyEquivalent : pricing.price)}
+                      </span>
+                      <span className="text-muted-foreground text-sm">/mo</span>
+                    </div>
+                    {billingInterval === 'yearly' && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-sm text-muted-foreground line-through">
+                          {formatPrice(plan.monthly.price)}/mo
+                        </span>
+                        <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 border-0">
+                          Save {(pricing as PlanPricing & { savingsPercent: number }).savingsPercent}%
+                        </Badge>
+                      </div>
+                    )}
+                    {billingInterval === 'yearly' && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Billed {formatPrice(pricing.price)} annually
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Credits info */}
+                  <div className="bg-slate-50 rounded-lg p-3 mb-5">
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm font-medium">
+                        {formatCredits(pricing.credits)} credits/{billingInterval === 'yearly' ? 'mo' : 'mo'}
+                      </span>
+                    </div>
+                    <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Target className="h-3 w-3" />
+                        {formatCredits(pricing.maxLeads)} leads
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Globe className="h-3 w-3" />
+                        {formatCredits(pricing.maxSearches)} searches
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Code className="h-3 w-3" />
+                        {formatCredits(pricing.maxExports)} exports
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Subscribe button */}
+                  <Button
+                    className={`w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 ${getPlanButtonStyle(plan.tier, plan.popular, isCurrent)}`}
+                    disabled={isCurrent || isSubscribing}
+                    onClick={() => handleSubscribe(plan.tier)}
+                  >
+                    {isSubscribing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : isCurrent ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Current Plan
+                      </>
+                    ) : (
+                      <>
+                        {plan.popular && <Sparkles className="h-4 w-4 mr-2" />}
+                        {subscription ? 'Switch Plan' : 'Get Started'}
+                        <ArrowUpRight className="h-4 w-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
+
+                  <Separator className="my-5" />
+
+                  {/* Features */}
+                  <div className="space-y-2.5">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      What&apos;s included
+                    </p>
+                    {(showAllFeatures === plan.tier ? plan.features : plan.features.slice(0, 6)).map((feature, idx) => (
+                      <div key={idx} className="flex items-start gap-2.5">
+                        <Check className={`h-4 w-4 mt-0.5 shrink-0 ${
+                          plan.tier === 'enterprise' ? 'text-emerald-500' :
+                          plan.tier === 'agency' ? 'text-amber-500' :
+                          'text-slate-400'
+                        }`} />
+                        <span className="text-sm text-muted-foreground">{feature}</span>
+                      </div>
+                    ))}
+                    {plan.features.length > 6 && (
+                      <button
+                        onClick={() => setShowAllFeatures(showAllFeatures === plan.tier ? null : plan.tier)}
+                        className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+                      >
+                        {showAllFeatures === plan.tier ? (
+                          <>Show less <ChevronUp className="h-3 w-3" /></>
+                        ) : (
+                          <>+ {plan.features.length - 6} more features <ChevronDown className="h-3 w-3" /></>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )
+        })}
+      </motion.div>
+
+      {/* Enterprise CTA */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.4, delay: 0.5 }}
       >
-        <Card className="border-2 border-amber-500 shadow-sm overflow-hidden">
-          <div className="h-1.5 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500" />
+        <Card className="border-0 bg-gradient-to-r from-slate-900 to-slate-800 text-white overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="h-14 w-14 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0">
-                  <Crown className="h-7 w-7 text-amber-600" />
+                <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Building2 className="h-6 w-6 text-emerald-400" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-lg font-bold text-slate-900">
-                      {currentPlan?.name ?? 'No Plan'} Plan
-                    </h2>
-                    <Badge className="bg-amber-500 text-white hover:bg-amber-500 border-0 text-xs font-medium">
-                      Current Plan
-                    </Badge>
-                    {subscription?.status === 'active' && (
-                      <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-0 text-xs font-medium">
-                        Active
-                      </Badge>
-                    )}
-                    {subscription?.cancelAtPeriodEnd && (
-                      <Badge className="bg-red-50 text-red-700 hover:bg-red-50 border-0 text-xs font-medium">
-                        Cancels at Period End
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                    {periodEnd && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5" />
-                        {subscription?.cancelAtPeriodEnd ? 'Expires' : 'Renews'} {periodEnd}
-                      </span>
-                    )}
-                    {currentPlan && (
-                      <span className="flex items-center gap-1">
-                        <Star className="h-3.5 w-3.5" />
-                        ${currentPlan.price.toFixed(2)}/month
-                      </span>
-                    )}
-                    <span>
-                      {user?.name || 'User'} &middot; {user?.email || 'user@example.com'}
-                    </span>
-                  </div>
+                  <h3 className="text-lg font-bold">Need a custom solution?</h3>
+                  <p className="text-sm text-slate-300">
+                    Get tailored pricing, dedicated support, and custom integrations for your team
+                  </p>
                 </div>
               </div>
-              <Button variant="outline" className="shrink-0">
-                Manage Subscription
+              <Button
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl"
+                onClick={() => {
+                  toast({
+                    title: 'Contact Sales',
+                    description: 'Our sales team will reach out to you shortly!',
+                  })
+                }}
+              >
+                Contact Sales
+                <ArrowUpRight className="h-4 w-4 ml-2" />
               </Button>
             </div>
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* ── Plan Comparison Cards ────────────────────────────────── */}
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-          <ArrowUpRight className="h-5 w-5 text-amber-500" />
-          Compare Plans
-        </h2>
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-3 gap-6"
-          variants={container}
-          initial="hidden"
-          animate="show"
-        >
-          {displayPlans.map((plan) => {
-            const isCurrent = plan.current
-            const isEnterprise = plan.enterprise
-
-            return (
-              <motion.div key={plan.id} variants={item} className="relative">
-                {/* Enterprise gradient border wrapper */}
-                {isEnterprise ? (
-                  <div className="rounded-xl p-[2px] bg-gradient-to-br from-violet-500 via-purple-500 to-fuchsia-500 h-full">
-                    <div className="bg-white rounded-[10px] h-full">
-                      <PlanCard plan={plan} isCurrent={isCurrent} isEnterprise={isEnterprise} />
-                    </div>
-                  </div>
-                ) : (
-                  <Card
-                    className={`h-full ${
-                      isCurrent
-                        ? 'border-2 border-amber-500 shadow-md'
-                        : 'border-0 shadow-sm'
-                    }`}
-                  >
-                    <PlanCard plan={plan} isCurrent={isCurrent} isEnterprise={isEnterprise} />
-                  </Card>
-                )}
-              </motion.div>
-            )
-          })}
-        </motion.div>
-      </div>
-
-      {/* ── Usage This Billing Period ────────────────────────────── */}
+      {/* FAQ Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2 }}
+        transition={{ duration: 0.4, delay: 0.6 }}
       >
         <Card className="border-0 shadow-sm">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-lg">Usage This Billing Period</CardTitle>
-            </div>
-            <CardDescription>
-              Your resource consumption{periodStart ? ` since ${periodStart}` : ''}.{periodEnd ? ` Resets on ${periodEnd}.` : ''}
-            </CardDescription>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-slate-500" />
+              Frequently Asked Questions
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {usageItems.map((u) => {
-                const pct = getUsagePercentage(u.used, u.total)
-                const barColor = getUsageColor(pct)
-                return (
-                  <div key={u.label} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={u.color}>{u.icon}</span>
-                        <span className="text-sm font-medium text-slate-700">{u.label}</span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">
-                        {formatNumber(u.used)} / {formatNumber(u.total)}
-                      </span>
-                    </div>
-                    <div className="relative">
-                      <Progress value={pct} className="h-3" />
-                      {/* Colorful overlay on the progress bar */}
-                      <div
-                        className={`absolute top-0 left-0 h-3 rounded-full transition-all ${barColor}`}
-                        style={{ width: `${pct}%`, opacity: 0.85 }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {pct >= 90 ? (
-                        <span className="text-red-600 font-medium">
-                          Almost at your limit — consider upgrading
-                        </span>
-                      ) : pct >= 70 ? (
-                        <span className="text-amber-600">
-                          {formatNumber(u.total - u.used)} remaining
-                        </span>
-                      ) : (
-                        <span>
-                          {formatNumber(u.total - u.used)} remaining
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* ── Billing History ──────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.3 }}
-      >
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-lg">Billing History</CardTitle>
-            </div>
-            <CardDescription>
-              Recent subscription charges and payment history
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {data.billingHistory.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
-                  <Clock className="h-6 w-6 text-slate-300" />
-                </div>
-                <h3 className="text-sm font-semibold text-slate-700 mb-1">No billing history yet</h3>
-                <p className="text-xs text-muted-foreground">Your billing transactions will appear here.</p>
+          <CardContent className="space-y-4">
+            {[
+              {
+                q: 'Can I switch plans anytime?',
+                a: 'Yes! You can upgrade or downgrade your plan at any time. When upgrading, you\'ll be charged the prorated difference. When downgrading, the change takes effect at the end of your billing period.',
+              },
+              {
+                q: 'What happens when my credits run out?',
+                a: 'Your account will still be active, but you\'ll need to purchase additional credits or wait for your next billing cycle when credits are refreshed.',
+              },
+              {
+                q: 'Is there a free trial?',
+                a: 'All new accounts get 50 free credits to explore the platform. No credit card required to start.',
+              },
+              {
+                q: 'How does the yearly billing work?',
+                a: 'With yearly billing, you pay for 12 months upfront and get 2 months free. That\'s a 17% savings compared to monthly billing.',
+              },
+              {
+                q: 'Can I cancel my subscription?',
+                a: 'Absolutely. You can cancel anytime from your billing settings. Your access continues until the end of the current billing period.',
+              },
+            ].map((faq, idx) => (
+              <div key={idx} className="pb-4 border-b last:border-b-0 last:pb-0">
+                <h4 className="font-medium text-sm">{faq.q}</h4>
+                <p className="text-sm text-muted-foreground mt-1">{faq.a}</p>
               </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b text-left">
-                        <th className="pb-3 text-sm font-medium text-muted-foreground">Date</th>
-                        <th className="pb-3 text-sm font-medium text-muted-foreground">Description</th>
-                        <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Amount</th>
-                        <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Balance</th>
-                        <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Type</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.billingHistory.map((record) => (
-                        <tr
-                          key={record.id}
-                          className="border-b last:border-0 hover:bg-slate-50 transition-colors"
-                        >
-                          <td className="py-3">
-                            <span className="text-sm text-muted-foreground">{formatDate(record.createdAt)}</span>
-                          </td>
-                          <td className="py-3">
-                            <span className="text-sm text-slate-700">{record.description}</span>
-                          </td>
-                          <td className="py-3 text-right">
-                            <span className={`text-sm font-medium ${record.amount < 0 ? 'text-emerald-600' : 'text-slate-700'}`}>
-                              {record.amount < 0 ? '-' : ''}{formatCurrency(record.amount)}
-                            </span>
-                          </td>
-                          <td className="py-3 text-right">
-                            <span className="text-sm text-muted-foreground">{record.balance}</span>
-                          </td>
-                          <td className="py-3 text-right">
-                            {getBillingStatusBadge(record.type, record.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <Separator className="my-4" />
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Showing last {data.billingHistory.length} transactions
-                  </p>
-                  <Button variant="ghost" size="sm" className="text-amber-600 text-xs">
-                    View All Transactions
-                  </Button>
-                </div>
-              </>
-            )}
+            ))}
           </CardContent>
         </Card>
       </motion.div>
 
-      {/* ── FAQ Section ──────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.4 }}
-      >
-        <Card className="border-0 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Headphones className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-lg">Frequently Asked Questions</CardTitle>
-            </div>
-            <CardDescription>
-              Common questions about plans, billing, and account management
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Accordion type="single" collapsible className="w-full">
-              {faqItems.map((faq, index) => (
-                <AccordionItem key={index} value={`faq-${index}`} className="border-b last:border-0">
-                  <AccordionTrigger className="text-sm font-medium text-slate-700 hover:no-underline hover:text-amber-600 text-left">
-                    {faq.question}
-                  </AccordionTrigger>
-                  <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
-                    {faq.answer}
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </CardContent>
-        </Card>
-      </motion.div>
-    </div>
-  )
-}
-
-// ─── Plan Card Sub-component ───────────────────────────────────────────────────
-
-function PlanCard({
-  plan,
-  isCurrent,
-  isEnterprise,
-}: {
-  plan: DisplayPlan
-  isCurrent: boolean
-  isEnterprise: boolean
-}) {
-  return (
-    <div className="p-6 flex flex-col h-full">
-      {/* Header */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <div
-            className={`h-10 w-10 rounded-xl flex items-center justify-center ${
-              isCurrent
-                ? 'bg-amber-50 text-amber-600'
-                : isEnterprise
-                ? 'bg-purple-50 text-purple-600'
-                : 'bg-slate-100 text-slate-600'
-            }`}
-          >
-            {plan.icon}
-          </div>
-          {isCurrent && (
-            <Badge className="bg-amber-500 text-white hover:bg-amber-500 border-0 text-xs">
-              Current Plan
-            </Badge>
-          )}
-          {isEnterprise && !isCurrent && (
-            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-0 text-xs">
-              Popular
-            </Badge>
-          )}
-        </div>
-        <h3 className="text-lg font-bold text-slate-900">{plan.name}</h3>
-        <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
-      </div>
-
-      {/* Price */}
-      <div className="mb-6">
-        <div className="flex items-baseline gap-1">
-          <span className="text-4xl font-bold tracking-tight text-slate-900">
-            ${plan.price}
-          </span>
-          <span className="text-sm text-muted-foreground">{plan.period}</span>
-        </div>
-        {plan.price === 0 && (
-          <p className="text-xs text-muted-foreground mt-1">Free forever</p>
-        )}
-      </div>
-
-      <Separator className="mb-6" />
-
-      {/* Features */}
-      <div className="space-y-3 flex-1 mb-6">
-        {plan.features.map((feature, idx) => (
-          <div key={`${feature.label}-${idx}`} className="flex items-start gap-2.5">
-            {feature.included ? (
-              <Check className="h-4 w-4 mt-0.5 text-emerald-600 shrink-0" />
-            ) : (
-              <X className="h-4 w-4 mt-0.5 text-slate-300 shrink-0" />
-            )}
-            <span
-              className={`text-sm ${
-                feature.included ? 'text-slate-700' : 'text-slate-400'
-              }`}
+      {/* Cancel Subscription Dialog */}
+      <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cancel Subscription</DialogTitle>
+            <DialogDescription>
+              Choose how you&apos;d like to cancel your subscription
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto py-3 text-left"
+              onClick={() => handleCancel(false)}
+              disabled={canceling}
             >
-              {feature.label}
-            </span>
+              <div>
+                <p className="font-medium">Cancel at period end</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Keep access until {subscription?.currentPeriodEnd
+                    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })
+                    : 'end of billing period'}
+                </p>
+              </div>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start h-auto py-3 text-left border-red-200 hover:bg-red-50 text-red-600"
+              onClick={() => handleCancel(true)}
+              disabled={canceling}
+            >
+              <div>
+                <p className="font-medium">Cancel immediately</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Lose access now. No refunds for remaining period.
+                </p>
+              </div>
+            </Button>
           </div>
-        ))}
-      </div>
-
-      {/* Action Button */}
-      {isCurrent ? (
-        <Button
-          className="w-full bg-amber-50 text-amber-700 hover:bg-amber-100 border-0"
-          disabled
-        >
-          <Crown className="h-4 w-4 mr-2" />
-          Current Plan
-        </Button>
-      ) : plan.price === 0 ? (
-        <Button
-          variant="outline"
-          className="w-full"
-        >
-          Downgrade
-        </Button>
-      ) : (
-        <Button
-          className={`w-full ${
-            isEnterprise
-              ? 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white border-0'
-              : 'bg-amber-500 hover:bg-amber-600 text-white'
-          }`}
-        >
-          <ArrowUpRight className="h-4 w-4 mr-2" />
-          Upgrade to {plan.name}
-        </Button>
-      )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCancelDialog(false)} disabled={canceling}>
+              Keep Subscription
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

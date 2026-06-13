@@ -66,6 +66,7 @@ interface AppUser {
   credits: number
   planId?: string | null
   planName?: string
+  planTier?: string
   agencyId?: string | null
   status: string
 }

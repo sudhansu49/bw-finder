@@ -1,0 +1,779 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Progress } from '@/components/ui/progress'
+     9→import { Switch } from '@/components/ui/switch'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import {
+    12→  Table,
+    13→  TableBody,
+    14→  TableCell,
+    15→  TableHead,
+    16→  TableHeader,
+    17→  TableRow,
+    18→} from '@/components/ui/table'
+    19→import { Input } from '@/components/ui/input'
+    20→import { Label } from '@/components/ui/label'
+    21→import { Skeleton } from '@/components/ui/skeleton'
+    22→import { motion } from 'framer-motion'
+    23→import {
+    24→  CreditCard,
+    25→  DollarSign,
+    26→  Calendar,
+    27→  Download,
+    28→  Receipt,
+    29→  AlertTriangle,
+    30→  CheckCircle2,
+    31→  Clock,
+    32→  XCircle,
+    33→  Plus,
+    34→  Settings,
+    35→  Zap,
+    36→  Search,
+    37→  Globe,
+    38→  Edit,
+    39→  Trash2,
+    40→  Shield,
+    41→  Mail,
+    42→  FileText,
+    43→} from 'lucide-react'
+    44→import { useToast } from '@/hooks/use-toast'
+    45→import { useCurrency, useTranslation } from '@/lib/i18n/hooks'
+    46→
+    47→// ─── API Response Types ──────────────────────────────────────────────────────────
+    48→
+    49→interface CreditTransaction {
+    50→  id: string
+    51→  userId: string
+    52→  amount: number
+    53→  balance: number
+    54→  type: string
+    55→  description: string
+    56→  referenceId: string | null
+    57→  createdAt: string
+    58→}
+    59→
+    60→interface SubscriptionData {
+    61→  id: string
+    62→  status: string
+    63→  currentPeriodStart: string
+    64→  currentPeriodEnd: string
+    65→  cancelAtPeriodEnd: boolean
+    66→  plan: {
+    67→    id: string
+    68→    name: string
+    69→    price: number
+    70→    credits: number
+    71→  }
+    72→}
+    73→
+    74→interface PaymentMethod {
+    75→  type: string
+    76→  brand: string
+    77→  last4: string
+    78→  expiryMonth: number
+    79→  expiryYear: number
+    80→}
+    81→
+    82→interface BillingData {
+    83→  currentBalance: number
+    84→  creditTransactions: CreditTransaction[]
+    85→  subscription: SubscriptionData | null
+    86→  paymentMethod: PaymentMethod
+    87→  paymentSummary: {
+    88→    totalSpent: number
+    89→    totalPurchased: number
+    90→    thisMonthSpent: number
+    91→    planPrice: number
+    92→  }
+    93→  invoices: {
+    94→    id: string
+    95→    amount: number
+    96→    description: string
+    97→    date: string
+    98→    status: 'paid' | 'pending' | 'failed'
+    99→  }[]
+   100→}
+   101→
+   102→// ─── Status Badge Helper ────────────────────────────────────────────────────────
+   103→
+   104→function StatusBadge({ status }: { status: 'paid' | 'pending' | 'failed' }) {
+   105→  switch (status) {
+   106→    case 'paid':
+   107→      return (
+   108→        <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200 font-medium">
+   109→          <CheckCircle2 className="h-3 w-3 mr-1" />
+   110→          Paid
+   111→        </Badge>
+   112→      )
+   113→    case 'pending':
+   114→      return (
+   115→        <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-amber-200 font-medium">
+   116→          <Clock className="h-3 w-3 mr-1" />
+   117→          Pending
+   118→        </Badge>
+   119→      )
+   120→    case 'failed':
+   121→      return (
+   122→        <Badge className="bg-red-50 text-red-700 hover:bg-red-50 border-red-200 font-medium">
+   123→          <XCircle className="h-3 w-3 mr-1" />
+   124→          Failed
+   125→        </Badge>
+   126→      )
+   127→  }
+   128→}
+   129→
+   130→// ─── Helpers ──────────────────────────────────────────────────────────────────
+   131→
+   132→function formatDate(dateStr: string): string {
+   133→  try {
+   134→    return new Date(dateStr).toLocaleDateString('en-US', {
+   135→      year: 'numeric',
+   136→      month: 'short',
+   137→      day: 'numeric',
+   138→    })
+   139→  } catch {
+   140→    return dateStr
+   141→  }
+   142→}
+   143→
+   144→// formatCurrency replaced by useCurrency hook inside the component
+   145→
+   146→function formatExpiry(month: number, year: number): string {
+   147→  return `${String(month).padStart(2, '0')}/${year}`
+   148→}
+   149→
+   150→// ─── Main Component ─────────────────────────────────────────────────────────────
+   151→
+   152→export function BillingView() {
+   153→  const { user } = useAppStore()
+   154→  const { toast } = useToast()
+   155→  const { format: formatCurr, formatCompact: formatCompactCurr, symbol: currSymbol } = useCurrency()
+   156→  const { t } = useTranslation()
+   157→  const [billingData, setBillingData] = useState<BillingData | null>(null)
+   158→  const [billingLoading, setBillingLoading] = useState(true)
+   159→  const [autoRecharge, setAutoRecharge] = useState(true)
+   160→  const [billingEmail, setBillingEmail] = useState(user?.email || '')
+   161→  const [taxId, setTaxId] = useState('')
+   162→  const [savingSettings, setSavingSettings] = useState(false)
+   163→
+   164→  // ── Fetch billing data on mount ──
+   165→  useEffect(() => {
+   166→    const fetchBilling = async () => {
+   167→      const userId = user?.id
+   168→      if (!userId) {
+   169→        setBillingLoading(false)
+   170→        return
+   171→      }
+   172→
+   173→      try {
+   174→        const res = await fetch(`/api/user/billing?userId=${userId}`)
+   175→        if (!res.ok) {
+   176→          throw new Error('Failed to fetch billing data')
+   177→        }
+   178→        const data: BillingData = await res.json()
+   179→        setBillingData(data)
+   180→        if (data.paymentMethod) {
+   181→          // Update billing email to user's email if not already set
+   182→          setBillingEmail(user?.email || '')
+   183→        }
+   184→      } catch {
+   185→        toast({
+   186→          title: 'Error',
+   187→          description: 'Failed to load billing data. Please refresh the page.',
+   188→          variant: 'destructive',
+   189→        })
+   190→      } finally {
+   191→        setBillingLoading(false)
+   192→      }
+   193→    }
+   194→
+   195→    fetchBilling()
+   196→  }, [user?.id, toast])
+   197→
+   198→  // ── Derived values ──
+   199→  const currentBalance = billingData?.currentBalance ?? 0
+   200→  const transactions = billingData?.creditTransactions ?? []
+   201→  const subscription = billingData?.subscription
+   202→  const paymentMethod = billingData?.paymentMethod
+   203→  const summary = billingData?.paymentSummary
+   204→  const invoices = billingData?.invoices ?? []
+   205→
+   206→  // Next payment date from subscription
+   207→  const nextPaymentDate = subscription?.currentPeriodEnd
+   208→    ? formatDate(subscription.currentPeriodEnd)
+   209→    : 'N/A'
+   210→  const planPrice = subscription?.plan?.price ?? summary?.planPrice ?? 0
+   211→  const planName = subscription?.plan?.name || user?.planName || ''
+   212→
+   213→  // ── Handlers ──
+   214→
+   215→  const handleSaveSettings = async () => {
+   216→    setSavingSettings(true)
+   217→    await new Promise((resolve) => setTimeout(resolve, 800))
+   218→    setSavingSettings(false)
+   219→    toast({
+   220→      title: 'Settings Saved',
+   221→      description: 'Your billing settings have been updated.',
+   222→    })
+   223→  }
+   224→
+   225→  const handleDownloadInvoice = (invoiceNumber: string) => {
+   226→    toast({
+   227→      title: 'Downloading Invoice',
+   228→      description: `${invoiceNumber}.pdf is being prepared for download.`,
+   229→    })
+   230→  }
+   231→
+   232→  const handleAddPaymentMethod = () => {
+   233→    toast({
+   234→      title: 'Add Payment Method',
+   235→      description: 'Payment method form will open shortly.',
+   236→    })
+   237→  }
+   238→
+   239→  const handleEditCard = () => {
+   240→    toast({
+   241→      title: 'Edit Card',
+   242→      description: 'Card editing form will open shortly.',
+   243→    })
+   244→  }
+   245→
+   246→  const handleRemoveCard = () => {
+   247→    toast({
+   248→      title: 'Remove Card',
+   249→      description: 'Are you sure? This action cannot be undone.',
+   250→      variant: 'destructive',
+   251→    })
+   252→  }
+   253→
+   254→  // ── Loading skeleton ──
+   255→  if (billingLoading) {
+   256→    return (
+   257→      <div className="space-y-6">
+   258→        <div>
+   259→          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing</h1>
+   260→          <p className="text-muted-foreground">Manage your payments, invoices, and usage</p>
+   261→        </div>
+   262→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   263→          {[...Array(4)].map((_, i) => (
+   264→            <Card key={i} className="border-0 shadow-sm">
+   265→              <CardContent className="p-6">
+   266→                <div className="flex items-center justify-between mb-3">
+   267→                  <Skeleton className="h-4 w-28" />
+   268→                  <Skeleton className="h-9 w-9 rounded-xl" />
+   269→                </div>
+   270→                <Skeleton className="h-8 w-24 mb-1" />
+   271→                <Skeleton className="h-3 w-32" />
+   272→              </CardContent>
+   273→            </Card>
+   274→          ))}
+   275→        </div>
+   276→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   277→          <div className="lg:col-span-2 space-y-6">
+   278→            <Card className="border-0 shadow-sm">
+   279→              <CardHeader>
+   280→                <Skeleton className="h-5 w-36" />
+   281→                <Skeleton className="h-4 w-52" />
+   282→              </CardHeader>
+   283→              <CardContent>
+   284→                <Skeleton className="h-20 w-full rounded-xl" />
+   285→              </CardContent>
+   286→            </Card>
+   287→            <Card className="border-0 shadow-sm">
+   288→              <CardHeader>
+   289→                <Skeleton className="h-5 w-36" />
+   290→                <Skeleton className="h-4 w-52" />
+   291→              </CardHeader>
+   292→              <CardContent>
+   293→                {[...Array(5)].map((_, i) => (
+   294→                  <Skeleton key={i} className="h-12 w-full mb-2" />
+   295→                ))}
+   296→              </CardContent>
+   297→            </Card>
+   298→          </div>
+   299→          <div className="space-y-6">
+   300→            <Card className="border-0 shadow-sm">
+   301→              <CardHeader>
+   302→                <Skeleton className="h-5 w-36" />
+   303→                <Skeleton className="h-4 w-48" />
+   304→              </CardHeader>
+   305→              <CardContent className="space-y-4">
+   306→                {[...Array(3)].map((_, i) => (
+   307→                  <div key={i} className="space-y-2">
+   308→                    <Skeleton className="h-4 w-full" />
+   309→                    <Skeleton className="h-2 w-full" />
+   310→                  </div>
+   311→                ))}
+   312→              </CardContent>
+   313→            </Card>
+   314→          </div>
+   315→        </div>
+   316→      </div>
+   317→    )
+   318→  }
+   319→
+   320→  return (
+   321→    <div className="space-y-6">
+   322→      {/* Page Header */}
+   323→      <div>
+   324→        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing</h1>
+   325→        <p className="text-muted-foreground">Manage your payments, invoices, and usage</p>
+   326→      </div>
+   327→
+   328→      {/* ─── Billing Overview Cards ──────────────────────────────────────────────── */}
+   329→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   330→        <motion.div
+   331→          initial={{ opacity: 0, y: 20 }}
+   332→          animate={{ opacity: 1, y: 0 }}
+   333→          transition={{ duration: 0.3 }}
+   334→        >
+   335→          <Card className="border-0 shadow-sm">
+   336→            <CardContent className="p-6">
+   337→              <div className="flex items-center justify-between mb-3">
+   338→                <span className="text-sm font-medium text-muted-foreground">{t('billing.creditsBalance')}</span>
+   339→                <div className="h-9 w-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
+   340→                  <DollarSign className="h-5 w-5 text-emerald-600" />
+   341→                </div>
+   342→              </div>
+   343→              <p className="text-3xl font-bold text-slate-900 dark:text-white">{formatCurr(currentBalance)}</p>
+   344→              <p className="text-xs text-muted-foreground mt-1">Credit balance</p>
+   345→            </CardContent>
+   346→          </Card>
+   347→        </motion.div>
+   348→
+   349→        <motion.div
+   350→          initial={{ opacity: 0, y: 20 }}
+   351→          animate={{ opacity: 1, y: 0 }}
+   352→          transition={{ duration: 0.3, delay: 0.05 }}
+   353→        >
+   354→          <Card className="border-0 shadow-sm">
+   355→            <CardContent className="p-6">
+   356→              <div className="flex items-center justify-between mb-3">
+   357→                <span className="text-sm font-medium text-muted-foreground">Next Payment</span>
+   358→                <div className="h-9 w-9 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
+   359→                  <Calendar className="h-5 w-5 text-amber-600" />
+   360→                </div>
+   361→              </div>
+   362→              <p className="text-3xl font-bold text-slate-900 dark:text-white">{nextPaymentDate !== 'N/A' ? nextPaymentDate.split(',')[0] : 'N/A'}</p>
+   363→              <p className="text-xs text-muted-foreground mt-1">
+   364→                {planName} renewal — {formatCurr(planPrice)}
+   365→              </p>
+   366→            </CardContent>
+   367→          </Card>
+   368→        </motion.div>
+   369→
+   370→        <motion.div
+   371→          initial={{ opacity: 0, y: 20 }}
+   372→          animate={{ opacity: 1, y: 0 }}
+   373→          transition={{ duration: 0.3, delay: 0.1 }}
+   374→        >
+   375→          <Card className="border-0 shadow-sm">
+   376→            <CardContent className="p-6">
+   377→              <div className="flex items-center justify-between mb-3">
+   378→                <span className="text-sm font-medium text-muted-foreground">{t('billing.paymentMethod')}</span>
+   379→                <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+   380→                  <CreditCard className="h-5 w-5 text-blue-600" />
+   381→                </div>
+   382→              </div>
+   383→              <p className="text-xl font-bold text-slate-900 dark:text-white">
+   384→                {paymentMethod?.brand || 'Visa'} •••• {paymentMethod?.last4 || '4242'}
+   385→              </p>
+   386→              <p className="text-xs text-muted-foreground mt-1">
+   387→                Expires {paymentMethod ? formatExpiry(paymentMethod.expiryMonth, paymentMethod.expiryYear) : 'N/A'}
+   388→              </p>
+   389→            </CardContent>
+   390→          </Card>
+   391→        </motion.div>
+   392→
+   393→        <motion.div
+   394→          initial={{ opacity: 0, y: 20 }}
+   395→          animate={{ opacity: 1, y: 0 }}
+   396→          transition={{ duration: 0.3, delay: 0.15 }}
+   397→        >
+   398→          <Card className="border-0 shadow-sm">
+   399→            <CardContent className="p-6">
+   400→              <div className="flex items-center justify-between mb-3">
+   401→                <span className="text-sm font-medium text-muted-foreground">Monthly Spend</span>
+   402→                <div className="h-9 w-9 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
+   403→                  <Receipt className="h-5 w-5 text-purple-600" />
+   404→                </div>
+   405→              </div>
+   406→              <p className="text-3xl font-bold text-slate-900 dark:text-white">
+   407→                {formatCurr(summary?.thisMonthSpent ?? 0)}
+   408→              </p>
+   409→              <p className="text-xs text-muted-foreground mt-1">
+   410→                This month • Total: {formatCurr(summary?.totalSpent ?? 0)}
+   411→              </p>
+   412→            </CardContent>
+   413→          </Card>
+   414→        </motion.div>
+   415→      </div>
+   416→
+   417→      {/* ─── Main Content Grid ──────────────────────────────────────────────────── */}
+   418→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   419→        {/* Left Column — Billing History */}
+   420→        <div className="lg:col-span-2 space-y-6">
+   421→          {/* Payment Method Card */}
+   422→          <motion.div
+   423→            initial={{ opacity: 0, y: 20 }}
+   424→            animate={{ opacity: 1, y: 0 }}
+   425→            transition={{ duration: 0.3, delay: 0.2 }}
+   426→          >
+   427→            <Card className="border-0 shadow-sm">
+   428→              <CardHeader>
+   429→                <div className="flex items-center justify-between">
+   430→                  <div className="flex items-center gap-2">
+   431→                    <CreditCard className="h-5 w-5 text-amber-500" />
+   432→                    <CardTitle className="text-lg">{t('billing.paymentMethod')}</CardTitle>
+   433→                  </div>
+   434→                  <Button
+   435→                    variant="outline"
+   436→                    size="sm"
+   437→                    onClick={handleAddPaymentMethod}
+   438→                    className="text-xs"
+   439→                  >
+   440→                    <Plus className="h-3.5 w-3.5 mr-1" />
+   441→                    Add New
+   442→                  </Button>
+   443→                </div>
+   444→                <CardDescription>Manage your saved payment methods</CardDescription>
+   445→              </CardHeader>
+   446→              <CardContent>
+   447→                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+   448→                  <div className="flex items-center gap-4">
+   449→                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center">
+   450→                      <CreditCard className="h-6 w-6 text-white" />
+   451→                    </div>
+   452→                    <div>
+   453→                      <p className="font-semibold text-slate-900 dark:text-white">
+   454→                        {paymentMethod?.brand || 'Visa'} •••• {paymentMethod?.last4 || '4242'}
+   455→                      </p>
+   456→                      <p className="text-sm text-muted-foreground">
+   457→                        Expires {paymentMethod ? formatExpiry(paymentMethod.expiryMonth, paymentMethod.expiryYear) : 'N/A'}
+   458→                      </p>
+   459→                    </div>
+   460→                    <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-amber-200 text-xs">
+   461→                      Default
+   462→                    </Badge>
+   463→                  </div>
+   464→                  <div className="flex items-center gap-2">
+   465→                    <Button
+   466→                      variant="ghost"
+   467→                      size="sm"
+   468→                      onClick={handleEditCard}
+   469→                      className="text-xs text-muted-foreground hover:text-slate-900 dark:hover:text-white"
+   470→                    >
+   471→                      <Edit className="h-3.5 w-3.5 mr-1" />
+   472→                      Edit
+   473→                    </Button>
+   474→                    <Button
+   475→                      variant="ghost"
+   476→                      size="sm"
+   477→                      onClick={handleRemoveCard}
+   478→                      className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10"
+   479→                    >
+   480→                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+   481→                      Remove
+   482→                    </Button>
+   483→                  </div>
+   484→                </div>
+   485→              </CardContent>
+   486→            </Card>
+   487→          </motion.div>
+   488→
+   489→          {/* Billing History Table */}
+   490→          <motion.div
+   491→            initial={{ opacity: 0, y: 20 }}
+   492→            animate={{ opacity: 1, y: 0 }}
+   493→            transition={{ duration: 0.3, delay: 0.25 }}
+   494→          >
+   495→            <Card className="border-0 shadow-sm">
+   496→              <CardHeader>
+   497→                <div className="flex items-center justify-between">
+   498→                  <div className="flex items-center gap-2">
+   499→                    <FileText className="h-5 w-5 text-amber-500" />
+   500→                    <CardTitle className="text-lg">{t('billing.invoice')}</CardTitle>
+   501→                  </div>
+   502→                  <Badge variant="outline" className="text-xs">
+   503→                    {transactions.length} transactions
+   504→                  </Badge>
+   505→                </div>
+   506→                <CardDescription>View and download your past invoices</CardDescription>
+   507→              </CardHeader>
+   508→              <CardContent className="p-0">
+   509→                {transactions.length === 0 ? (
+   510→                  <div className="p-8 text-center">
+   511→                    <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+   512→                    <p className="text-sm font-medium text-slate-900 dark:text-white">No transactions yet</p>
+   513→                    <p className="text-xs text-muted-foreground mt-1">Your billing history will appear here</p>
+   514→                  </div>
+   515→                ) : (
+   516→                  <div className="max-h-[480px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full">
+   517→                    <Table>
+   518→                      <TableHeader>
+   519→                        <TableRow className="bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
+   520→                          <TableHead className="pl-6">Date</TableHead>
+   521→                          <TableHead>Description</TableHead>
+   522→                          <TableHead>Amount</TableHead>
+   523→                          <TableHead>Balance</TableHead>
+   524→                          <TableHead>Type</TableHead>
+   525→                          <TableHead className="pr-6 text-right">Action</TableHead>
+   526→                        </TableRow>
+   527→                      </TableHeader>
+   528→                      <TableBody>
+   529→                        {transactions.map((tx) => {
+   530→                          const isCredit = tx.amount > 0
+   531→                          const typeLabel = tx.type.charAt(0).toUpperCase() + tx.type.slice(1)
+   532→                          return (
+   533→                            <TableRow key={tx.id} className="group">
+   534→                              <TableCell className="pl-6 text-sm text-muted-foreground">
+   535→                                {formatDate(tx.createdAt)}
+   536→                              </TableCell>
+   537→                              <TableCell className="text-sm font-medium text-slate-900 dark:text-white max-w-[220px] truncate">
+   538→                                {tx.description}
+   539→                              </TableCell>
+   540→                              <TableCell className={`text-sm font-semibold ${isCredit ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
+   541→                                {isCredit ? '+' : ''}{tx.amount}
+   542→                              </TableCell>
+   543→                              <TableCell className="text-sm text-muted-foreground">
+   544→                                {tx.balance}
+   545→                              </TableCell>
+   546→                              <TableCell>
+   547→                                <Badge
+   548→                                  variant="outline"
+   549→                                  className={`text-xs ${
+   550→                                    tx.type === 'purchase'
+   551→                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30'
+   552→                                      : tx.type === 'usage'
+   553→                                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30'
+   554→                                        : tx.type === 'refund'
+   555→                                          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30'
+   556→                                          : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30'
+   557→                                  }`}
+   558→                                >
+   559→                                  {typeLabel}
+   560→                                </Badge>
+   561→                              </TableCell>
+   562→                              <TableCell className="pr-6 text-right">
+   563→                                <Button
+   564→                                  variant="ghost"
+   565→                                  size="sm"
+   566→                                  onClick={() => handleDownloadInvoice(`TXN-${tx.id.slice(-6).toUpperCase()}`)}
+   567→                                  className="text-xs text-muted-foreground hover:text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity h-8"
+   568→                                >
+   569→                                  <Download className="h-3.5 w-3.5 mr-1" />
+   570→                                  PDF
+   571→                                </Button>
+   572→                              </TableCell>
+   573→                            </TableRow>
+   574→                          )
+   575→                        })}
+   576→                      </TableBody>
+   577→                    </Table>
+   578→                  </div>
+   579→                )}
+   580→              </CardContent>
+   581→            </Card>
+   582→          </motion.div>
+   583→        </div>
+   584→
+   585→        {/* Right Column — Usage & Settings */}
+   586→        <div className="space-y-6">
+   587→          {/* Usage This Month */}
+   588→          <motion.div
+   589→            initial={{ opacity: 0, y: 20 }}
+   590→            animate={{ opacity: 1, y: 0 }}
+   591→            transition={{ duration: 0.3, delay: 0.2 }}
+   592→          >
+   593→            <Card className="border-0 shadow-sm">
+   594→              <CardHeader>
+   595→                <div className="flex items-center gap-2">
+   596→                  <Zap className="h-5 w-5 text-amber-500" />
+   597→                  <CardTitle className="text-lg">{t('billing.usageHistory')}</CardTitle>
+   598→                </div>
+   599→                <CardDescription>Your resource consumption this billing period</CardDescription>
+   600→              </CardHeader>
+   601→              <CardContent className="space-y-6">
+   602→                {/* Credits Used */}
+   603→                <div className="space-y-2">
+   604→                  <div className="flex items-center justify-between">
+   605→                    <div className="flex items-center gap-2">
+   606→                      <Zap className="h-4 w-4 text-amber-500" />
+   607→                      <span className="text-sm font-medium text-slate-900 dark:text-white">Credits Used</span>
+   608→                    </div>
+   609→                    <span className="text-sm text-muted-foreground">
+   610→                      <span className="font-semibold text-slate-900 dark:text-white">
+   611→                        {Math.abs(summary?.thisMonthSpent ?? 0).toLocaleString()}
+   612→                      </span>{' '}
+   613→                      credits
+   614→                    </span>
+   615→                  </div>
+   616→                  <Progress
+   617→                    value={subscription?.plan?.credits ? Math.min((Math.abs(summary?.thisMonthSpent ?? 0) / subscription.plan.credits) * 100, 100) : 0}
+   618→                    className="h-2 [&>div]:bg-amber-500"
+   619→                  />
+   620→                  <p className="text-xs text-muted-foreground">
+   621→                    {currentBalance.toLocaleString()} credits remaining
+   622→                  </p>
+   623→                </div>
+   624→
+   625→                <Separator />
+   626→
+   627→                {/* API Calls */}
+   628→                <div className="space-y-2">
+   629→                  <div className="flex items-center justify-between">
+   630→                    <div className="flex items-center gap-2">
+   631→                      <Globe className="h-4 w-4 text-amber-500" />
+   632→                      <span className="text-sm font-medium text-slate-900 dark:text-white">API Calls</span>
+   633→                    </div>
+   634→                    <span className="text-sm text-muted-foreground">
+   635→                      <span className="font-semibold text-slate-900 dark:text-white">
+   636→                        {transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('api')).length.toLocaleString()}
+   637→                      </span>{' '}
+   638→                      calls
+   639→                    </span>
+   640→                  </div>
+   641→                  <Progress
+   642→                    value={Math.min((transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('api')).length / 5000) * 100, 100)}
+   643→                    className="h-2 [&>div]:bg-amber-500"
+   644→                  />
+   645→                  <p className="text-xs text-muted-foreground">API usage this period</p>
+   646→                </div>
+   647→
+   648→                <Separator />
+   649→
+   650→                {/* Searches Performed */}
+   651→                <div className="space-y-2">
+   652→                  <div className="flex items-center justify-between">
+   653→                    <div className="flex items-center gap-2">
+   654→                      <Search className="h-4 w-4 text-amber-500" />
+   655→                      <span className="text-sm font-medium text-slate-900 dark:text-white">Searches Performed</span>
+   656→                    </div>
+   657→                    <span className="text-sm text-muted-foreground">
+   658→                      <span className="font-semibold text-slate-900 dark:text-white">
+   659→                        {transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('search')).length.toLocaleString()}
+   660→                      </span>{' '}
+   661→                      searches
+   662→                    </span>
+   663→                  </div>
+   664→                  <Progress
+   665→                    value={Math.min((transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('search')).length / 500) * 100, 100)}
+   666→                    className="h-2 [&>div]:bg-amber-500"
+   667→                  />
+   668→                  <p className="text-xs text-muted-foreground">Search usage this period</p>
+   669→                </div>
+   670→
+   671→                <Separator />
+   672→
+   673→                {/* Usage Warning */}
+   674→                {currentBalance < 500 && (
+   675→                  <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-100 dark:border-amber-500/20">
+   676→                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+   677→                    <div>
+   678→                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">Credits running low</p>
+   679→                      <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+   680→                        You have {currentBalance} credits remaining. Consider upgrading your plan or
+   681→                        purchasing additional credits.
+   682→                      </p>
+   683→                    </div>
+   684→                  </div>
+   685→                )}
+   686→              </CardContent>
+   687→            </Card>
+   688→          </motion.div>
+   689→
+   690→          {/* Payment Settings */}
+   691→          <motion.div
+   692→            initial={{ opacity: 0, y: 20 }}
+   693→            animate={{ opacity: 1, y: 0 }}
+   694→            transition={{ duration: 0.3, delay: 0.3 }}
+   695→          >
+   696→            <Card className="border-0 shadow-sm">
+   697→              <CardHeader>
+   698→                <div className="flex items-center gap-2">
+   699→                  <Settings className="h-5 w-5 text-amber-500" />
+   700→                  <CardTitle className="text-lg">Payment Settings</CardTitle>
+   701→                </div>
+   702→                <CardDescription>Configure your billing preferences</CardDescription>
+   703→              </CardHeader>
+   704→              <CardContent className="space-y-5">
+   705→                {/* Auto-recharge */}
+   706→                <div className="flex items-center justify-between">
+   707→                  <div className="space-y-0.5">
+   708→                    <div className="flex items-center gap-2">
+   709→                      <Zap className="h-4 w-4 text-muted-foreground" />
+   710→                      <span className="text-sm font-medium text-slate-900 dark:text-white">Auto-recharge</span>
+   711→                    </div>
+   712→                    <p className="text-xs text-muted-foreground">
+   713→                      Automatically buy 1,000 credits when balance drops below 500
+   714→                    </p>
+   715→                  </div>
+   716→                  <Switch
+   717→                    checked={autoRecharge}
+   718→                    onCheckedChange={setAutoRecharge}
+   719→                    className="data-[state=checked]:bg-amber-500"
+   720→                  />
+   721→                </div>
+   722→
+   723→                <Separator />
+   724→
+   725→                {/* Billing Email */}
+   726→                <div className="space-y-2">
+   727→                  <Label htmlFor="billing-email" className="flex items-center gap-2">
+   728→                    <Mail className="h-4 w-4 text-muted-foreground" />
+   729→                    Billing Email
+   730→                  </Label>
+   731→                  <Input
+   732→                    id="billing-email"
+   733→                    type="email"
+   734→                    placeholder="billing@company.com"
+   735→                    value={billingEmail}
+   736→                    onChange={(e) => setBillingEmail(e.target.value)}
+   737→                    className="h-10 text-sm"
+   738→                  />
+   739→                  <p className="text-xs text-muted-foreground">
+   740→                    Invoices and receipts will be sent here
+   741→                  </p>
+   742→                </div>
+   743→
+   744→                <Separator />
+   745→
+   746→                {/* Tax ID */}
+   747→                <div className="space-y-2">
+   748→                  <Label htmlFor="tax-id" className="flex items-center gap-2">
+   749→                    <Shield className="h-4 w-4 text-muted-foreground" />
+   750→                    Tax ID / VAT Number
+   751→                  </Label>
+   752→                  <Input
+   753→                    id="tax-id"
+   754→                    placeholder="e.g. US123456789"
+   755→                    value={taxId}
+   756→                    onChange={(e) => setTaxId(e.target.value)}
+   757→                    className="h-10 text-sm"
+   758→                  />
+   759→                  <p className="text-xs text-muted-foreground">
+   760→                    Added to your invoices for tax purposes
+   761→                  </p>
+   762→                </div>
+   763→
+   764→                <Button
+   765→                  onClick={handleSaveSettings}
+   766→                  disabled={savingSettings}
+   767→                  className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+   768→                >
+   769→                  {savingSettings ? 'Saving...' : 'Save Settings'}
+   770→                </Button>
+   771→              </CardContent>
+   772→            </Card>
+   773→          </motion.div>
+   774→        </div>
+   775→      </div>
+   776→    </div>
+   777→  )
+   778→}
+   779→

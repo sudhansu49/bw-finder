@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAppStore } from '@/store/app-store'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Switch } from '@/components/ui/switch'
 import { Separator } from '@/components/ui/separator'
 import {
   Table,
@@ -16,33 +15,28 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { motion } from 'framer-motion'
 import {
   CreditCard,
-  DollarSign,
   Calendar,
   Download,
   Receipt,
-  AlertTriangle,
   CheckCircle2,
   Clock,
   XCircle,
-  Plus,
-  Settings,
   Zap,
-  Search,
-  Globe,
-  Edit,
-  Trash2,
   Shield,
-  Mail,
-  FileText,
+  Crown,
+  ArrowUpRight,
+  RefreshCw,
+  ExternalLink,
+  TrendingUp,
+  IndianRupee,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { useCurrency, useTranslation } from '@/lib/i18n/hooks'
+import { formatPrice } from '@/lib/stripe'
 
 // ─── API Response Types ──────────────────────────────────────────────────────────
 
@@ -71,708 +65,509 @@ interface SubscriptionData {
   }
 }
 
-interface PaymentMethod {
-  type: string
-  brand: string
-  last4: string
-  expiryMonth: number
-  expiryYear: number
-}
-
 interface BillingData {
   currentBalance: number
   creditTransactions: CreditTransaction[]
   subscription: SubscriptionData | null
-  paymentMethod: PaymentMethod
+  paymentMethod: {
+    type: string
+    brand: string
+    last4: string
+    expiryMonth: number
+    expiryYear: number
+  }
   paymentSummary: {
     totalSpent: number
     totalPurchased: number
     thisMonthSpent: number
     planPrice: number
   }
-  invoices: {
+  invoices: Array<{
     id: string
     amount: number
     description: string
     date: string
     status: 'paid' | 'pending' | 'failed'
-  }[]
+  }>
 }
 
-// ─── Status Badge Helper ────────────────────────────────────────────────────────
+// ─── Animation ──────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: 'paid' | 'pending' | 'failed' }) {
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
+}
+
+const item = {
+  hidden: { opacity: 0, y: 16 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function statusBadge(status: string) {
   switch (status) {
-    case 'paid':
-      return (
-        <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-emerald-200 font-medium">
-          <CheckCircle2 className="h-3 w-3 mr-1" />
-          Paid
-        </Badge>
-      )
-    case 'pending':
-      return (
-        <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-amber-200 font-medium">
-          <Clock className="h-3 w-3 mr-1" />
-          Pending
-        </Badge>
-      )
-    case 'failed':
-      return (
-        <Badge className="bg-red-50 text-red-700 hover:bg-red-50 border-red-200 font-medium">
-          <XCircle className="h-3 w-3 mr-1" />
-          Failed
-        </Badge>
-      )
+    case 'active':
+      return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 border"><CheckCircle2 className="h-3 w-3 mr-1" />Active</Badge>
+    case 'canceled':
+      return <Badge className="bg-red-50 text-red-600 border-red-200 border"><XCircle className="h-3 w-3 mr-1" />Canceled</Badge>
+    case 'past_due':
+      return <Badge className="bg-rose-50 text-rose-700 border-rose-200 border"><Clock className="h-3 w-3 mr-1" />Past Due</Badge>
+    case 'trialing':
+      return <Badge className="bg-amber-50 text-amber-700 border-amber-200 border"><Clock className="h-3 w-3 mr-1" />Trial</Badge>
+    default:
+      return <Badge variant="outline">{status}</Badge>
   }
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return dateStr
-  }
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
-// formatCurrency replaced by useCurrency hook inside the component
-
-function formatExpiry(month: number, year: number): string {
-  return `${String(month).padStart(2, '0')}/${year}`
-}
-
-// ─── Main Component ─────────────────────────────────────────────────────────────
+// ─── Main Component ─────────────────────────────────────────────────────────
 
 export function BillingView() {
-  const { user } = useAppStore()
+  const { user, setCurrentView } = useAppStore()
   const { toast } = useToast()
-  const { format: formatCurr, formatCompact: formatCompactCurr, symbol: currSymbol } = useCurrency()
+  const { currency } = useCurrency()
   const { t } = useTranslation()
-  const [billingData, setBillingData] = useState<BillingData | null>(null)
-  const [billingLoading, setBillingLoading] = useState(true)
-  const [autoRecharge, setAutoRecharge] = useState(true)
-  const [billingEmail, setBillingEmail] = useState(user?.email || '')
-  const [taxId, setTaxId] = useState('')
-  const [savingSettings, setSavingSettings] = useState(false)
+  const [data, setData] = useState<BillingData | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [portalLoading, setPortalLoading] = useState(false)
 
-  // ── Fetch billing data on mount ──
-  useEffect(() => {
-    const fetchBilling = async () => {
-      const userId = user?.id
-      if (!userId) {
-        setBillingLoading(false)
-        return
+  const fetchBilling = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/user/billing?userId=${user?.id}`)
+      if (res.ok) {
+        const billingData = await res.json()
+        setData(billingData)
       }
-
-      try {
-        const res = await fetch(`/api/user/billing?userId=${userId}`)
-        if (!res.ok) {
-          throw new Error('Failed to fetch billing data')
-        }
-        const data: BillingData = await res.json()
-        setBillingData(data)
-        if (data.paymentMethod) {
-          // Update billing email to user's email if not already set
-          setBillingEmail(user?.email || '')
-        }
-      } catch {
-        toast({
-          title: 'Error',
-          description: 'Failed to load billing data. Please refresh the page.',
-          variant: 'destructive',
-        })
-      } finally {
-        setBillingLoading(false)
-      }
+    } catch {
+      // Silent fail
+    } finally {
+      setLoading(false)
     }
+  }, [user?.id])
 
-    fetchBilling()
-  }, [user?.id, toast])
+  useEffect(() => {
+    if (user?.id) fetchBilling()
+  }, [user?.id, fetchBilling])
 
-  // ── Derived values ──
-  const currentBalance = billingData?.currentBalance ?? 0
-  const transactions = billingData?.creditTransactions ?? []
-  const subscription = billingData?.subscription
-  const paymentMethod = billingData?.paymentMethod
-  const summary = billingData?.paymentSummary
-  const invoices = billingData?.invoices ?? []
-
-  // Next payment date from subscription
-  const nextPaymentDate = subscription?.currentPeriodEnd
-    ? formatDate(subscription.currentPeriodEnd)
-    : 'N/A'
-  const planPrice = subscription?.plan?.price ?? summary?.planPrice ?? 0
-  const planName = subscription?.plan?.name || user?.planName || ''
-
-  // ── Handlers ──
-
-  const handleSaveSettings = async () => {
-    setSavingSettings(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    setSavingSettings(false)
-    toast({
-      title: 'Settings Saved',
-      description: 'Your billing settings have been updated.',
-    })
+  const handlePortalAccess = async () => {
+    if (!user?.id) return
+    setPortalLoading(true)
+    try {
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id }),
+      })
+      const portalData = await res.json()
+      if (portalData.url) {
+        window.location.href = portalData.url
+      } else {
+        toast({
+          title: 'Billing Portal',
+          description: portalData.message || 'Manage your subscription from the subscription page.',
+        })
+      }
+    } catch {
+      toast({ title: 'Error', description: 'Failed to open billing portal', variant: 'destructive' })
+    } finally {
+      setPortalLoading(false)
+    }
   }
 
-  const handleDownloadInvoice = (invoiceNumber: string) => {
-    toast({
-      title: 'Downloading Invoice',
-      description: `${invoiceNumber}.pdf is being prepared for download.`,
-    })
-  }
+  // ─── Loading State ────────────────────────────────────────────────────
 
-  const handleAddPaymentMethod = () => {
-    toast({
-      title: 'Add Payment Method',
-      description: 'Payment method form will open shortly.',
-    })
-  }
-
-  const handleEditCard = () => {
-    toast({
-      title: 'Edit Card',
-      description: 'Card editing form will open shortly.',
-    })
-  }
-
-  const handleRemoveCard = () => {
-    toast({
-      title: 'Remove Card',
-      description: 'Are you sure? This action cannot be undone.',
-      variant: 'destructive',
-    })
-  }
-
-  // ── Loading skeleton ──
-  if (billingLoading) {
+  if (loading) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing</h1>
-          <p className="text-muted-foreground">Manage your payments, invoices, and usage</p>
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-xl" />
+          <div>
+            <Skeleton className="h-7 w-40 mb-1" />
+            <Skeleton className="h-4 w-56" />
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="border-0 shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-3">
-                  <Skeleton className="h-4 w-28" />
-                  <Skeleton className="h-9 w-9 rounded-xl" />
-                </div>
-                <Skeleton className="h-8 w-24 mb-1" />
-                <Skeleton className="h-3 w-32" />
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-32 rounded-xl" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <Skeleton className="h-5 w-36" />
-                <Skeleton className="h-4 w-52" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-20 w-full rounded-xl" />
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <Skeleton className="h-5 w-36" />
-                <Skeleton className="h-4 w-52" />
-              </CardHeader>
-              <CardContent>
-                {[...Array(5)].map((_, i) => (
-                  <Skeleton key={i} className="h-12 w-full mb-2" />
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-          <div className="space-y-6">
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <Skeleton className="h-5 w-36" />
-                <Skeleton className="h-4 w-48" />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="space-y-2">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-2 w-full" />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     )
   }
 
+  if (!data) return null
+
+  const subscription = data.subscription
+  const currentPlan = subscription?.plan
+  const periodEnd = subscription?.currentPeriodEnd
+    ? new Date(subscription.currentPeriodEnd)
+    : null
+  const daysRemaining = periodEnd
+    ? Math.max(0, Math.ceil((periodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0
+
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Billing</h1>
-        <p className="text-muted-foreground">Manage your payments, invoices, and usage</p>
-      </div>
-
-      {/* ─── Billing Overview Cards ──────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">{t('billing.creditsBalance')}</span>
-                <div className="h-9 w-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-emerald-600" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white">{formatCurr(currentBalance)}</p>
-              <p className="text-xs text-muted-foreground mt-1">Credit balance</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.05 }}
-        >
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">Next Payment</span>
-                <div className="h-9 w-9 rounded-xl bg-amber-50 dark:bg-amber-500/10 flex items-center justify-center">
-                  <Calendar className="h-5 w-5 text-amber-600" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white">{nextPaymentDate !== 'N/A' ? nextPaymentDate.split(',')[0] : 'N/A'}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {planName} renewal — {formatCurr(planPrice)}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">{t('billing.paymentMethod')}</span>
-                <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
-                  <CreditCard className="h-5 w-5 text-blue-600" />
-                </div>
-              </div>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">
-                {paymentMethod?.brand || 'Visa'} •••• {paymentMethod?.last4 || '4242'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Expires {paymentMethod ? formatExpiry(paymentMethod.expiryMonth, paymentMethod.expiryYear) : 'N/A'}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-        >
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">Monthly Spend</span>
-                <div className="h-9 w-9 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center">
-                  <Receipt className="h-5 w-5 text-purple-600" />
-                </div>
-              </div>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white">
-                {formatCurr(summary?.thisMonthSpent ?? 0)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                This month • Total: {formatCurr(summary?.totalSpent ?? 0)}
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* ─── Main Content Grid ──────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column — Billing History */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Payment Method Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
+      {/* Page title */}
+      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
+              <CreditCard className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">Billing & Payments</h1>
+              <p className="text-sm text-muted-foreground">Manage your subscription, credits, and payment methods</p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={fetchBilling}
+            className="gap-2"
           >
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5 text-amber-500" />
-                    <CardTitle className="text-lg">{t('billing.paymentMethod')}</CardTitle>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
+      </motion.div>
+
+      {/* Summary Cards */}
+      <motion.div className="grid grid-cols-2 lg:grid-cols-4 gap-4" variants={container} initial="hidden" animate="show">
+        <motion.div variants={item}>
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Current Plan</p>
+                  <p className="text-xl font-bold">{currentPlan?.name || 'Free'}</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                  <Crown className="h-5 w-5 text-amber-600" />
+                </div>
+              </div>
+              {currentPlan && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatPrice(currentPlan.price, currency)}/mo
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Credits Balance</p>
+                  <p className="text-xl font-bold">{data.currentBalance.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                  <Zap className="h-5 w-5 text-emerald-600" />
+                </div>
+              </div>
+              {currentPlan && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  of {currentPlan.credits >= 999999 ? '∞' : currentPlan.credits.toLocaleString('en-IN')} monthly
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-orange-400 to-orange-600" />
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">This Month Spent</p>
+                  <p className="text-xl font-bold">{data.paymentSummary.thisMonthSpent.toLocaleString('en-IN')} credits</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-orange-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={item}>
+          <Card className="border-0 shadow-sm overflow-hidden">
+            <div className="h-1 bg-gradient-to-r from-slate-400 to-slate-600" />
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">Days Until Renewal</p>
+                  <p className="text-xl font-bold">{daysRemaining}</p>
+                </div>
+                <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-slate-600" />
+                </div>
+              </div>
+              {periodEnd && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Renews {formatDate(periodEnd.toISOString())}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      {/* Current Subscription & Payment Method */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Subscription Details */}
+        <motion.div variants={item} initial="hidden" animate="show">
+          <Card className="border-0 shadow-sm h-full">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Shield className="h-5 w-5 text-amber-500" />
+                Subscription Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {subscription ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    {statusBadge(subscription.status)}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAddPaymentMethod}
-                    className="text-xs"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    Add New
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Plan</span>
+                    <span className="text-sm font-medium">{currentPlan?.name || 'Free'}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Amount</span>
+                    <span className="text-sm font-medium">{formatPrice(currentPlan?.price || 0, currency)}/mo</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Period Start</span>
+                    <span className="text-sm font-medium">{formatDate(subscription.currentPeriodStart)}</span>
+                  </div>
+                  <Separator />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Period End</span>
+                    <span className="text-sm font-medium">{formatDate(subscription.currentPeriodEnd)}</span>
+                  </div>
+                  {subscription.cancelAtPeriodEnd && (
+                    <>
+                      <Separator />
+                      <div className="bg-red-50 rounded-lg p-3 flex items-center gap-2">
+                        <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                        <span className="text-xs text-red-700">
+                          Subscription will be canceled at the end of the billing period
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => setCurrentView('user-subscription')}
+                    >
+                      <Crown className="h-4 w-4 mr-2" />
+                      Change Plan
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={handlePortalAccess}
+                      disabled={portalLoading}
+                    >
+                      {portalLoading ? (
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                      )}
+                      Manage Portal
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Crown className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground mb-3">No active subscription</p>
+                  <Button size="sm" onClick={() => setCurrentView('user-subscription')}>
+                    <ArrowUpRight className="h-4 w-4 mr-2" />
+                    View Plans
                   </Button>
                 </div>
-                <CardDescription>Manage your saved payment methods</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-600 flex items-center justify-center">
-                      <CreditCard className="h-6 w-6 text-white" />
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Payment Method */}
+        <motion.div variants={item} initial="hidden" animate="show">
+          <Card className="border-0 shadow-sm h-full">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-emerald-500" />
+                Payment Method
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Card display */}
+                <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-5 text-white">
+                  <div className="flex justify-between items-start mb-8">
+                    <div className="h-8 w-12 rounded bg-amber-400/80 flex items-center justify-center">
+                      <IndianRupee className="h-4 w-4 text-slate-900" />
                     </div>
-                    <div>
-                      <p className="font-semibold text-slate-900 dark:text-white">
-                        {paymentMethod?.brand || 'Visa'} •••• {paymentMethod?.last4 || '4242'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Expires {paymentMethod ? formatExpiry(paymentMethod.expiryMonth, paymentMethod.expiryYear) : 'N/A'}
-                      </p>
-                    </div>
-                    <Badge className="bg-amber-50 text-amber-700 hover:bg-amber-50 border-amber-200 text-xs">
-                      Default
-                    </Badge>
+                    <span className="text-xs text-slate-400 uppercase">{data.paymentMethod.brand}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleEditCard}
-                      className="text-xs text-muted-foreground hover:text-slate-900 dark:hover:text-white"
-                    >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRemoveCard}
-                      className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Billing History Table */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.25 }}
-          >
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-amber-500" />
-                    <CardTitle className="text-lg">{t('billing.invoice')}</CardTitle>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {transactions.length} transactions
-                  </Badge>
-                </div>
-                <CardDescription>View and download your past invoices</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {transactions.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">No transactions yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Your billing history will appear here</p>
-                  </div>
-                ) : (
-                  <div className="max-h-[480px] overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-slate-50/80 dark:bg-slate-800/50 hover:bg-slate-50/80 dark:hover:bg-slate-800/50">
-                          <TableHead className="pl-6">Date</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Balance</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead className="pr-6 text-right">Action</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {transactions.map((tx) => {
-                          const isCredit = tx.amount > 0
-                          const typeLabel = tx.type.charAt(0).toUpperCase() + tx.type.slice(1)
-                          return (
-                            <TableRow key={tx.id} className="group">
-                              <TableCell className="pl-6 text-sm text-muted-foreground">
-                                {formatDate(tx.createdAt)}
-                              </TableCell>
-                              <TableCell className="text-sm font-medium text-slate-900 dark:text-white max-w-[220px] truncate">
-                                {tx.description}
-                              </TableCell>
-                              <TableCell className={`text-sm font-semibold ${isCredit ? 'text-emerald-600' : 'text-slate-900 dark:text-white'}`}>
-                                {isCredit ? '+' : ''}{tx.amount}
-                              </TableCell>
-                              <TableCell className="text-sm text-muted-foreground">
-                                {tx.balance}
-                              </TableCell>
-                              <TableCell>
-                                <Badge
-                                  variant="outline"
-                                  className={`text-xs ${
-                                    tx.type === 'purchase'
-                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30'
-                                      : tx.type === 'usage'
-                                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30'
-                                        : tx.type === 'refund'
-                                          ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-400 dark:border-blue-500/30'
-                                          : 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30'
-                                  }`}
-                                >
-                                  {typeLabel}
-                                </Badge>
-                              </TableCell>
-                              <TableCell className="pr-6 text-right">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDownloadInvoice(`TXN-${tx.id.slice(-6).toUpperCase()}`)}
-                                  className="text-xs text-muted-foreground hover:text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity h-8"
-                                >
-                                  <Download className="h-3.5 w-3.5 mr-1" />
-                                  PDF
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          )
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-
-        {/* Right Column — Usage & Settings */}
-        <div className="space-y-6">
-          {/* Usage This Month */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-          >
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="text-lg">{t('billing.usageHistory')}</CardTitle>
-                </div>
-                <CardDescription>Your resource consumption this billing period</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Credits Used */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-amber-500" />
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">Credits Used</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {Math.abs(summary?.thisMonthSpent ?? 0).toLocaleString()}
-                      </span>{' '}
-                      credits
-                    </span>
-                  </div>
-                  <Progress
-                    value={subscription?.plan?.credits ? Math.min((Math.abs(summary?.thisMonthSpent ?? 0) / subscription.plan.credits) * 100, 100) : 0}
-                    className="h-2 [&>div]:bg-amber-500"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    {currentBalance.toLocaleString()} credits remaining
-                  </p>
-                </div>
-
-                <Separator />
-
-                {/* API Calls */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-amber-500" />
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">API Calls</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('api')).length.toLocaleString()}
-                      </span>{' '}
-                      calls
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.min((transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('api')).length / 5000) * 100, 100)}
-                    className="h-2 [&>div]:bg-amber-500"
-                  />
-                  <p className="text-xs text-muted-foreground">API usage this period</p>
-                </div>
-
-                <Separator />
-
-                {/* Searches Performed */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Search className="h-4 w-4 text-amber-500" />
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">Searches Performed</span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      <span className="font-semibold text-slate-900 dark:text-white">
-                        {transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('search')).length.toLocaleString()}
-                      </span>{' '}
-                      searches
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.min((transactions.filter((t) => t.type === 'usage' && t.description?.toLowerCase().includes('search')).length / 500) * 100, 100)}
-                    className="h-2 [&>div]:bg-amber-500"
-                  />
-                  <p className="text-xs text-muted-foreground">Search usage this period</p>
-                </div>
-
-                <Separator />
-
-                {/* Usage Warning */}
-                {currentBalance < 500 && (
-                  <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-100 dark:border-amber-500/20">
-                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">Credits running low</p>
-                      <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
-                        You have {currentBalance} credits remaining. Consider upgrading your plan or
-                        purchasing additional credits.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Payment Settings */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-          >
-            <Card className="border-0 shadow-sm">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Settings className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="text-lg">Payment Settings</CardTitle>
-                </div>
-                <CardDescription>Configure your billing preferences</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {/* Auto-recharge */}
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium text-slate-900 dark:text-white">Auto-recharge</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Automatically buy 1,000 credits when balance drops below 500
+                  <div className="space-y-1">
+                    <p className="text-lg font-mono tracking-widest">
+                      •••• •••• •••• {data.paymentMethod.last4}
                     </p>
+                    <div className="flex justify-between text-xs text-slate-400 mt-2">
+                      <span>Expires {data.paymentMethod.expiryMonth}/{data.paymentMethod.expiryYear}</span>
+                      <span>{user?.name || 'Card Holder'}</span>
+                    </div>
                   </div>
-                  <Switch
-                    checked={autoRecharge}
-                    onCheckedChange={setAutoRecharge}
-                    className="data-[state=checked]:bg-amber-500"
-                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" onClick={handlePortalAccess} disabled={portalLoading}>
+                    Update Card
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1">
+                    Add Payment Method
+                  </Button>
                 </div>
 
                 <Separator />
 
-                {/* Billing Email */}
+                {/* Payment Summary */}
                 <div className="space-y-2">
-                  <Label htmlFor="billing-email" className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    Billing Email
-                  </Label>
-                  <Input
-                    id="billing-email"
-                    type="email"
-                    placeholder="billing@company.com"
-                    value={billingEmail}
-                    onChange={(e) => setBillingEmail(e.target.value)}
-                    className="h-10 text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Invoices and receipts will be sent here
-                  </p>
+                  <p className="text-sm font-medium">Payment Summary</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total Credits Purchased</span>
+                    <span className="font-medium">{data.paymentSummary.totalPurchased.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total Credits Used</span>
+                    <span className="font-medium">{data.paymentSummary.totalSpent.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Current Plan Price</span>
+                    <span className="font-medium">{formatPrice(data.paymentSummary.planPrice, currency)}/mo</span>
+                  </div>
                 </div>
-
-                <Separator />
-
-                {/* Tax ID */}
-                <div className="space-y-2">
-                  <Label htmlFor="tax-id" className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-muted-foreground" />
-                    Tax ID / VAT Number
-                  </Label>
-                  <Input
-                    id="tax-id"
-                    placeholder="e.g. US123456789"
-                    value={taxId}
-                    onChange={(e) => setTaxId(e.target.value)}
-                    className="h-10 text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Added to your invoices for tax purposes
-                  </p>
-                </div>
-
-                <Button
-                  onClick={handleSaveSettings}
-                  disabled={savingSettings}
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-                >
-                  {savingSettings ? 'Saving...' : 'Save Settings'}
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
+
+      {/* Credit Usage Progress */}
+      {currentPlan && currentPlan.credits > 0 && currentPlan.credits < 999999 && (
+        <motion.div variants={item} initial="hidden" animate="show">
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-5">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-medium">Credit Usage This Period</h3>
+                  <span className="text-sm text-muted-foreground">
+                    {data.currentBalance} / {currentPlan.credits.toLocaleString('en-IN')} remaining
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min(100, Math.max(0, ((currentPlan.credits - data.currentBalance) / currentPlan.credits) * 100))}
+                  className="h-3"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{Math.round(((currentPlan.credits - data.currentBalance) / currentPlan.credits) * 100)}% used</span>
+                  <span>{data.currentBalance.toLocaleString('en-IN')} credits left</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Billing History / Invoices */}
+      <motion.div variants={item} initial="hidden" animate="show">
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-slate-500" />
+              Billing History
+            </CardTitle>
+            <CardDescription>Recent transactions and invoices</CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Balance</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.creditTransactions.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        No transactions yet
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    data.creditTransactions.slice(0, 20).map((tx) => (
+                      <TableRow key={tx.id}>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {formatDate(tx.createdAt)}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">
+                          {tx.description}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-[10px]">
+                            {tx.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={`text-sm font-medium ${tx.amount > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                          {tx.amount > 0 ? '+' : ''}{tx.amount.toLocaleString('en-IN')}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {tx.balance.toLocaleString('en-IN')}
+                        </TableCell>
+                        <TableCell>
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   )
 }

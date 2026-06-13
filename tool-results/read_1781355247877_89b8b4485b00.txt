@@ -1,0 +1,726 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Switch } from '@/components/ui/switch'
+     9→import { Label } from '@/components/ui/label'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import { Skeleton } from '@/components/ui/skeleton'
+    12→import {
+    13→  Dialog,
+    14→  DialogContent,
+    15→  DialogDescription,
+    16→  DialogFooter,
+    17→  DialogHeader,
+    18→  DialogTitle,
+    19→} from '@/components/ui/dialog'
+    20→import { useToast } from '@/hooks/use-toast'
+    21→import { motion, AnimatePresence } from 'framer-motion'
+    22→import {
+    23→  Crown,
+    24→  Check,
+    25→  X,
+    26→  Zap,
+    27→  Target,
+    28→  BarChart3,
+    29→  Shield,
+    30→  Headphones,
+    31→  Globe,
+    32→  Code,
+    33→  ArrowUpRight,
+    34→  Star,
+    35→  AlertCircle,
+    36→  Calendar,
+    37→  Clock,
+    38→  Rocket,
+    39→  Sparkles,
+    40→  Loader2,
+    41→  Users,
+    42→  Building2,
+    43→  Infinity,
+    44→  ChevronDown,
+    45→  ChevronUp,
+    46→} from 'lucide-react'
+    47→import { formatPrice } from '@/lib/stripe'
+    48→
+    49→// ─── Types ──────────────────────────────────────────────────────────────────────
+    50→
+    51→interface PlanPricing {
+    52→  price: number
+    53→  credits: number
+    54→  maxLeads: number
+    55→  maxSearches: number
+    56→  maxExports: number
+    57→  planId: string | null
+    58→  stripePriceId: string | null
+    59→}
+    60→
+    61→interface PlanData {
+    62→  tier: string
+    63→  name: string
+    64→  description: string
+    65→  icon: string
+    66→  color: string
+    67→  gradient: string
+    68→  popular: boolean
+    69→  monthly: PlanPricing
+    70→  yearly: PlanPricing & {
+    71→    monthlyEquivalent: number
+    72→    savingsPercent: number
+    73→  }
+    74→  features: string[]
+    75→}
+    76→
+    77→interface SubscriptionInfo {
+    78→  id: string
+    79→  status: string
+    80→  interval: string
+    81→  currentPeriodEnd: string
+    82→  cancelAtPeriodEnd: boolean
+    83→  plan: {
+    84→    id: string
+    85→    name: string
+    86→    tier: string
+    87→    price: number
+    88→  }
+    89→}
+    90→
+    91→// ─── Animation ──────────────────────────────────────────────────────────────
+    92→
+    93→const container = {
+    94→  hidden: { opacity: 0 },
+    95→  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
+    96→}
+    97→
+    98→const item = {
+    99→  hidden: { opacity: 0, y: 20 },
+   100→  show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+   101→}
+   102→
+   103→// ─── Plan Icon Mapping ──────────────────────────────────────────────────────
+   104→
+   105→function getPlanIcon(tier: string, className?: string) {
+   106→  switch (tier) {
+   107→    case 'starter':
+   108→      return <Rocket className={className || 'h-6 w-6'} />
+   109→    case 'agency':
+   110→      return <Zap className={className || 'h-6 w-6'} />
+   111→    case 'enterprise':
+   112→      return <Crown className={className || 'h-6 w-6'} />
+   113→    default:
+   114→      return <Star className={className || 'h-6 w-6'} />
+   115→  }
+   116→}
+   117→
+   118→function getPlanIconBg(tier: string) {
+   119→  switch (tier) {
+   120→    case 'starter':
+   121→      return 'bg-slate-100 text-slate-600'
+   122→    case 'agency':
+   123→      return 'bg-amber-100 text-amber-600'
+   124→    case 'enterprise':
+   125→      return 'bg-emerald-100 text-emerald-600'
+   126→    default:
+   127→      return 'bg-slate-100 text-slate-600'
+   128→  }
+   129→}
+   130→
+   131→function getPlanCardBorder(tier: string, popular: boolean) {
+   132→  if (popular) return 'ring-2 ring-amber-400 shadow-lg shadow-amber-500/10'
+   133→  switch (tier) {
+   134→    case 'starter':
+   135→      return 'border-slate-200'
+   136→    case 'agency':
+   137→      return 'border-amber-200'
+   138→    case 'enterprise':
+   139→      return 'border-emerald-200'
+   140→    default:
+   141→      return ''
+   142→  }
+   143→}
+   144→
+   145→function getPlanButtonStyle(tier: string, popular: boolean, isCurrent: boolean) {
+   146→  if (isCurrent) return 'bg-slate-100 text-slate-500 cursor-default'
+   147→  if (popular) return 'bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 shadow-lg shadow-amber-500/25'
+   148→  switch (tier) {
+   149→    case 'starter':
+   150→      return 'bg-slate-800 text-white hover:bg-slate-900'
+   151→    case 'agency':
+   152→      return 'bg-amber-500 text-white hover:bg-amber-600'
+   153→    case 'enterprise':
+   154→      return 'bg-emerald-600 text-white hover:bg-emerald-700'
+   155→    default:
+   156→      return ''
+   157→  }
+   158→}
+   159→
+   160→function formatCredits(credits: number): string {
+   161→  if (credits === -1 || credits >= 999999) return 'Unlimited'
+   162→  return credits.toLocaleString('en-IN')
+   163→}
+   164→
+   165→// ─── Main Component ─────────────────────────────────────────────────────────
+   166→
+   167→export function SubscriptionView() {
+   168→  const { user } = useAppStore()
+   169→  const { toast } = useToast()
+   170→  const [billingInterval, setBillingInterval] = useState<'monthly' | 'yearly'>('monthly')
+   171→  const [plans, setPlans] = useState<PlanData[]>([])
+   172→  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null)
+   173→  const [loading, setLoading] = useState(true)
+   174→  const [subscribing, setSubscribing] = useState<string | null>(null)
+   175→  const [cancelDialog, setCancelDialog] = useState(false)
+   176→  const [canceling, setCanceling] = useState(false)
+   177→  const [showAllFeatures, setShowAllFeatures] = useState<string | null>(null)
+   178→
+   179→  const fetchData = useCallback(async () => {
+   180→    setLoading(true)
+   181→    try {
+   182→      const [plansRes, subRes] = await Promise.all([
+   183→        fetch('/api/stripe/plans'),
+   184→        fetch(`/api/user/subscription?userId=${user?.id}`),
+   185→      ])
+   186→
+   187→      if (plansRes.ok) {
+   188→        const data = await plansRes.json()
+   189→        setPlans(data.plans || [])
+   190→      }
+   191→
+   192→      if (subRes.ok) {
+   193→        const data = await subRes.json()
+   194→        if (data.subscription) {
+   195→          setSubscription({
+   196→            id: data.subscription.id,
+   197→            status: data.subscription.status,
+   198→            interval: data.subscription.interval || 'monthly',
+   199→            currentPeriodEnd: data.subscription.currentPeriodEnd,
+   200→            cancelAtPeriodEnd: data.subscription.cancelAtPeriodEnd || false,
+   201→            plan: {
+   202→              id: data.currentPlan?.id || '',
+   203→              name: data.currentPlan?.name || 'Free',
+   204→              tier: data.currentPlan?.tier || 'free',
+   205→              price: data.currentPlan?.price || 0,
+   206→            },
+   207→          })
+   208→        }
+   209→      }
+   210→    } catch {
+   211→      // Silent fail
+   212→    } finally {
+   213→      setLoading(false)
+   214→    }
+   215→  }, [user?.id])
+   216→
+   217→  useEffect(() => {
+   218→    if (user?.id) fetchData()
+   219→  }, [user?.id, fetchData])
+   220→
+   221→  const handleSubscribe = async (tier: string) => {
+   222→    if (!user?.id) return
+   223→    setSubscribing(tier)
+   224→
+   225→    try {
+   226→      const res = await fetch('/api/stripe/checkout', {
+   227→        method: 'POST',
+   228→        headers: { 'Content-Type': 'application/json' },
+   229→        body: JSON.stringify({
+   230→          userId: user.id,
+   231→          tier,
+   232→          interval: billingInterval,
+   233→        }),
+   234→      })
+   235→
+   236→      const data = await res.json()
+   237→
+   238→      if (res.ok) {
+   239→        if (data.demo) {
+   240→          toast({
+   241→            title: 'Subscription Activated!',
+   242→            description: `${tier.charAt(0).toUpperCase() + tier.slice(1)} plan (${billingInterval}) is now active. Credits have been added to your account.`,
+   243→          })
+   244→          // Refresh data
+   245→          fetchData()
+   246→        } else if (data.url) {
+   247→          // Redirect to Stripe Checkout
+   248→          window.location.href = data.url
+   249→        }
+   250→      } else {
+   251→        toast({
+   252→          title: 'Error',
+   253→          description: data.error || 'Failed to start checkout',
+   254→          variant: 'destructive',
+   255→        })
+   256→      }
+   257→    } catch {
+   258→      toast({
+   259→        title: 'Error',
+   260→        description: 'Something went wrong. Please try again.',
+   261→        variant: 'destructive',
+   262→      })
+   263→    } finally {
+   264→      setSubscribing(null)
+   265→    }
+   266→  }
+   267→
+   268→  const handleCancel = async (immediately: boolean) => {
+   269→    if (!user?.id) return
+   270→    setCanceling(true)
+   271→
+   272→    try {
+   273→      const res = await fetch('/api/stripe/cancel', {
+   274→        method: 'POST',
+   275→        headers: { 'Content-Type': 'application/json' },
+   276→        body: JSON.stringify({ userId: user.id, immediately }),
+   277→      })
+   278→
+   279→      if (res.ok) {
+   280→        toast({
+   281→          title: immediately ? 'Subscription Canceled' : 'Scheduled Cancellation',
+   282→          description: immediately
+   283→            ? 'Your subscription has been canceled.'
+   284→            : 'Your subscription will be canceled at the end of the billing period.',
+   285→        })
+   286→        fetchData()
+   287→      }
+   288→    } catch {
+   289→      toast({ title: 'Error', description: 'Failed to cancel subscription', variant: 'destructive' })
+   290→    } finally {
+   291→      setCanceling(false)
+   292→      setCancelDialog(false)
+   293→    }
+   294→  }
+   295→
+   296→  const isCurrentPlan = (tier: string) => {
+   297→    return subscription?.plan?.tier === tier
+   298→  }
+   299→
+   300→  // ─── Loading State ───────────────────────────────────────────────────
+   301→
+   302→  if (loading) {
+   303→    return (
+   304→      <div className="space-y-6">
+   305→        <div className="flex items-center gap-3">
+   306→          <Skeleton className="h-10 w-10 rounded-xl" />
+   307→          <div>
+   308→            <Skeleton className="h-7 w-48 mb-1" />
+   309→            <Skeleton className="h-4 w-64" />
+   310→          </div>
+   311→        </div>
+   312→        <div className="flex justify-center py-4">
+   313→          <Skeleton className="h-10 w-64 rounded-full" />
+   314→        </div>
+   315→        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+   316→          {[1, 2, 3].map((i) => (
+   317→            <Skeleton key={i} className="h-[520px] rounded-2xl" />
+   318→          ))}
+   319→        </div>
+   320→      </div>
+   321→    )
+   322→  }
+   323→
+   324→  // ─── Current Subscription Banner ─────────────────────────────────────
+   325→
+   326→  const currentTier = subscription?.plan?.tier || 'free'
+   327→  const currentInterval = subscription?.interval || 'monthly'
+   328→
+   329→  return (
+   330→    <div className="space-y-6">
+   331→      {/* Page title */}
+   332→      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+   333→        <div className="flex items-center gap-3">
+   334→          <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
+   335→            <Crown className="h-5 w-5 text-amber-600" />
+   336→          </div>
+   337→          <div>
+   338→            <h1 className="text-2xl font-bold">Choose Your Plan</h1>
+   339→            <p className="text-sm text-muted-foreground">Scale your lead generation with the right plan</p>
+   340→          </div>
+   341→        </div>
+   342→      </motion.div>
+   343→
+   344→      {/* Current plan info */}
+   345→      {subscription && subscription.status === 'active' && (
+   346→        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, delay: 0.1 }}>
+   347→          <Card className={`border-0 shadow-sm overflow-hidden ${subscription.cancelAtPeriodEnd ? 'ring-2 ring-red-200' : 'ring-1 ring-emerald-200'}`}>
+   348→            <div className={`h-1 ${subscription.cancelAtPeriodEnd ? 'bg-gradient-to-r from-red-400 to-red-600' : 'bg-gradient-to-r from-emerald-400 to-emerald-600'}`} />
+   349→            <CardContent className="p-5">
+   350→              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+   351→                <div className="flex items-center gap-3">
+   352→                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${getPlanIconBg(currentTier)}`}>
+   353→                    {getPlanIcon(currentTier, 'h-5 w-5')}
+   354→                  </div>
+   355→                  <div>
+   356→                    <div className="flex items-center gap-2">
+   357→                      <h3 className="font-semibold text-lg">
+   358→                        {subscription.plan.name} Plan
+   359→                      </h3>
+   360→                      <Badge variant="outline" className={subscription.cancelAtPeriodEnd
+   361→                        ? 'bg-red-50 text-red-600 border-red-200'
+   362→                        : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+   363→                      }>
+   364→                        {subscription.cancelAtPeriodEnd ? 'Canceling' : 'Active'}
+   365→                      </Badge>
+   366→                    </div>
+   367→                    <p className="text-sm text-muted-foreground">
+   368→                      {formatPrice(subscription.plan.price)}/{currentInterval === 'yearly' ? 'yr' : 'mo'}
+   369→                      {' · '}
+   370→                      Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}
+   371→                    </p>
+   372→                  </div>
+   373→                </div>
+   374→                <div className="flex gap-2">
+   375→                  {!subscription.cancelAtPeriodEnd && (
+   376→                    <Button
+   377→                      variant="outline"
+   378→                      size="sm"
+   379→                      className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+   380→                      onClick={() => setCancelDialog(true)}
+   381→                    >
+   382→                      Cancel Subscription
+   383→                    </Button>
+   384→                  )}
+   385→                  <Button
+   386→                    variant="outline"
+   387→                    size="sm"
+   388→                    onClick={async () => {
+   389→                      const res = await fetch('/api/stripe/portal', {
+   390→                        method: 'POST',
+   391→                        headers: { 'Content-Type': 'application/json' },
+   392→                        body: JSON.stringify({ userId: user?.id }),
+   393→                      })
+   394→                      const data = await res.json()
+   395→                      if (data.url) {
+   396→                        window.location.href = data.url
+   397→                      } else {
+   398→                        toast({
+   399→                          title: 'Portal Not Available',
+   400→                          description: data.message || 'Manage your subscription from the billing page.',
+   401→                        })
+   402→                      }
+   403→                    }}
+   404→                  >
+   405→                    Manage
+   406→                  </Button>
+   407→                </div>
+   408→              </div>
+   409→            </CardContent>
+   410→          </Card>
+   411→        </motion.div>
+   412→      )}
+   413→
+   414→      {/* Billing interval toggle */}
+   415→      <motion.div
+   416→        initial={{ opacity: 0, scale: 0.95 }}
+   417→        animate={{ opacity: 1, scale: 1 }}
+   418→        transition={{ duration: 0.3, delay: 0.15 }}
+   419→        className="flex justify-center"
+   420→      >
+   421→        <div className="flex items-center gap-3 bg-slate-100 rounded-full p-1.5">
+   422→          <button
+   423→            onClick={() => setBillingInterval('monthly')}
+   424→            className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
+   425→              billingInterval === 'monthly'
+   426→                ? 'bg-white text-slate-900 shadow-sm'
+   427→                : 'text-slate-500 hover:text-slate-700'
+   428→            }`}
+   429→          >
+   430→            Monthly
+   431→          </button>
+   432→          <button
+   433→            onClick={() => setBillingInterval('yearly')}
+   434→            className={`px-5 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
+   435→              billingInterval === 'yearly'
+   436→                ? 'bg-white text-slate-900 shadow-sm'
+   437→                : 'text-slate-500 hover:text-slate-700'
+   438→            }`}
+   439→          >
+   440→            Yearly
+   441→            <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 border-0 font-semibold">
+   442→              Save 17%
+   443→            </Badge>
+   444→          </button>
+   445→        </div>
+   446→      </motion.div>
+   447→
+   448→      {/* Plans Grid */}
+   449→      <motion.div
+   450→        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+   451→        variants={container}
+   452→        initial="hidden"
+   453→        animate="show"
+   454→      >
+   455→        {plans.map((plan) => {
+   456→          const isCurrent = isCurrentPlan(plan.tier)
+   457→          const pricing = billingInterval === 'monthly' ? plan.monthly : plan.yearly
+   458→          const isSubscribing = subscribing === plan.tier
+   459→
+   460→          return (
+   461→            <motion.div key={plan.tier} variants={item}>
+   462→              <Card className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${getPlanCardBorder(plan.tier, plan.popular)}`}>
+   463→                {/* Popular badge */}
+   464→                {plan.popular && (
+   465→                  <div className="absolute top-0 right-0">
+   466→                    <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl">
+   467→                      <Star className="h-3 w-3 inline mr-1" />
+   468→                      MOST POPULAR
+   469→                    </div>
+   470→                  </div>
+   471→                )}
+   472→
+   473→                <CardContent className="p-6 pt-7">
+   474→                  {/* Plan header */}
+   475→                  <div className="mb-5">
+   476→                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center mb-3 ${getPlanIconBg(plan.tier)}`}>
+   477→                      {getPlanIcon(plan.tier, 'h-6 w-6')}
+   478→                    </div>
+   479→                    <h3 className="text-xl font-bold">{plan.name}</h3>
+   480→                    <p className="text-sm text-muted-foreground mt-1">{plan.description}</p>
+   481→                  </div>
+   482→
+   483→                  {/* Price */}
+   484→                  <div className="mb-5">
+   485→                    <div className="flex items-baseline gap-1">
+   486→                      <span className="text-4xl font-bold">
+   487→                        {formatPrice(billingInterval === 'yearly' ? (pricing as PlanPricing & { monthlyEquivalent: number }).monthlyEquivalent : pricing.price)}
+   488→                      </span>
+   489→                      <span className="text-muted-foreground text-sm">/mo</span>
+   490→                    </div>
+   491→                    {billingInterval === 'yearly' && (
+   492→                      <div className="flex items-center gap-2 mt-1">
+   493→                        <span className="text-sm text-muted-foreground line-through">
+   494→                          {formatPrice(plan.monthly.price)}/mo
+   495→                        </span>
+   496→                        <Badge className="bg-emerald-100 text-emerald-700 text-[10px] px-1.5 py-0 border-0">
+   497→                          Save {(pricing as PlanPricing & { savingsPercent: number }).savingsPercent}%
+   498→                        </Badge>
+   499→                      </div>
+   500→                    )}
+   501→                    {billingInterval === 'yearly' && (
+   502→                      <p className="text-xs text-muted-foreground mt-1">
+   503→                        Billed {formatPrice(pricing.price)} annually
+   504→                      </p>
+   505→                    )}
+   506→                  </div>
+   507→
+   508→                  {/* Credits info */}
+   509→                  <div className="bg-slate-50 rounded-lg p-3 mb-5">
+   510→                    <div className="flex items-center gap-2">
+   511→                      <Zap className="h-4 w-4 text-amber-500" />
+   512→                      <span className="text-sm font-medium">
+   513→                        {formatCredits(pricing.credits)} credits/{billingInterval === 'yearly' ? 'mo' : 'mo'}
+   514→                      </span>
+   515→                    </div>
+   516→                    <div className="flex gap-3 mt-2 text-xs text-muted-foreground">
+   517→                      <span className="flex items-center gap-1">
+   518→                        <Target className="h-3 w-3" />
+   519→                        {formatCredits(pricing.maxLeads)} leads
+   520→                      </span>
+   521→                      <span className="flex items-center gap-1">
+   522→                        <Globe className="h-3 w-3" />
+   523→                        {formatCredits(pricing.maxSearches)} searches
+   524→                      </span>
+   525→                      <span className="flex items-center gap-1">
+   526→                        <Code className="h-3 w-3" />
+   527→                        {formatCredits(pricing.maxExports)} exports
+   528→                      </span>
+   529→                    </div>
+   530→                  </div>
+   531→
+   532→                  {/* Subscribe button */}
+   533→                  <Button
+   534→                    className={`w-full h-11 text-sm font-semibold rounded-xl transition-all duration-300 ${getPlanButtonStyle(plan.tier, plan.popular, isCurrent)}`}
+   535→                    disabled={isCurrent || isSubscribing}
+   536→                    onClick={() => handleSubscribe(plan.tier)}
+   537→                  >
+   538→                    {isSubscribing ? (
+   539→                      <>
+   540→                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+   541→                        Processing...
+   542→                      </>
+   543→                    ) : isCurrent ? (
+   544→                      <>
+   545→                        <Check className="h-4 w-4 mr-2" />
+   546→                        Current Plan
+   547→                      </>
+   548→                    ) : (
+   549→                      <>
+   550→                        {plan.popular && <Sparkles className="h-4 w-4 mr-2" />}
+   551→                        {subscription ? 'Switch Plan' : 'Get Started'}
+   552→                        <ArrowUpRight className="h-4 w-4 ml-2" />
+   553→                      </>
+   554→                    )}
+   555→                  </Button>
+   556→
+   557→                  <Separator className="my-5" />
+   558→
+   559→                  {/* Features */}
+   560→                  <div className="space-y-2.5">
+   561→                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+   562→                      What&apos;s included
+   563→                    </p>
+   564→                    {(showAllFeatures === plan.tier ? plan.features : plan.features.slice(0, 6)).map((feature, idx) => (
+   565→                      <div key={idx} className="flex items-start gap-2.5">
+   566→                        <Check className={`h-4 w-4 mt-0.5 shrink-0 ${
+   567→                          plan.tier === 'enterprise' ? 'text-emerald-500' :
+   568→                          plan.tier === 'agency' ? 'text-amber-500' :
+   569→                          'text-slate-400'
+   570→                        }`} />
+   571→                        <span className="text-sm text-muted-foreground">{feature}</span>
+   572→                      </div>
+   573→                    ))}
+   574→                    {plan.features.length > 6 && (
+   575→                      <button
+   576→                        onClick={() => setShowAllFeatures(showAllFeatures === plan.tier ? null : plan.tier)}
+   577→                        className="flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+   578→                      >
+   579→                        {showAllFeatures === plan.tier ? (
+   580→                          <>Show less <ChevronUp className="h-3 w-3" /></>
+   581→                        ) : (
+   582→                          <>+ {plan.features.length - 6} more features <ChevronDown className="h-3 w-3" /></>
+   583→                        )}
+   584→                      </button>
+   585→                    )}
+   586→                  </div>
+   587→                </CardContent>
+   588→              </Card>
+   589→            </motion.div>
+   590→          )
+   591→        })}
+   592→      </motion.div>
+   593→
+   594→      {/* Enterprise CTA */}
+   595→      <motion.div
+   596→        initial={{ opacity: 0, y: 20 }}
+   597→        animate={{ opacity: 1, y: 0 }}
+   598→        transition={{ duration: 0.4, delay: 0.5 }}
+   599→      >
+   600→        <Card className="border-0 bg-gradient-to-r from-slate-900 to-slate-800 text-white overflow-hidden">
+   601→          <CardContent className="p-6">
+   602→            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+   603→              <div className="flex items-center gap-4">
+   604→                <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center">
+   605→                  <Building2 className="h-6 w-6 text-emerald-400" />
+   606→                </div>
+   607→                <div>
+   608→                  <h3 className="text-lg font-bold">Need a custom solution?</h3>
+   609→                  <p className="text-sm text-slate-300">
+   610→                    Get tailored pricing, dedicated support, and custom integrations for your team
+   611→                  </p>
+   612→                </div>
+   613→              </div>
+   614→              <Button
+   615→                variant="outline"
+   616→                className="bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl"
+   617→                onClick={() => {
+   618→                  toast({
+   619→                    title: 'Contact Sales',
+   620→                    description: 'Our sales team will reach out to you shortly!',
+   621→                  })
+   622→                }}
+   623→              >
+   624→                Contact Sales
+   625→                <ArrowUpRight className="h-4 w-4 ml-2" />
+   626→              </Button>
+   627→            </div>
+   628→          </CardContent>
+   629→        </Card>
+   630→      </motion.div>
+   631→
+   632→      {/* FAQ Section */}
+   633→      <motion.div
+   634→        initial={{ opacity: 0, y: 20 }}
+   635→        animate={{ opacity: 1, y: 0 }}
+   636→        transition={{ duration: 0.4, delay: 0.6 }}
+   637→      >
+   638→        <Card className="border-0 shadow-sm">
+   639→          <CardHeader>
+   640→            <CardTitle className="text-lg flex items-center gap-2">
+   641→              <AlertCircle className="h-5 w-5 text-slate-500" />
+   642→              Frequently Asked Questions
+   643→            </CardTitle>
+   644→          </CardHeader>
+   645→          <CardContent className="space-y-4">
+   646→            {[
+   647→              {
+   648→                q: 'Can I switch plans anytime?',
+   649→                a: 'Yes! You can upgrade or downgrade your plan at any time. When upgrading, you\'ll be charged the prorated difference. When downgrading, the change takes effect at the end of your billing period.',
+   650→              },
+   651→              {
+   652→                q: 'What happens when my credits run out?',
+   653→                a: 'Your account will still be active, but you\'ll need to purchase additional credits or wait for your next billing cycle when credits are refreshed.',
+   654→              },
+   655→              {
+   656→                q: 'Is there a free trial?',
+   657→                a: 'All new accounts get 50 free credits to explore the platform. No credit card required to start.',
+   658→              },
+   659→              {
+   660→                q: 'How does the yearly billing work?',
+   661→                a: 'With yearly billing, you pay for 12 months upfront and get 2 months free. That\'s a 17% savings compared to monthly billing.',
+   662→              },
+   663→              {
+   664→                q: 'Can I cancel my subscription?',
+   665→                a: 'Absolutely. You can cancel anytime from your billing settings. Your access continues until the end of the current billing period.',
+   666→              },
+   667→            ].map((faq, idx) => (
+   668→              <div key={idx} className="pb-4 border-b last:border-b-0 last:pb-0">
+   669→                <h4 className="font-medium text-sm">{faq.q}</h4>
+   670→                <p className="text-sm text-muted-foreground mt-1">{faq.a}</p>
+   671→              </div>
+   672→            ))}
+   673→          </CardContent>
+   674→        </Card>
+   675→      </motion.div>
+   676→
+   677→      {/* Cancel Subscription Dialog */}
+   678→      <Dialog open={cancelDialog} onOpenChange={setCancelDialog}>
+   679→        <DialogContent className="sm:max-w-md">
+   680→          <DialogHeader>
+   681→            <DialogTitle>Cancel Subscription</DialogTitle>
+   682→            <DialogDescription>
+   683→              Choose how you&apos;d like to cancel your subscription
+   684→            </DialogDescription>
+   685→          </DialogHeader>
+   686→          <div className="space-y-3 py-2">
+   687→            <Button
+   688→              variant="outline"
+   689→              className="w-full justify-start h-auto py-3 text-left"
+   690→              onClick={() => handleCancel(false)}
+   691→              disabled={canceling}
+   692→            >
+   693→              <div>
+   694→                <p className="font-medium">Cancel at period end</p>
+   695→                <p className="text-xs text-muted-foreground mt-0.5">
+   696→                  Keep access until {subscription?.currentPeriodEnd
+   697→                    ? new Date(subscription.currentPeriodEnd).toLocaleDateString('en-IN', { month: 'long', day: 'numeric' })
+   698→                    : 'end of billing period'}
+   699→                </p>
+   700→              </div>
+   701→            </Button>
+   702→            <Button
+   703→              variant="outline"
+   704→              className="w-full justify-start h-auto py-3 text-left border-red-200 hover:bg-red-50 text-red-600"
+   705→              onClick={() => handleCancel(true)}
+   706→              disabled={canceling}
+   707→            >
+   708→              <div>
+   709→                <p className="font-medium">Cancel immediately</p>
+   710→                <p className="text-xs text-muted-foreground mt-0.5">
+   711→                  Lose access now. No refunds for remaining period.
+   712→                </p>
+   713→              </div>
+   714→            </Button>
+   715→          </div>
+   716→          <DialogFooter>
+   717→            <Button variant="ghost" onClick={() => setCancelDialog(false)} disabled={canceling}>
+   718→              Keep Subscription
+   719→            </Button>
+   720→          </DialogFooter>
+   721→        </DialogContent>
+   722→      </Dialog>
+   723→    </div>
+   724→  )
+   725→}
+   726→

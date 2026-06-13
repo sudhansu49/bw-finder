@@ -1,0 +1,1227 @@
+- main
+  - heading "Dashboard" [level=1, ref=e13]
+  - paragraph
+    - StaticText "Welcome back, Demo User"
+  - button "Discover" [ref=e14]
+  - button "Pipeline" [ref=e15]
+  - button "Find Leads" [ref=e16]
+    - StaticText "Find Leads"
+  - button "Pipeline" [ref=e17]
+    - StaticText "Pipeline"
+  - button "AI Audit" [ref=e18]
+    - StaticText "AI Audit"
+  - button "Proposal" [ref=e19]
+    - StaticText "Proposal"
+  - button "WhatsApp" [ref=e20]
+    - StaticText "WhatsApp"
+  - button "Email" [ref=e21]
+    - StaticText "Email"
+  - paragraph
+    - StaticText "Total Leads"
+  - paragraph
+    - StaticText "12"
+  - StaticText "1"
+  - StaticText " "
+  - StaticText "won deals"
+  - StaticText "·"
+  - StaticText "10"
+  - StaticText " active"
+  - paragraph
+    - StaticText "No Website"
+  - paragraph
+    - StaticText "14"
+  - StaticText "78"
+  - StaticText "%"
+  - StaticText "of businesses"
+  - progressbar
+  - paragraph
+    - StaticText "High Opportunity"
+  - paragraph
+    - StaticText "12"
+  - StaticText "100"
+  - StaticText "%"
+  - StaticText "of leads scored 70+"
+  - paragraph
+    - StaticText "Pipeline Value"
+  - paragraph
+    - StaticText "₹6.0K"
+  - StaticText "₹1.1K"
+  - StaticText " "
+  - StaticText "won deals"
+  - heading "Conversion Metrics" [level=2, ref=e22]
+  - StaticText "Sales Funnel"
+  - StaticText "Leads flowing through your pipeline stages"
+  - StaticText "New Lead"
+  - StaticText "3"
+  - StaticText "Contacted"
+  - StaticText "2"
+  - StaticText "67"
+  - StaticText "%"
+  - StaticText "Interested"
+  - StaticText "3"
+  - StaticText "150"
+  - StaticText "%"
+  - StaticText "Meeting"
+  - StaticText "1"
+  - StaticText "33"
+  - StaticText "%"
+  - StaticText "Proposal"
+  - StaticText "1"
+  - StaticText "100"
+  - StaticText "%"
+  - StaticText "Won"
+  - StaticText "1"
+  - StaticText "100"
+  - StaticText "%"
+  - paragraph
+    - StaticText "Conversion Rate"
+  - paragraph
+    - StaticText "8%"
+  - paragraph
+    - StaticText "1 won / 12 total leads"
+  - paragraph
+    - StaticText "Avg Deal Cycle"
+  - paragraph
+    - StaticText "0"
+  - StaticText "days"
+  - paragraph
+    - StaticText "Lost Rate"
+  - paragraph
+    - StaticText "8%"
+  - paragraph
+    - StaticText "1 lost deals"
+  - StaticText "Stage Conversion Rates"
+  - StaticText "How leads move from one stage to the next"
+  - StaticText "New Lead"
+  - generic
+    - StaticText "67%"
+  - generic
+    - StaticText "→ Contacted"
+  - StaticText "Contacted"
+  - generic
+    - StaticText "150%"
+  - generic
+    - StaticText "→ Interested"
+  - StaticText "Interested"
+  - generic
+    - StaticText "33%"
+  - generic
+    - StaticText "→ Meeting"
+  - StaticText "Meeting"
+  - generic
+    - StaticText "100%"
+  - generic
+    - StaticText "→ Proposal"
+  - StaticText "Proposal"
+  - generic
+    - StaticText "100%"
+  - generic
+    - StaticText "→ Won"
+  - StaticText "Revenue Trend"
+  - StaticText "Monthly won deal value over the last 6 months"
+  - SvgRoot
+    - StaticText "Jan"
+    - StaticText "Feb"
+    - StaticText "Mar"
+    - StaticText "Apr"
+    - StaticText "May"
+    - StaticText "Jun"
+    - StaticText "₹0"
+    - StaticText "₹300"
+    - StaticText "₹600"
+    - StaticText "₹900"
+    - StaticText "₹1.2K"
+  - StaticText "Leads by Status"
+  - StaticText "Distribution across pipeline stages"
+  - SvgRoot
+    - StaticText "Interested"
+    - StaticText "Lost"
+    - StaticText "New Lead"
+    - StaticText "Won"
+    - StaticText "0"
+    - StaticText "0.75"
+    - StaticText "1.5"
+    - StaticText "2.25"
+    - StaticText "3"
+  - StaticText "Top Opportunities"
+  - StaticText "Highest-scoring leads ranked by AI opportunity score"
+  - button "View All" [ref=e23]
+  - table
+    - rowgroup
+      - row
+        - columnheader "Business" [ref=e145]
+        - columnheader "Website" [ref=e146]
+        - columnheader "Lead Score" [ref=e147]
+        - columnheader "Opp. Score" [ref=e148]
+        - columnheader "Est. Revenue/mo" [ref=e149]
+        - columnheader "Deal Value" [ref=e150]
+    - row
+      - cell "Mario's Pizza Palace Restaurant · Mumbai" [ref=e33]
+        - paragraph
+          - StaticText "Mario's Pizza Palace"
+        - paragraph
+          - StaticText "Restaurant · Mumbai"
+      - cell "No Site" [ref=e34]
+      - cell "79" [ref=e35]
+        - StaticText "79"
+      - cell "100" [ref=e36]
+        - StaticText "100"
+      - cell "₹22,250" [ref=e37]
+      - cell "₹499" [ref=e38]
+    - row
+      - cell "Glamour Hair Studio Salon · Mumbai" [ref=e39]
+        - paragraph
+          - StaticText "Glamour Hair Studio"
+        - paragraph
+          - StaticText "Salon · Mumbai"
+      - cell "No Site" [ref=e40]
+      - cell "76" [ref=e41]
+        - StaticText "76"
+      - cell "100" [ref=e42]
+        - StaticText "100"
+      - cell "₹10,850" [ref=e43]
+      - cell "₹299" [ref=e44]
+    - row
+      - cell "Quick Fix Plumbing Plumber · Bengaluru" [ref=e45]
+        - paragraph
+          - StaticText "Quick Fix Plumbing"
+        - paragraph
+          - StaticText "Plumber · Bengaluru"
+      - cell "No Site" [ref=e46]
+      - cell "55" [ref=e47]
+        - StaticText "55"
+      - cell "100" [ref=e48]
+        - StaticText "100"
+      - cell "₹6,900" [ref=e49]
+      - cell "₹798" [ref=e50]
+    - row
+      - cell "Sunrise Bakery Bakery · Pune" [ref=e51]
+        - paragraph
+          - StaticText "Sunrise Bakery"
+        - paragraph
+          - StaticText "Bakery · Pune"
+      - cell "No Site" [ref=e52]
+      - cell "79" [ref=e53]
+        - StaticText "79"
+      - cell "100" [ref=e54]
+        - StaticText "100"
+      - cell "₹16,750" [ref=e55]
+      - cell "₹1,098" [ref=e56]
+    - row
+      - cell "FitZone Gym Gym · Hyderabad" [ref=e57]
+        - paragraph
+          - StaticText "FitZone Gym"
+        - paragraph
+          - StaticText "Gym · Hyderabad"
+      - cell "No Site" [ref=e58]
+      - cell "74" [ref=e59]
+        - StaticText "74"
+      - cell "100" [ref=e60]
+        - StaticText "100"
+      - cell "₹12,975" [ref=e61]
+      - cell "₹499" [ref=e62]
+    - row
+      - cell "Green Thumb Landscaping Real Estate · Bengaluru" [ref=e63]
+        - paragraph
+          - StaticText "Green Thumb Landscaping"
+        - paragraph
+          - StaticText "Real Estate · Bengaluru"
+      - cell "No Site" [ref=e64]
+      - cell "67" [ref=e65]
+        - StaticText "67"
+      - cell "100" [ref=e66]
+        - StaticText "100"
+      - cell "₹59,600" [ref=e67]
+      - cell "₹299" [ref=e68]
+    - row
+      - cell "Paws & Claws Vet Clinic · Mumbai" [ref=e69]
+        - paragraph
+          - StaticText "Paws & Claws Vet"
+        - paragraph
+          - StaticText "Clinic · Mumbai"
+      - cell "No Site" [ref=e70]
+      - cell "89" [ref=e71]
+        - StaticText "89"
+      - cell "100" [ref=e72]
+        - StaticText "100"
+      - cell "₹51,000" [ref=e73]
+      - cell "₹898" [ref=e74]
+    - row
+      - cell "Bella Nails Spa Beauty Parlour · Pune" [ref=e75]
+        - paragraph
+          - StaticText "Bella Nails Spa"
+        - paragraph
+          - StaticText "Beauty Parlour · Pune"
+      - cell "No Site" [ref=e76]
+      - cell "76" [ref=e77]
+        - StaticText "76"
+      - cell "100" [ref=e78]
+        - StaticText "100"
+      - cell "₹11,250" [ref=e79]
+      - cell "₹499" [ref=e80]
+  - heading "AI Lead Scoring" [level=2, ref=e24]
+  - paragraph
+    - StaticText "Avg Lead Score"
+  - paragraph
+    - StaticText "71"
+  - StaticText "/100"
+  - paragraph
+    - StaticText "Avg Opportunity"
+  - paragraph
+    - StaticText "100"
+  - StaticText "/100"
+  - paragraph
+    - StaticText "Total Est. Revenue"
+  - paragraph
+    - StaticText "₹5.5L"
+  - StaticText "/mo"
+  - heading "AI Business Audit" [level=2, ref=e25]
+  - paragraph
+    - StaticText "Audited"
+  - paragraph
+    - StaticText "18"
+  - paragraph
+    - StaticText "Avg Audit Score"
+  - paragraph
+    - StaticText "23"
+  - StaticText "/100"
+  - paragraph
+    - StaticText "Critical Issues"
+  - paragraph
+    - StaticText "52"
+  - paragraph
+    - StaticText "Opp. Value"
+  - paragraph
+    - StaticText "₹1.6L"
+  - StaticText "Top Audit Opportunities"
+  - StaticText "Businesses with the most digital gaps — best opportunities for your services"
+  - table
+    - rowgroup
+      - row
+        - columnheader "Business" [ref=e151]
+        - columnheader "Category" [ref=e152]
+        - columnheader "Audit Score" [ref=e153]
+        - columnheader "Lead Score" [ref=e154]
+    - row
+      - cell "Mario's Pizza Palace Mumbai" [ref=e81]
+        - paragraph
+          - StaticText "Mario's Pizza Palace"
+        - paragraph
+          - StaticText "Mumbai"
+      - cell "Restaurant" [ref=e82]
+      - cell "0" [ref=e83]
+        - StaticText "0"
+      - cell "79" [ref=e84]
+        - StaticText "79"
+    - row
+      - cell "Glamour Hair Studio Mumbai" [ref=e85]
+        - paragraph
+          - StaticText "Glamour Hair Studio"
+        - paragraph
+          - StaticText "Mumbai"
+      - cell "Salon" [ref=e86]
+      - cell "0" [ref=e87]
+        - StaticText "0"
+      - cell "76" [ref=e88]
+        - StaticText "76"
+    - row
+      - cell "FitZone Gym Hyderabad" [ref=e89]
+        - paragraph
+          - StaticText "FitZone Gym"
+        - paragraph
+          - StaticText "Hyderabad"
+      - cell "Gym" [ref=e90]
+      - cell "0" [ref=e91]
+        - StaticText "0"
+      - cell "74" [ref=e92]
+        - StaticText "74"
+    - row
+      - cell "Paws & Claws Vet Mumbai" [ref=e93]
+        - paragraph
+          - StaticText "Paws & Claws Vet"
+        - paragraph
+          - StaticText "Mumbai"
+      - cell "Clinic" [ref=e94]
+      - cell "0" [ref=e95]
+        - StaticText "0"
+      - cell "89" [ref=e96]
+        - StaticText "89"
+    - row
+      - cell "Bella Nails Spa Pune" [ref=e97]
+        - paragraph
+          - StaticText "Bella Nails Spa"
+        - paragraph
+          - StaticText "Pune"
+      - cell "Beauty Parlour" [ref=e98]
+      - cell "0" [ref=e99]
+        - StaticText "0"
+      - cell "76" [ref=e100]
+        - StaticText "76"
+  - StaticText "Businesses by Category"
+  - StaticText "Top business categories discovered"
+  - SvgRoot
+    - group [ref=e101] focusable [tabindex]
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+      - group
+        - image
+  - StaticText "Businesses by Country"
+  - StaticText "Geographic distribution of discovered businesses"
+  - SvgRoot
+    - StaticText "0"
+    - StaticText "5"
+    - StaticText "10"
+    - StaticText "15"
+    - StaticText "20"
+    - StaticText "India"
+  - StaticText "Recent Activity"
+  - StaticText "Latest leads in your pipeline"
+  - button "View All" [ref=e26]
+  - table
+    - rowgroup
+      - row
+        - columnheader "Business" [ref=e155]
+        - columnheader "Status" [ref=e156]
+        - columnheader "Priority" [ref=e157]
+        - columnheader "Value" [ref=e158]
+    - row
+      - cell "Law Chambers Associates Lawyer · Mumbai, India" [ref=e102]
+        - paragraph
+          - StaticText "Law Chambers Associates"
+        - paragraph
+          - StaticText "Lawyer · Mumbai, India"
+      - cell "Interested" [ref=e103]
+      - cell "medium" [ref=e104]
+      - cell "₹598" [ref=e105]
+    - row
+      - cell "Sharp Cuts Barbershop Salon · Jaipur, India" [ref=e106]
+        - paragraph
+          - StaticText "Sharp Cuts Barbershop"
+        - paragraph
+          - StaticText "Salon · Jaipur, India"
+      - cell "New Lead" [ref=e107]
+      - cell "medium" [ref=e108]
+      - cell "₹499" [ref=e109]
+    - row
+      - cell "Spa Serenity Spa · Goa, India" [ref=e110]
+        - paragraph
+          - StaticText "Spa Serenity"
+        - paragraph
+          - StaticText "Spa · Goa, India"
+      - cell "Meeting" [ref=e111]
+      - cell "high" [ref=e112]
+      - cell "₹1,098" [ref=e113]
+    - row
+      - cell "Metro Cleaners Other · Hyderabad, India" [ref=e114]
+        - paragraph
+          - StaticText "Metro Cleaners"
+        - paragraph
+          - StaticText "Other · Hyderabad, India"
+      - cell "Lost" [ref=e115]
+      - cell "low" [ref=e116]
+      - cell "₹299" [ref=e117]
+    - row
+      - cell "Bella Nails Spa Beauty Parlour · Pune, India" [ref=e118]
+        - paragraph
+          - StaticText "Bella Nails Spa"
+        - paragraph
+          - StaticText "Beauty Parlour · Pune, India"
+      - cell "New Lead" [ref=e119]
+      - cell "medium" [ref=e120]
+      - cell "₹499" [ref=e121]
+  - button "Discover" [ref=e27]
+  - button "AI Audit" [ref=e28]
+  - button "Proposals" [ref=e29]
+  - button "Pipeline" [ref=e30]
+  - button "Add Lead" [ref=e31]
+  - sectionfooter
+    - StaticText "BW Finder"
+    - StaticText " © "
+    - StaticText "2026"
+    - paragraph
+      - StaticText "Find businesses without websites • Close deals faster"
+- heading "Dashboard" [level=1, ref=e13]
+- paragraph
+  - StaticText "Welcome back, Demo User"
+- button "Discover" [ref=e14]
+- button "Pipeline" [ref=e15]
+- button "Find Leads" [ref=e16]
+  - StaticText "Find Leads"
+- button "Pipeline" [ref=e17]
+  - StaticText "Pipeline"
+- button "AI Audit" [ref=e18]
+  - StaticText "AI Audit"
+- button "Proposal" [ref=e19]
+  - StaticText "Proposal"
+- button "WhatsApp" [ref=e20]
+  - StaticText "WhatsApp"
+- button "Email" [ref=e21]
+  - StaticText "Email"
+- paragraph
+  - StaticText "Total Leads"
+- paragraph
+  - StaticText "12"
+- StaticText "1"
+- StaticText "won deals"
+- StaticText "·"
+- StaticText "10"
+- StaticText " active"
+- paragraph
+  - StaticText "No Website"
+- paragraph
+  - StaticText "14"
+- StaticText "78"
+- StaticText "%"
+- StaticText "of businesses"
+- progressbar
+- paragraph
+  - StaticText "High Opportunity"
+- paragraph
+  - StaticText "12"
+- StaticText "100"
+- StaticText "%"
+- StaticText "of leads scored 70+"
+- paragraph
+  - StaticText "Pipeline Value"
+- paragraph
+  - StaticText "₹6.0K"
+- StaticText "₹1.1K"
+- StaticText "won deals"
+- heading "Conversion Metrics" [level=2, ref=e22]
+- StaticText "Sales Funnel"
+- StaticText "Leads flowing through your pipeline stages"
+- StaticText "New Lead"
+- StaticText "3"
+- StaticText "Contacted"
+- StaticText "2"
+- StaticText "67"
+- StaticText "%"
+- StaticText "Interested"
+- StaticText "3"
+- StaticText "150"
+- StaticText "%"
+- StaticText "Meeting"
+- StaticText "1"
+- StaticText "33"
+- StaticText "%"
+- StaticText "Proposal"
+- StaticText "1"
+- StaticText "100"
+- StaticText "%"
+- StaticText "Won"
+- StaticText "1"
+- StaticText "100"
+- StaticText "%"
+- paragraph
+  - StaticText "Conversion Rate"
+- paragraph
+  - StaticText "8%"
+- paragraph
+  - StaticText "1 won / 12 total leads"
+- paragraph
+  - StaticText "Avg Deal Cycle"
+- paragraph
+  - StaticText "0"
+- StaticText "days"
+- paragraph
+  - StaticText "Lost Rate"
+- paragraph
+  - StaticText "8%"
+- paragraph
+  - StaticText "1 lost deals"
+- StaticText "Stage Conversion Rates"
+- StaticText "How leads move from one stage to the next"
+- StaticText "New Lead"
+- generic
+  - StaticText "67%"
+- generic
+  - StaticText "→ Contacted"
+- StaticText "Contacted"
+- generic
+  - StaticText "150%"
+- generic
+  - StaticText "→ Interested"
+- StaticText "Interested"
+- generic
+  - StaticText "33%"
+- generic
+  - StaticText "→ Meeting"
+- StaticText "Meeting"
+- generic
+  - StaticText "100%"
+- generic
+  - StaticText "→ Proposal"
+- StaticText "Proposal"
+- generic
+  - StaticText "100%"
+- generic
+  - StaticText "→ Won"
+- StaticText "Revenue Trend"
+- StaticText "Monthly won deal value over the last 6 months"
+- SvgRoot
+  - StaticText "Jan"
+  - StaticText "Feb"
+  - StaticText "Mar"
+  - StaticText "Apr"
+  - StaticText "May"
+  - StaticText "Jun"
+  - StaticText "₹0"
+  - StaticText "₹300"
+  - StaticText "₹600"
+  - StaticText "₹900"
+  - StaticText "₹1.2K"
+- StaticText "Leads by Status"
+- StaticText "Distribution across pipeline stages"
+- SvgRoot
+  - StaticText "Interested"
+  - StaticText "Lost"
+  - StaticText "New Lead"
+  - StaticText "Won"
+  - StaticText "0"
+  - StaticText "0.75"
+  - StaticText "1.5"
+  - StaticText "2.25"
+  - StaticText "3"
+- StaticText "Top Opportunities"
+- StaticText "Highest-scoring leads ranked by AI opportunity score"
+- button "View All" [ref=e23]
+- table
+  - rowgroup
+    - row
+      - columnheader "Business" [ref=e145]
+      - columnheader "Website" [ref=e146]
+      - columnheader "Lead Score" [ref=e147]
+      - columnheader "Opp. Score" [ref=e148]
+      - columnheader "Est. Revenue/mo" [ref=e149]
+      - columnheader "Deal Value" [ref=e150]
+  - row
+    - cell "Mario's Pizza Palace Restaurant · Mumbai" [ref=e33]
+      - paragraph
+        - StaticText "Mario's Pizza Palace"
+      - paragraph
+        - StaticText "Restaurant · Mumbai"
+    - cell "No Site" [ref=e34]
+    - cell "79" [ref=e35]
+      - StaticText "79"
+    - cell "100" [ref=e36]
+      - StaticText "100"
+    - cell "₹22,250" [ref=e37]
+    - cell "₹499" [ref=e38]
+  - row
+    - cell "Glamour Hair Studio Salon · Mumbai" [ref=e39]
+      - paragraph
+        - StaticText "Glamour Hair Studio"
+      - paragraph
+        - StaticText "Salon · Mumbai"
+    - cell "No Site" [ref=e40]
+    - cell "76" [ref=e41]
+      - StaticText "76"
+    - cell "100" [ref=e42]
+      - StaticText "100"
+    - cell "₹10,850" [ref=e43]
+    - cell "₹299" [ref=e44]
+  - row
+    - cell "Quick Fix Plumbing Plumber · Bengaluru" [ref=e45]
+      - paragraph
+        - StaticText "Quick Fix Plumbing"
+      - paragraph
+        - StaticText "Plumber · Bengaluru"
+    - cell "No Site" [ref=e46]
+    - cell "55" [ref=e47]
+      - StaticText "55"
+    - cell "100" [ref=e48]
+      - StaticText "100"
+    - cell "₹6,900" [ref=e49]
+    - cell "₹798" [ref=e50]
+  - row
+    - cell "Sunrise Bakery Bakery · Pune" [ref=e51]
+      - paragraph
+        - StaticText "Sunrise Bakery"
+      - paragraph
+        - StaticText "Bakery · Pune"
+    - cell "No Site" [ref=e52]
+    - cell "79" [ref=e53]
+      - StaticText "79"
+    - cell "100" [ref=e54]
+      - StaticText "100"
+    - cell "₹16,750" [ref=e55]
+    - cell "₹1,098" [ref=e56]
+  - row
+    - cell "FitZone Gym Gym · Hyderabad" [ref=e57]
+      - paragraph
+        - StaticText "FitZone Gym"
+      - paragraph
+        - StaticText "Gym · Hyderabad"
+    - cell "No Site" [ref=e58]
+    - cell "74" [ref=e59]
+      - StaticText "74"
+    - cell "100" [ref=e60]
+      - StaticText "100"
+    - cell "₹12,975" [ref=e61]
+    - cell "₹499" [ref=e62]
+  - row
+    - cell "Green Thumb Landscaping Real Estate · Bengaluru" [ref=e63]
+      - paragraph
+        - StaticText "Green Thumb Landscaping"
+      - paragraph
+        - StaticText "Real Estate · Bengaluru"
+    - cell "No Site" [ref=e64]
+    - cell "67" [ref=e65]
+      - StaticText "67"
+    - cell "100" [ref=e66]
+      - StaticText "100"
+    - cell "₹59,600" [ref=e67]
+    - cell "₹299" [ref=e68]
+  - row
+    - cell "Paws & Claws Vet Clinic · Mumbai" [ref=e69]
+      - paragraph
+        - StaticText "Paws & Claws Vet"
+      - paragraph
+        - StaticText "Clinic · Mumbai"
+    - cell "No Site" [ref=e70]
+    - cell "89" [ref=e71]
+      - StaticText "89"
+    - cell "100" [ref=e72]
+      - StaticText "100"
+    - cell "₹51,000" [ref=e73]
+    - cell "₹898" [ref=e74]
+  - row
+    - cell "Bella Nails Spa Beauty Parlour · Pune" [ref=e75]
+      - paragraph
+        - StaticText "Bella Nails Spa"
+      - paragraph
+        - StaticText "Beauty Parlour · Pune"
+    - cell "No Site" [ref=e76]
+    - cell "76" [ref=e77]
+      - StaticText "76"
+    - cell "100" [ref=e78]
+      - StaticText "100"
+    - cell "₹11,250" [ref=e79]
+    - cell "₹499" [ref=e80]
+- heading "AI Lead Scoring" [level=2, ref=e24]
+- paragraph
+  - StaticText "Avg Lead Score"
+- paragraph
+  - StaticText "71"
+- StaticText "/100"
+- paragraph
+  - StaticText "Avg Opportunity"
+- paragraph
+  - StaticText "100"
+- StaticText "/100"
+- paragraph
+  - StaticText "Total Est. Revenue"
+- paragraph
+  - StaticText "₹5.5L"
+- StaticText "/mo"
+- heading "AI Business Audit" [level=2, ref=e25]
+- paragraph
+  - StaticText "Audited"
+- paragraph
+  - StaticText "18"
+- paragraph
+  - StaticText "Avg Audit Score"
+- paragraph
+  - StaticText "23"
+- StaticText "/100"
+- paragraph
+  - StaticText "Critical Issues"
+- paragraph
+  - StaticText "52"
+- paragraph
+  - StaticText "Opp. Value"
+- paragraph
+  - StaticText "₹1.6L"
+- StaticText "Top Audit Opportunities"
+- StaticText "Businesses with the most digital gaps — best opportunities for your services"
+- table
+  - rowgroup
+    - row
+      - columnheader "Business" [ref=e151]
+      - columnheader "Category" [ref=e152]
+      - columnheader "Audit Score" [ref=e153]
+      - columnheader "Lead Score" [ref=e154]
+  - row
+    - cell "Mario's Pizza Palace Mumbai" [ref=e81]
+      - paragraph
+        - StaticText "Mario's Pizza Palace"
+      - paragraph
+        - StaticText "Mumbai"
+    - cell "Restaurant" [ref=e82]
+    - cell "0" [ref=e83]
+      - StaticText "0"
+    - cell "79" [ref=e84]
+      - StaticText "79"
+  - row
+    - cell "Glamour Hair Studio Mumbai" [ref=e85]
+      - paragraph
+        - StaticText "Glamour Hair Studio"
+      - paragraph
+        - StaticText "Mumbai"
+    - cell "Salon" [ref=e86]
+    - cell "0" [ref=e87]
+      - StaticText "0"
+    - cell "76" [ref=e88]
+      - StaticText "76"
+  - row
+    - cell "FitZone Gym Hyderabad" [ref=e89]
+      - paragraph
+        - StaticText "FitZone Gym"
+      - paragraph
+        - StaticText "Hyderabad"
+    - cell "Gym" [ref=e90]
+    - cell "0" [ref=e91]
+      - StaticText "0"
+    - cell "74" [ref=e92]
+      - StaticText "74"
+  - row
+    - cell "Paws & Claws Vet Mumbai" [ref=e93]
+      - paragraph
+        - StaticText "Paws & Claws Vet"
+      - paragraph
+        - StaticText "Mumbai"
+    - cell "Clinic" [ref=e94]
+    - cell "0" [ref=e95]
+      - StaticText "0"
+    - cell "89" [ref=e96]
+      - StaticText "89"
+  - row
+    - cell "Bella Nails Spa Pune" [ref=e97]
+      - paragraph
+        - StaticText "Bella Nails Spa"
+      - paragraph
+        - StaticText "Pune"
+    - cell "Beauty Parlour" [ref=e98]
+    - cell "0" [ref=e99]
+      - StaticText "0"
+    - cell "76" [ref=e100]
+      - StaticText "76"
+- StaticText "Businesses by Category"
+- StaticText "Top business categories discovered"
+- SvgRoot
+  - group [ref=e101] focusable [tabindex]
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+    - group
+      - image
+- StaticText "Businesses by Country"
+- StaticText "Geographic distribution of discovered businesses"
+- SvgRoot
+  - StaticText "0"
+  - StaticText "5"
+  - StaticText "10"
+  - StaticText "15"
+  - StaticText "20"
+  - StaticText "India"
+- StaticText "Recent Activity"
+- StaticText "Latest leads in your pipeline"
+- button "View All" [ref=e26]
+- table
+  - rowgroup
+    - row
+      - columnheader "Business" [ref=e155]
+      - columnheader "Status" [ref=e156]
+      - columnheader "Priority" [ref=e157]
+      - columnheader "Value" [ref=e158]
+  - row
+    - cell "Law Chambers Associates Lawyer · Mumbai, India" [ref=e102]
+      - paragraph
+        - StaticText "Law Chambers Associates"
+      - paragraph
+        - StaticText "Lawyer · Mumbai, India"
+    - cell "Interested" [ref=e103]
+    - cell "medium" [ref=e104]
+    - cell "₹598" [ref=e105]
+  - row
+    - cell "Sharp Cuts Barbershop Salon · Jaipur, India" [ref=e106]
+      - paragraph
+        - StaticText "Sharp Cuts Barbershop"
+      - paragraph
+        - StaticText "Salon · Jaipur, India"
+    - cell "New Lead" [ref=e107]
+    - cell "medium" [ref=e108]
+    - cell "₹499" [ref=e109]
+  - row
+    - cell "Spa Serenity Spa · Goa, India" [ref=e110]
+      - paragraph
+        - StaticText "Spa Serenity"
+      - paragraph
+        - StaticText "Spa · Goa, India"
+    - cell "Meeting" [ref=e111]
+    - cell "high" [ref=e112]
+    - cell "₹1,098" [ref=e113]
+  - row
+    - cell "Metro Cleaners Other · Hyderabad, India" [ref=e114]
+      - paragraph
+        - StaticText "Metro Cleaners"
+      - paragraph
+        - StaticText "Other · Hyderabad, India"
+    - cell "Lost" [ref=e115]
+    - cell "low" [ref=e116]
+    - cell "₹299" [ref=e117]
+  - row
+    - cell "Bella Nails Spa Beauty Parlour · Pune, India" [ref=e118]
+      - paragraph
+        - StaticText "Bella Nails Spa"
+      - paragraph
+        - StaticText "Beauty Parlour · Pune, India"
+    - cell "New Lead" [ref=e119]
+    - cell "medium" [ref=e120]
+    - cell "₹499" [ref=e121]
+- button "Discover" [ref=e27]
+- button "AI Audit" [ref=e28]
+- button "Proposals" [ref=e29]
+- button "Pipeline" [ref=e30]
+- button "Add Lead" [ref=e31]
+- StaticText "Find Leads"
+- StaticText "Pipeline"
+- StaticText "AI Audit"
+- StaticText "Proposal"
+- StaticText "WhatsApp"
+- StaticText "Email"
+- StaticText "3"
+- StaticText "2"
+- StaticText "3"
+- StaticText "1"
+- StaticText "1"
+- StaticText "1"
+- StaticText "New Lead"
+- generic
+  - StaticText "67%"
+- generic
+  - StaticText "→ Contacted"
+- StaticText "Contacted"
+- generic
+  - StaticText "150%"
+- generic
+  - StaticText "→ Interested"
+- StaticText "Interested"
+- generic
+  - StaticText "33%"
+- generic
+  - StaticText "→ Meeting"
+- StaticText "Meeting"
+- generic
+  - StaticText "100%"
+- generic
+  - StaticText "→ Proposal"
+- StaticText "Proposal"
+- generic
+  - StaticText "100%"
+- generic
+  - StaticText "→ Won"
+- row
+  - cell "Mario's Pizza Palace Restaurant · Mumbai" [ref=e33]
+    - paragraph
+      - StaticText "Mario's Pizza Palace"
+    - paragraph
+      - StaticText "Restaurant · Mumbai"
+  - cell "No Site" [ref=e34]
+  - cell "79" [ref=e35]
+    - StaticText "79"
+  - cell "100" [ref=e36]
+    - StaticText "100"
+  - cell "₹22,250" [ref=e37]
+  - cell "₹499" [ref=e38]
+- row
+  - cell "Glamour Hair Studio Salon · Mumbai" [ref=e39]
+    - paragraph
+      - StaticText "Glamour Hair Studio"
+    - paragraph
+      - StaticText "Salon · Mumbai"
+  - cell "No Site" [ref=e40]
+  - cell "76" [ref=e41]
+    - StaticText "76"
+  - cell "100" [ref=e42]
+    - StaticText "100"
+  - cell "₹10,850" [ref=e43]
+  - cell "₹299" [ref=e44]
+- row
+  - cell "Quick Fix Plumbing Plumber · Bengaluru" [ref=e45]
+    - paragraph
+      - StaticText "Quick Fix Plumbing"
+    - paragraph
+      - StaticText "Plumber · Bengaluru"
+  - cell "No Site" [ref=e46]
+  - cell "55" [ref=e47]
+    - StaticText "55"
+  - cell "100" [ref=e48]
+    - StaticText "100"
+  - cell "₹6,900" [ref=e49]
+  - cell "₹798" [ref=e50]
+- row
+  - cell "Sunrise Bakery Bakery · Pune" [ref=e51]
+    - paragraph
+      - StaticText "Sunrise Bakery"
+    - paragraph
+      - StaticText "Bakery · Pune"
+  - cell "No Site" [ref=e52]
+  - cell "79" [ref=e53]
+    - StaticText "79"
+  - cell "100" [ref=e54]
+    - StaticText "100"
+  - cell "₹16,750" [ref=e55]
+  - cell "₹1,098" [ref=e56]
+- row
+  - cell "FitZone Gym Gym · Hyderabad" [ref=e57]
+    - paragraph
+      - StaticText "FitZone Gym"
+    - paragraph
+      - StaticText "Gym · Hyderabad"
+  - cell "No Site" [ref=e58]
+  - cell "74" [ref=e59]
+    - StaticText "74"
+  - cell "100" [ref=e60]
+    - StaticText "100"
+  - cell "₹12,975" [ref=e61]
+  - cell "₹499" [ref=e62]
+- row
+  - cell "Green Thumb Landscaping Real Estate · Bengaluru" [ref=e63]
+    - paragraph
+      - StaticText "Green Thumb Landscaping"
+    - paragraph
+      - StaticText "Real Estate · Bengaluru"
+  - cell "No Site" [ref=e64]
+  - cell "67" [ref=e65]
+    - StaticText "67"
+  - cell "100" [ref=e66]
+    - StaticText "100"
+  - cell "₹59,600" [ref=e67]
+  - cell "₹299" [ref=e68]
+- row
+  - cell "Paws & Claws Vet Clinic · Mumbai" [ref=e69]
+    - paragraph
+      - StaticText "Paws & Claws Vet"
+    - paragraph
+      - StaticText "Clinic · Mumbai"
+  - cell "No Site" [ref=e70]
+  - cell "89" [ref=e71]
+    - StaticText "89"
+  - cell "100" [ref=e72]
+    - StaticText "100"
+  - cell "₹51,000" [ref=e73]
+  - cell "₹898" [ref=e74]
+- row
+  - cell "Bella Nails Spa Beauty Parlour · Pune" [ref=e75]
+    - paragraph
+      - StaticText "Bella Nails Spa"
+    - paragraph
+      - StaticText "Beauty Parlour · Pune"
+  - cell "No Site" [ref=e76]
+  - cell "76" [ref=e77]
+    - StaticText "76"
+  - cell "100" [ref=e78]
+    - StaticText "100"
+  - cell "₹11,250" [ref=e79]
+  - cell "₹499" [ref=e80]
+- row
+  - cell "Mario's Pizza Palace Mumbai" [ref=e81]
+    - paragraph
+      - StaticText "Mario's Pizza Palace"
+    - paragraph
+      - StaticText "Mumbai"
+  - cell "Restaurant" [ref=e82]
+  - cell "0" [ref=e83]
+    - StaticText "0"
+  - cell "79" [ref=e84]
+    - StaticText "79"
+- row
+  - cell "Glamour Hair Studio Mumbai" [ref=e85]
+    - paragraph
+      - StaticText "Glamour Hair Studio"
+    - paragraph
+      - StaticText "Mumbai"
+  - cell "Salon" [ref=e86]
+  - cell "0" [ref=e87]
+    - StaticText "0"
+  - cell "76" [ref=e88]
+    - StaticText "76"
+- row
+  - cell "FitZone Gym Hyderabad" [ref=e89]
+    - paragraph
+      - StaticText "FitZone Gym"
+    - paragraph
+      - StaticText "Hyderabad"
+  - cell "Gym" [ref=e90]
+  - cell "0" [ref=e91]
+    - StaticText "0"
+  - cell "74" [ref=e92]
+    - StaticText "74"
+- row
+  - cell "Paws & Claws Vet Mumbai" [ref=e93]
+    - paragraph
+      - StaticText "Paws & Claws Vet"
+    - paragraph
+      - StaticText "Mumbai"
+  - cell "Clinic" [ref=e94]
+  - cell "0" [ref=e95]
+    - StaticText "0"
+  - cell "89" [ref=e96]
+    - StaticText "89"
+- row
+  - cell "Bella Nails Spa Pune" [ref=e97]
+    - paragraph
+      - StaticText "Bella Nails Spa"
+    - paragraph
+      - StaticText "Pune"
+  - cell "Beauty Parlour" [ref=e98]
+  - cell "0" [ref=e99]
+    - StaticText "0"
+  - cell "76" [ref=e100]
+    - StaticText "76"
+- row
+  - cell "Law Chambers Associates Lawyer · Mumbai, India" [ref=e102]
+    - paragraph
+      - StaticText "Law Chambers Associates"
+    - paragraph
+      - StaticText "Lawyer · Mumbai, India"
+  - cell "Interested" [ref=e103]
+  - cell "medium" [ref=e104]
+  - cell "₹598" [ref=e105]
+- row
+  - cell "Sharp Cuts Barbershop Salon · Jaipur, India" [ref=e106]
+    - paragraph
+      - StaticText "Sharp Cuts Barbershop"
+    - paragraph
+      - StaticText "Salon · Jaipur, India"
+  - cell "New Lead" [ref=e107]
+  - cell "medium" [ref=e108]
+  - cell "₹499" [ref=e109]
+- row
+  - cell "Spa Serenity Spa · Goa, India" [ref=e110]
+    - paragraph
+      - StaticText "Spa Serenity"
+    - paragraph
+      - StaticText "Spa · Goa, India"
+  - cell "Meeting" [ref=e111]
+  - cell "high" [ref=e112]
+  - cell "₹1,098" [ref=e113]
+- row
+  - cell "Metro Cleaners Other · Hyderabad, India" [ref=e114]
+    - paragraph
+      - StaticText "Metro Cleaners"
+    - paragraph
+      - StaticText "Other · Hyderabad, India"
+  - cell "Lost" [ref=e115]
+  - cell "low" [ref=e116]
+  - cell "₹299" [ref=e117]
+- row
+  - cell "Bella Nails Spa Beauty Parlour · Pune, India" [ref=e118]
+    - paragraph
+      - StaticText "Bella Nails Spa"
+    - paragraph
+      - StaticText "Beauty Parlour · Pune, India"
+  - cell "New Lead" [ref=e119]
+  - cell "medium" [ref=e120]
+  - cell "₹499" [ref=e121]
+- StaticText "BW Finder"
+- StaticText " © "
+- StaticText "2026"
+- paragraph
+  - StaticText "Find businesses without websites • Close deals faster"
+- StaticText "79"
+- StaticText "100"
+- StaticText "76"
+- StaticText "100"
+- StaticText "55"
+- StaticText "100"
+- StaticText "79"
+- StaticText "100"
+- StaticText "74"
+- StaticText "100"
+- StaticText "67"
+- StaticText "100"
+- StaticText "89"
+- StaticText "100"
+- StaticText "76"
+- StaticText "100"
+- StaticText "0"
+- StaticText "79"
+- StaticText "0"
+- StaticText "76"
+- StaticText "0"
+- StaticText "74"
+- StaticText "0"
+- StaticText "89"
+- StaticText "0"
+- StaticText "76"
+- paragraph
+  - StaticText "Law Chambers Associates"
+- paragraph
+  - StaticText "Lawyer · Mumbai, India"
+- paragraph
+  - StaticText "Sharp Cuts Barbershop"
+- paragraph
+  - StaticText "Salon · Jaipur, India"
+- paragraph
+  - StaticText "Spa Serenity"
+- paragraph
+  - StaticText "Spa · Goa, India"
+- paragraph
+  - StaticText "Metro Cleaners"
+- paragraph
+  - StaticText "Other · Hyderabad, India"
+- paragraph
+  - StaticText "Bella Nails Spa"
+- paragraph
+  - StaticText "Beauty Parlour · Pune, India"

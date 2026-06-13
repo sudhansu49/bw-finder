@@ -23,6 +23,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Loader2,
+  Crown,
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -84,16 +85,12 @@ function statusBadgeClass(status: string): string {
 }
 
 function planBadgeClass(plan: string): string {
-  switch (plan?.toLowerCase()) {
-    case 'pro':
-      return 'bg-orange-50 text-orange-700 border-orange-200'
-    case 'starter':
-      return 'bg-amber-50 text-amber-700 border-amber-200'
-    case 'enterprise':
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    default:
-      return 'bg-slate-50 text-slate-600 border-slate-200'
-  }
+  const p = plan?.toLowerCase() || ''
+  if (p.includes('enterprise')) return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+  if (p.includes('agency')) return 'bg-amber-50 text-amber-700 border-amber-200'
+  if (p.includes('starter')) return 'bg-slate-50 text-slate-600 border-slate-200'
+  if (p.includes('pro')) return 'bg-orange-50 text-orange-700 border-orange-200'
+  return 'bg-slate-50 text-slate-600 border-slate-200'
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -360,13 +357,17 @@ export function AdminSubscriptions() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => updateSubscription(sub.id, { planId: 'pro' })}>
+                                <DropdownMenuItem onClick={() => updateSubscription(sub.id, { planId: 'starter' })}>
                                   <TrendingUp className="h-4 w-4 mr-2" />
-                                  Upgrade to Pro
+                                  Change to Starter
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => updateSubscription(sub.id, { planId: 'agency' })}>
+                                  <Zap className="h-4 w-4 mr-2" />
+                                  Change to Agency
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => updateSubscription(sub.id, { planId: 'enterprise' })}>
-                                  <Zap className="h-4 w-4 mr-2" />
-                                  Upgrade to Enterprise
+                                  <Crown className="h-4 w-4 mr-2" />
+                                  Change to Enterprise
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {sub.status === 'active' && !sub.cancelAtEnd && (

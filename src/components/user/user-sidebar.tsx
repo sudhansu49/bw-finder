@@ -97,16 +97,12 @@ function getInitials(name: string): string {
 }
 
 function planBadgeColor(plan: string | null | undefined): string {
-  switch (plan) {
-    case 'pro':
-      return 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-    case 'enterprise':
-      return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-    case 'starter':
-      return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-    default:
-      return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
-  }
+  const tier = plan?.toLowerCase() || ''
+  if (tier.includes('enterprise')) return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+  if (tier.includes('agency')) return 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+  if (tier.includes('starter')) return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
+  if (tier.includes('pro')) return 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+  return 'bg-slate-500/20 text-slate-400 border-slate-500/30'
 }
 
 export function UserSidebar() {
@@ -138,7 +134,9 @@ export function UserSidebar() {
     setAuthMode('user')
   }
   const initials = user?.name ? getInitials(user.name) : 'U'
-  const planLabel = user?.planName || 'Free'
+  const planLabel = user?.planName
+    ? user.planName.replace(' Monthly', '').replace(' Yearly', '')
+    : 'Free'
 
   const renderNavItem = (item: NavItem) => {
     const isActive = currentView === item.view
