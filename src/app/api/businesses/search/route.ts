@@ -57,7 +57,7 @@ async function parallelWebSearch(
     queries.map(async (query, i) => {
       try {
         // Small staggered delay to avoid burst rate limiting
-        if (i > 0) await delay(800 * i)
+        if (i > 0) await delay(400 * i)
         
         const searchResult = await withRetry(
           () => zai.functions.invoke('web_search', { query, num: 10 }),
@@ -81,50 +81,82 @@ async function parallelWebSearch(
   return results
 }
 
-// Helper: get matching businesses from database as fallback (broader matching)
-async function getDatabaseFallback(category: string, city?: string, state?: string, country?: string) {
-  const where: any = {}
-
-  if (category) {
-    where.category = { contains: category }
-  }
-  if (city) {
-    where.city = { contains: city }
-  } else if (state) {
-    where.state = { contains: state }
-  }
-  if (country) {
-    where.country = { contains: country }
-  }
-
-  const exactMatches = await db.business.findMany({
-    where,
-    orderBy: { leadScore: 'desc' },
-    take: 30,
-  })
-
-  // If we got results, return them
-  if (exactMatches.length > 0) return exactMatches
-
-  // Broader fallback: same category, any location in the country
-  if (country) {
-    const broaderMatches = await db.business.findMany({
-      where: {
-        category: { contains: category },
-        country: { contains: country },
-      },
+// Helper: get matching businesses from database as fallback (cascading broader matching)
+async function getDatabaseFallback(category: string, city?: string, state?: string, country?: string): Promise<{ businesses: any[]; fallbackLevel: string }> {
+  // Level 1: category + city + country (most specific)
+  if (category && city && country) {
+    const matches = await db.business.findMany({
+      where: { category: { contains: category }, city: { contains: city }, country: { contains: country } },
       orderBy: { leadScore: 'desc' },
       take: 30,
     })
-    if (broaderMatches.length > 0) return broaderMatches
+    if (matches.length > 0) return { businesses: matches, fallbackLevel: 'category_city_country' }
   }
 
-  // Even broader: just same category
-  return db.business.findMany({
-    where: { category: { contains: category } },
-    orderBy: { leadScore: 'desc' },
-    take: 30,
-  })
+  // Level 2: category + state + country
+  if (category && state && country) {
+    const matches = await db.business.findMany({
+      where: { category: { contains: category }, state: { contains: state }, country: { contains: country } },
+      orderBy: { leadScore: 'desc' },
+      take: 30,
+    })
+    if (matches.length > 0) return { businesses: matches, fallbackLevel: 'category_state_country' }
+  }
+
+  // Level 3: category + country (any city)
+  if (category && country) {
+    const matches = await db.business.findMany({
+      where: { category: { contains: category }, country: { contains: country } },
+      orderBy: { leadScore: 'desc' },
+      take: 30,
+    })
+    if (matches.length > 0) return { businesses: matches, fallbackLevel: 'category_country' }
+  }
+
+  // Level 4: same city + country, any category
+  if (city && country) {
+    const matches = await db.business.findMany({
+      where: { city: { contains: city }, country: { contains: country } },
+      orderBy: { leadScore: 'desc' },
+      take: 30,
+    })
+    if (matches.length > 0) return { businesses: matches, fallbackLevel: 'city_country_any_category' }
+  }
+
+  // Level 5: same category, any location
+  if (category) {
+    const matches = await db.business.findMany({
+      where: { category: { contains: category } },
+      orderBy: { leadScore: 'desc' },
+      take: 30,
+    })
+    if (matches.length > 0) return { businesses: matches, fallbackLevel: 'category_any_location' }
+  }
+
+  // Level 6: same country, any category, any city
+  if (country) {
+    const matches = await db.business.findMany({
+      where: { country: { contains: country } },
+      orderBy: { leadScore: 'desc' },
+      take: 30,
+    })
+    if (matches.length > 0) return { businesses: matches, fallbackLevel: 'country_any_category' }
+  }
+
+  // Level 7: any businesses at all (random selection)
+  const totalCount = await db.business.count()
+  if (totalCount > 0) {
+    // Use a random skip to get varied results each time
+    const skip = Math.max(0, Math.floor(Math.random() * Math.max(1, totalCount - 20)))
+    const matches = await db.business.findMany({
+      orderBy: { leadScore: 'desc' },
+      skip,
+      take: 20,
+    })
+    if (matches.length > 0) return { businesses: matches, fallbackLevel: 'generic_suggestions' }
+  }
+
+  return { businesses: [], fallbackLevel: 'none' }
 }
 
 // Website status detection helpers
@@ -202,10 +234,12 @@ export async function POST(request: NextRequest) {
       const zai = await ZAI.create()
       console.log(`[Search] Starting search for "${category}" in "${locationString}"`)
 
-      // Optimized: Use just 2 focused queries instead of 4, run in parallel
+      // Diverse search queries for broader coverage
       const searchQueries = [
         `${category} businesses in ${locationString} phone number address contact`,
-        `${category} in ${locationString} list directory reviews justdial`,
+        `${category} in ${locationString} list directory reviews`,
+        `best ${category} near ${city || state || country} contact details`,
+        `${category} ${locationString} yellow pages google maps`,
       ]
 
       // Execute searches IN PARALLEL for speed (was sequential with 3s delays)
@@ -231,18 +265,21 @@ export async function POST(request: NextRequest) {
       if (allResults.length === 0) {
         // No web search results - try database fallback
         console.log('[Search] No web results, falling back to database...')
-        const dbBusinesses = await getDatabaseFallback(category, city, state, country)
+        const fallbackResult = await getDatabaseFallback(category, city, state, country)
+        const dbBusinesses = fallbackResult.businesses
+        const fallbackLevel = fallbackResult.fallbackLevel
         if (dbBusinesses.length > 0) {
           usedFallback = true
           savedBusinesses = dbBusinesses
         }
 
+        const isGeneric = fallbackLevel === 'generic_suggestions'
         await db.searchJob.update({
           where: { id: searchJob.id },
           data: {
             status: usedFallback ? 'completed_with_fallback' : 'completed',
             resultsCount: savedBusinesses.length,
-            sources: usedFallback ? 'database_fallback' : 'none',
+            sources: usedFallback ? `database_fallback_${fallbackLevel}` : 'none',
             completedAt: new Date(),
           },
         })
@@ -254,8 +291,14 @@ export async function POST(request: NextRequest) {
             status: usedFallback ? 'completed_with_fallback' : 'completed',
             resultsCount: savedBusinesses.length,
             duplicatesFound: 0,
-            sourcesUsed: usedFallback ? 'database_fallback' : 'none',
+            sourcesUsed: usedFallback ? `database_fallback_${fallbackLevel}` : 'none',
             fallback: usedFallback,
+            fallbackLevel,
+            fallbackReason: isGeneric
+              ? 'No matching businesses found. Showing general suggestions from database.'
+              : fallbackLevel !== 'category_city_country'
+                ? 'No exact matches found. Showing broader results from database.'
+                : undefined,
           },
         })
       }
@@ -352,6 +395,94 @@ IMPORTANT RULES:
       }
 
       console.log(`[Search] Extracted ${extractedBusinesses.length} businesses from LLM`)
+
+      // Second LLM pass: if first extraction returned 0, try simpler instructions
+      if (extractedBusinesses.length === 0 && allResults.length > 0) {
+        console.log('[Search] First LLM pass returned 0 businesses, trying simpler extraction...')
+        try {
+          const secondLlmResponse = await withRetry(
+            () =>
+              zai.chat.completions.create({
+                messages: [
+                  {
+                    role: 'system',
+                    content: `List every business name you can find in the search results. For each business provide: name, city, phone, website, category. Return a JSON array. If no website is found, set website to null and hasWebsite to false.`,
+                  },
+                  {
+                    role: 'user',
+                    content: `Find all businesses in these results for "${category}" in "${locationString}":\n\n${resultsText}`,
+                  },
+                ],
+                thinking: { type: 'disabled' },
+              }),
+            0, // no retries for second pass
+            1000
+          )
+          const secondContent = secondLlmResponse.choices?.[0]?.message?.content || '[]'
+          let secondCleaned = secondContent.trim()
+          if (secondCleaned.startsWith('```json')) secondCleaned = secondCleaned.slice(7)
+          else if (secondCleaned.startsWith('```')) secondCleaned = secondCleaned.slice(3)
+          if (secondCleaned.endsWith('```')) secondCleaned = secondCleaned.slice(0, -3)
+          secondCleaned = secondCleaned.trim()
+          try {
+            const fb = secondCleaned.indexOf('[')
+            const lb = secondCleaned.lastIndexOf(']')
+            if (fb !== -1 && lb !== -1 && lb > fb) {
+              extractedBusinesses = JSON.parse(secondCleaned.slice(fb, lb + 1))
+            } else {
+              extractedBusinesses = JSON.parse(secondCleaned)
+            }
+            if (!Array.isArray(extractedBusinesses)) extractedBusinesses = []
+            console.log(`[Search] Second LLM pass extracted ${extractedBusinesses.length} businesses`)
+          } catch {
+            console.log('[Search] Second LLM pass also failed to parse')
+            extractedBusinesses = []
+          }
+        } catch (secondPassError) {
+          console.log('[Search] Second LLM pass failed:', secondPassError)
+        }
+      }
+
+      // If still no businesses extracted, fall back to database before returning empty
+      if (extractedBusinesses.length === 0) {
+        console.log('[Search] No businesses extracted from LLM, falling back to database...')
+        const fallbackResult = await getDatabaseFallback(category, city, state, country)
+        const dbBusinesses = fallbackResult.businesses
+        const fallbackLevel = fallbackResult.fallbackLevel
+        if (dbBusinesses.length > 0) {
+          usedFallback = true
+          savedBusinesses = dbBusinesses
+        }
+
+        const isGeneric = fallbackLevel === 'generic_suggestions'
+        await db.searchJob.update({
+          where: { id: searchJob.id },
+          data: {
+            status: usedFallback ? 'completed_with_fallback' : 'completed',
+            resultsCount: savedBusinesses.length,
+            sources: usedFallback ? `database_fallback_${fallbackLevel}` : 'none',
+            completedAt: new Date(),
+          },
+        })
+
+        return NextResponse.json({
+          businesses: savedBusinesses,
+          searchJob: {
+            id: searchJob.id,
+            status: usedFallback ? 'completed_with_fallback' : 'completed',
+            resultsCount: savedBusinesses.length,
+            duplicatesFound: 0,
+            sourcesUsed: usedFallback ? `database_fallback_${fallbackLevel}` : 'none',
+            fallback: usedFallback,
+            fallbackLevel,
+            fallbackReason: isGeneric
+              ? 'No businesses could be extracted from web results. Showing general suggestions from database.'
+              : savedBusinesses.length === 0
+                ? 'No businesses found from web search or database.'
+                : undefined,
+          },
+        })
+      }
 
       // Save extracted businesses to database with deduplication
       const duplicateCount = { skipped: 0 }
@@ -516,7 +647,9 @@ IMPORTANT RULES:
 
       // FALLBACK: Try to return existing database businesses matching the criteria
       try {
-        const dbBusinesses = await getDatabaseFallback(category, city, state, country)
+        const fallbackResult = await getDatabaseFallback(category, city, state, country)
+        const dbBusinesses = fallbackResult.businesses
+        const fallbackLevel = fallbackResult.fallbackLevel
         if (dbBusinesses.length > 0) {
           usedFallback = true
           savedBusinesses = dbBusinesses
@@ -526,11 +659,12 @@ IMPORTANT RULES:
             data: {
               status: 'completed_with_fallback',
               resultsCount: savedBusinesses.length,
-              sources: 'database_fallback',
+              sources: `database_fallback_${fallbackLevel}`,
               completedAt: new Date(),
             },
           })
 
+          const isGeneric = fallbackLevel === 'generic_suggestions'
           return NextResponse.json({
             businesses: savedBusinesses,
             searchJob: {
@@ -538,9 +672,12 @@ IMPORTANT RULES:
               status: 'completed_with_fallback',
               resultsCount: savedBusinesses.length,
               duplicatesFound: 0,
-              sourcesUsed: 'database_fallback',
+              sourcesUsed: `database_fallback_${fallbackLevel}`,
               fallback: true,
-              fallbackReason: 'AI search rate limited, showing cached results',
+              fallbackLevel,
+              fallbackReason: isGeneric
+                ? 'AI search rate limited. Showing general suggestions from database.'
+                : 'AI search rate limited, showing cached results from database.',
             },
           })
         }

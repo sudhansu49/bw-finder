@@ -53,6 +53,8 @@ import {
   Download,
   ListFilter,
   Eye,
+  RefreshCw,
+  Sparkles,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -127,6 +129,10 @@ interface SearchJobInfo {
   resultsCount: number
   duplicatesFound: number
   sourcesUsed: string
+  fallback?: boolean
+  fallbackLevel?: string
+  fallbackReason?: string
+  error?: string
 }
 
 export function SearchView() {
@@ -527,7 +533,9 @@ export function SearchView() {
             <Button
               onClick={handleSearch}
               disabled={loading || !effectiveCountry || !effectiveCategory}
-              className="h-11 px-8 bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+              className={`h-11 px-8 bg-amber-500 hover:bg-amber-600 text-white font-semibold ${
+                !loading && effectiveCountry && effectiveCategory ? 'animate-pulse' : ''
+              }`}
             >
               {loading ? (
                 <>
@@ -564,29 +572,51 @@ export function SearchView() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center py-16"
+          className="space-y-4"
         >
-          <div className="relative">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-500" />
-            <Search className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-amber-500" />
+          {/* Progress indicator */}
+          <div className="flex flex-col items-center justify-center py-10">
+            <div className="relative">
+              <div className="animate-spin rounded-full h-16 w-16 border-4 border-amber-200 border-t-amber-500" />
+              <Search className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-6 w-6 text-amber-500" />
+            </div>
+            <p className="mt-4 text-muted-foreground font-medium">{searchProgress || 'Discovering businesses...'}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {elapsedTime < 10 ? 'About 20-30 seconds remaining' : elapsedTime < 20 ? 'About 10-20 seconds remaining' : elapsedTime < 35 ? 'Almost there...' : 'Finishing up...'}
+            </p>
+            <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                Web Search
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Directory Scan
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                Data Extraction
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-amber-600 font-medium">{elapsedTime}s elapsed</p>
           </div>
-          <p className="mt-4 text-muted-foreground font-medium">{searchProgress || 'Discovering businesses...'}</p>
-          <p className="text-sm text-muted-foreground mt-1">This typically takes 15-45 seconds</p>
-          <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-              Web Search
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Directory Scan
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-              Data Extraction
-            </div>
-          </div>
-          <p className="mt-3 text-xs text-amber-600 font-medium">{elapsedTime}s elapsed</p>
+          {/* Results skeleton */}
+          <Card className="border-0 shadow-sm">
+            <CardContent className="p-0">
+              <div className="p-4 space-y-3">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 animate-pulse">
+                    <div className="h-8 w-8 rounded-lg bg-slate-200" />
+                    <div className="h-4 w-40 rounded bg-slate-200" />
+                    <div className="h-4 w-20 rounded bg-slate-100" />
+                    <div className="h-4 w-24 rounded bg-slate-100" />
+                    <div className="h-4 w-16 rounded bg-slate-100" />
+                    <div className="h-5 w-16 rounded-full bg-slate-200" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
       )}
 
@@ -619,9 +649,14 @@ export function SearchView() {
 
             {/* Fallback / Search Info Banner */}
             {searchJobInfo?.fallback && (
-              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
-                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                <span>Live search rate-limited — showing <span className="font-semibold">cached results</span> from your database. Try again in 30 seconds for fresh results.</span>
+              <div className="flex flex-col gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{searchJobInfo.fallbackReason || 'Live search rate-limited — showing cached results from your database. Try again in 30 seconds for fresh results.'}</span>
+                </div>
+                {searchJobInfo.fallbackLevel === 'generic_suggestions' && (
+                  <span className="ml-5.5 text-amber-600">These are general suggestions — try a different search for more relevant results.</span>
+                )}
               </div>
             )}
             {searchJobInfo && searchJobInfo.sourcesUsed && !searchJobInfo.fallback && (
@@ -860,7 +895,74 @@ export function SearchView() {
                     <Search className="h-8 w-8 text-slate-300" />
                   </div>
                   <p className="text-muted-foreground font-medium">No businesses found</p>
-                  <p className="text-sm text-muted-foreground mt-1">Try a different category or location</p>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
+                    We couldn&apos;t find businesses matching your search. Here are some tips:
+                  </p>
+                  <ul className="text-sm text-muted-foreground mt-2 space-y-1 max-w-sm mx-auto text-left">
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 mt-0.5">&#8226;</span>
+                      Try a broader location (just country, skip city)
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 mt-0.5">&#8226;</span>
+                      Try a different business category
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-500 mt-0.5">&#8226;</span>
+                      Check the spelling of your city or state
+                    </li>
+                  </ul>
+                  <div className="mt-4 flex items-center justify-center gap-2">
+                    <Button
+                      variant="default"
+                      className="bg-amber-500 hover:bg-amber-600 text-white font-semibold"
+                      onClick={handleSearch}
+                    >
+                      <RefreshCw className="mr-2 h-4 w-4" />
+                      Try Again
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearched(false)
+                        setResults([])
+                        setSearchJobInfo(null)
+                        setAddedLeads(new Set())
+                      }}
+                    >
+                      New Search
+                    </Button>
+                  </div>
+                  <div className="mt-5">
+                    <p className="text-xs text-muted-foreground mb-2 flex items-center justify-center gap-1">
+                      <Sparkles className="h-3 w-3 text-amber-500" />
+                      Quick search suggestions
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2 max-w-md mx-auto">
+                      {[
+                        { cat: 'Salon', country: 'India' },
+                        { cat: 'Restaurant', country: 'United States' },
+                        { cat: 'Gym', country: 'United Kingdom' },
+                        { cat: 'Dentist', country: 'Canada' },
+                        { cat: 'Hotel', country: 'UAE' },
+                        { cat: 'Clinic', country: 'Australia' },
+                      ].map((suggestion) => (
+                        <Badge
+                          key={`${suggestion.cat}-${suggestion.country}`}
+                          variant="outline"
+                          className="cursor-pointer hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 transition-colors py-1.5 px-3 text-xs"
+                          onClick={() => {
+                            setCategory(suggestion.cat)
+                            setCountry(suggestion.country)
+                            setCity('')
+                            setState('')
+                          }}
+                        >
+                          {suggestion.cat} in {suggestion.country}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
               {filteredResults.length === 0 && results.length > 0 && showNoWebsiteOnly && (
