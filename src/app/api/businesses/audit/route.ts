@@ -10,7 +10,7 @@ interface AuditItem {
   description: string
   recommendation: string
   impact: 'high' | 'medium' | 'low'
-  estimatedValue: number // estimated project value in USD
+  estimatedValue: number // estimated project value in INR
 }
 
 interface AuditReport {

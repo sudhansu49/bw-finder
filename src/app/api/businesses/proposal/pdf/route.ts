@@ -46,7 +46,7 @@ function generateProposalHTML(proposal: any, business: any): string {
   }
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(price)
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0 }).format(price)
   }
 
   const tierColors: Record<string, { bg: string; border: string; text: string; header: string; badge: string }> = {

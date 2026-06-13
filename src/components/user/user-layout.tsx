@@ -62,6 +62,9 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { motion, AnimatePresence } from 'framer-motion'
+import { LanguageSwitcher } from '@/components/layout/language-switcher'
+import { CurrencySwitcher } from '@/components/layout/currency-switcher'
+import { useTranslation } from '@/lib/i18n/hooks'
 
 // ─── View Labels & Groups ────────────────────────────────────────────────────
 
@@ -209,10 +212,55 @@ export function UserLayout() {
 
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
   const { theme, setTheme } = useTheme()
+  const { t, translations: tr } = useTranslation()
   const notificationCount = 3
 
-  const viewLabel = viewLabels[currentView] || 'Dashboard'
-  const viewGroup = viewGroups[currentView] || 'Overview'
+  // Translated view labels
+  const translatedViewLabels: Record<UserView, string> = {
+    'user-dashboard': t('nav.dashboard'),
+    'user-lead-finder': t('nav.leadFinder'),
+    'user-website-detection': t('nav.websiteDetection'),
+    'user-lead-scoring': t('nav.leadScoring'),
+    'user-outreach': t('nav.outreach'),
+    'user-audit': t('nav.aiAudit'),
+    'user-proposal': t('nav.proposalGenerator'),
+    'user-whatsapp': t('nav.whatsappGenerator'),
+    'user-email': t('nav.emailGenerator'),
+    'user-crm': t('nav.crm'),
+    'user-reports': t('nav.reports'),
+    'user-exports': t('nav.exports'),
+    'user-settings': t('nav.settings'),
+    'user-profile': t('nav.profile'),
+    'user-billing': t('nav.billing'),
+    'user-subscription': t('nav.subscription'),
+    'user-notifications': t('nav.notifications'),
+    'user-help': t('nav.helpCenter'),
+  }
+
+  // Translated view groups
+  const translatedViewGroups: Record<UserView, string> = {
+    'user-dashboard': t('nav.overview'),
+    'user-lead-finder': t('nav.overview'),
+    'user-website-detection': t('nav.overview'),
+    'user-lead-scoring': t('nav.overview'),
+    'user-outreach': t('nav.overview'),
+    'user-audit': t('nav.tools'),
+    'user-proposal': t('nav.tools'),
+    'user-whatsapp': t('nav.tools'),
+    'user-email': t('nav.tools'),
+    'user-crm': t('nav.tools'),
+    'user-reports': t('nav.output'),
+    'user-exports': t('nav.output'),
+    'user-settings': t('nav.account'),
+    'user-profile': t('nav.account'),
+    'user-billing': t('nav.account'),
+    'user-subscription': t('nav.account'),
+    'user-notifications': t('nav.account'),
+    'user-help': t('nav.account'),
+  }
+
+  const viewLabel = translatedViewLabels[currentView] || 'Dashboard'
+  const viewGroup = translatedViewGroups[currentView] || t('nav.overview')
   const initials = user?.name ? getInitials(user.name) : 'U'
 
   return (
@@ -268,6 +316,12 @@ export function UserLayout() {
 
               {/* Right: Actions */}
               <div className="flex items-center gap-1">
+                {/* Language Switcher */}
+                <LanguageSwitcher />
+
+                {/* Currency Switcher */}
+                <CurrencySwitcher />
+
                 {/* Search shortcut */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -352,19 +406,19 @@ export function UserLayout() {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => setCurrentView('user-profile')}>
                       <User className="h-4 w-4 mr-2" />
-                      Profile
+                      {t('nav.profile')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setCurrentView('user-settings')}>
                       <Settings className="h-4 w-4 mr-2" />
-                      Settings
+                      {t('nav.settings')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setCurrentView('user-billing')}>
                       <CreditCard className="h-4 w-4 mr-2" />
-                      Billing
+                      {t('nav.billing')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setCurrentView('user-subscription')}>
                       <Crown className="h-4 w-4 mr-2" />
-                      Subscription
+                      {t('nav.subscription')}
                     </DropdownMenuItem>
                     {isAdmin && (
                       <>
@@ -411,9 +465,9 @@ export function UserLayout() {
                   <div className="h-5 w-5 rounded bg-amber-500 flex items-center justify-center">
                     <Search className="h-3 w-3 text-white" />
                   </div>
-                  <span>BW Finder &copy; {new Date().getFullYear()}</span>
+                  <span>{t('footer.copyright')} &copy; {new Date().getFullYear()}</span>
                 </div>
-                <p>Find businesses without websites &bull; Close deals faster</p>
+                <p>{t('footer.tagline')}</p>
               </div>
             </footer>
           </main>

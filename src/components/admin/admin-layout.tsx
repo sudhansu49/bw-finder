@@ -66,6 +66,9 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { motion, AnimatePresence } from 'framer-motion'
+import { LanguageSwitcher } from '@/components/layout/language-switcher'
+import { CurrencySwitcher } from '@/components/layout/currency-switcher'
+import { useTranslation } from '@/lib/i18n/hooks'
 
 const viewLabels: Record<AdminView, string> = {
   'admin-dashboard': 'Dashboard',
@@ -220,10 +223,65 @@ export function AdminLayout() {
     setCurrentView,
   } = useAppStore()
   const { theme, setTheme } = useTheme()
+  const { t } = useTranslation()
   const notificationCount = 3
 
-  const viewLabel = viewLabels[currentAdminView] || 'Dashboard'
-  const viewGroup = viewGroups[currentAdminView] || 'Main'
+  // Translated admin view labels
+  const translatedViewLabels: Record<AdminView, string> = {
+    'admin-dashboard': t('nav.dashboard'),
+    'admin-users': t('nav.users'),
+    'admin-agencies': t('nav.agencies'),
+    'admin-subscriptions': t('nav.subscriptions'),
+    'admin-payments': t('nav.payments'),
+    'admin-transactions': t('nav.transactions'),
+    'admin-leads': t('nav.leads'),
+    'admin-categories': t('nav.categories'),
+    'admin-locations': t('nav.locations'),
+    'admin-credits': t('nav.credits'),
+    'admin-api-usage': t('nav.apiUsage'),
+    'admin-system-health': t('nav.systemHealth'),
+    'admin-audit-logs': t('nav.auditLogs'),
+    'admin-reports': t('nav.reports'),
+    'admin-support': t('nav.helpCenter'),
+    'admin-announcements': t('nav.announcements'),
+    'admin-email-broadcast': t('nav.emailBroadcast'),
+    'admin-whatsapp-broadcast': t('nav.whatsappBroadcast'),
+    'admin-marketing': t('nav.marketing'),
+    'admin-integrations': t('nav.integrations'),
+    'admin-ai-usage': t('nav.aiUsage'),
+    'admin-feature-flags': t('nav.featureFlags'),
+    'admin-settings': t('nav.settings'),
+  }
+
+  // Translated admin view groups
+  const translatedViewGroups: Record<string, string> = {
+    'admin-dashboard': t('nav.main'),
+    'admin-users': t('nav.main'),
+    'admin-agencies': t('nav.main'),
+    'admin-subscriptions': t('nav.main'),
+    'admin-payments': t('nav.main'),
+    'admin-transactions': t('nav.main'),
+    'admin-leads': t('nav.data'),
+    'admin-categories': t('nav.data'),
+    'admin-locations': t('nav.data'),
+    'admin-credits': t('nav.data'),
+    'admin-api-usage': t('nav.system'),
+    'admin-system-health': t('nav.system'),
+    'admin-audit-logs': t('nav.system'),
+    'admin-reports': t('nav.system'),
+    'admin-support': t('nav.support'),
+    'admin-announcements': t('nav.support'),
+    'admin-email-broadcast': t('nav.marketing'),
+    'admin-whatsapp-broadcast': t('nav.marketing'),
+    'admin-marketing': t('nav.marketing'),
+    'admin-integrations': t('nav.config'),
+    'admin-ai-usage': t('nav.config'),
+    'admin-feature-flags': t('nav.config'),
+    'admin-settings': t('nav.config'),
+  }
+
+  const viewLabel = translatedViewLabels[currentAdminView] || 'Dashboard'
+  const viewGroup = translatedViewGroups[currentAdminView] || t('nav.main')
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 dark:bg-slate-950 overflow-hidden">
@@ -278,6 +336,12 @@ export function AdminLayout() {
 
               {/* Right: Actions */}
               <div className="flex items-center gap-1">
+                {/* Language Switcher */}
+                <LanguageSwitcher />
+
+                {/* Currency Switcher */}
+                <CurrencySwitcher />
+
                 {/* Search shortcut */}
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -410,7 +474,7 @@ export function AdminLayout() {
                   </div>
                   <span>Admin Console &copy; {new Date().getFullYear()}</span>
                 </div>
-                <p>Enterprise Management Console</p>
+                <p>{t('footer.adminTagline')}</p>
               </div>
             </footer>
           </main>

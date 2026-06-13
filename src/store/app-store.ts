@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { LocaleCode, CurrencyCode } from '@/lib/i18n/types'
 
 // ─── Role & Permission Types ─────────────────────────────────────────────────
 
@@ -114,6 +115,12 @@ interface AppState {
   // Notifications panel
   notificationsOpen: boolean
   setNotificationsOpen: (open: boolean) => void
+
+  // Localization
+  locale: LocaleCode
+  setLocale: (locale: LocaleCode) => void
+  currency: CurrencyCode
+  setCurrency: (currency: CurrencyCode) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -167,6 +174,12 @@ export const useAppStore = create<AppState>()(
       // Notifications
       notificationsOpen: false,
       setNotificationsOpen: (open) => set({ notificationsOpen: open }),
+
+      // Localization
+      locale: 'en',
+      setLocale: (locale) => set({ locale }),
+      currency: 'INR',
+      setCurrency: (currency) => set({ currency }),
     }),
     {
       name: 'bw-finder-store',
@@ -175,6 +188,8 @@ export const useAppStore = create<AppState>()(
         userSidebarCollapsed: state.userSidebarCollapsed,
         adminSidebarCollapsed: state.adminSidebarCollapsed,
         authMode: state.authMode,
+        locale: state.locale,
+        currency: state.currency,
       }),
       // Skip hydration to avoid SSR/client mismatch — rehydrate after mount
       skipHydration: true,

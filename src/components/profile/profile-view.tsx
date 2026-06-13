@@ -31,6 +31,9 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useTranslation, useCurrency } from '@/lib/i18n/hooks'
+import { languages, currencies } from '@/lib/i18n/index'
+import type { LocaleCode, CurrencyCode } from '@/lib/i18n/types'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -119,22 +122,13 @@ const timezones = [
   'Australia/Sydney',
 ]
 
-const languages = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'pt', label: 'Portuguese' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'zh', label: 'Chinese' },
-  { value: 'ar', label: 'Arabic' },
-]
-
 const dateFormats = [
-  { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
-  { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
-  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
-  { value: 'DD.MM.YYYY', label: 'DD.MM.YYYY' },
+  { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY  (31/12/2025)' },
+  { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY  (12/31/2025)' },
+  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD  (2025-12-31)' },
+  { value: 'DD.MM.YYYY', label: 'DD.MM.YYYY  (31.12.2025)' },
+  { value: 'DD-MMM-YYYY', label: 'DD-MMM-YYYY  (31-Dec-2025)' },
+  { value: 'D MMMM YYYY', label: 'D MMMM YYYY  (31 December 2025)' },
 ]
 
 // ─── Connected Account Type ───────────────────────────────────────────────────
@@ -217,10 +211,19 @@ export function ProfileView() {
   })
   const [personalLoading, setPersonalLoading] = useState(false)
 
-  // Account settings
-  const [timezone, setTimezone] = useState('America/Los_Angeles')
-  const [language, setLanguage] = useState('en')
-  const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
+  // i18n hooks
+  const { t } = useTranslation()
+  const { currencyInfo } = useCurrency()
+
+  // Locale & currency from persisted store
+  const locale = useAppStore((s) => s.locale)
+  const setLocale = useAppStore((s) => s.setLocale)
+  const currency = useAppStore((s) => s.currency)
+  const setCurrency = useAppStore((s) => s.setCurrency)
+
+  // Account settings (timezone & dateFormat are still local)
+  const [timezone, setTimezone] = useState('Asia/Kolkata')
+  const [dateFormat, setDateFormat] = useState('DD/MM/YYYY')
   const [settingsLoading, setSettingsLoading] = useState(false)
 
   // Security
@@ -355,14 +358,14 @@ export function ProfileView() {
   const handleSaveSettings = async () => {
     setSettingsLoading(true)
     try {
-      await new Promise((r) => setTimeout(r, 600))
+      await new Promise((r) => setTimeout(r, 300))
       toast({
-        title: 'Settings Saved',
+        title: t('common.success'),
         description: 'Your account preferences have been updated.',
       })
     } catch {
       toast({
-        title: 'Error',
+        title: t('common.error'),
         description: 'Failed to save settings. Please try again.',
         variant: 'destructive',
       })
@@ -598,7 +601,7 @@ export function ProfileView() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <User className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-lg">Personal Information</CardTitle>
+              <CardTitle className="text-lg">{t('profile.personalInfo')}</CardTitle>
             </div>
             <CardDescription>Update your personal details and contact information</CardDescription>
           </CardHeader>
@@ -714,16 +717,59 @@ export function ProfileView() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Globe className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-lg">Account Settings</CardTitle>
+              <CardTitle className="text-lg">{t('settings.general')}</CardTitle>
             </div>
             <CardDescription>Customize your regional and display preferences</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* Language */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                  Timezone
+                  {t('profile.language')}
+                </Label>
+                <Select value={locale} onValueChange={(v) => setLocale(v as LocaleCode)}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {languages.map((l) => (
+                      <SelectItem key={l.code} value={l.code}>
+                        {l.name === l.englishName
+                          ? l.name
+                          : `${l.name} \u2022 ${l.englishName}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Currency */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">{currencyInfo.symbol}</span>
+                  {t('profile.currency')}
+                </Label>
+                <Select value={currency} onValueChange={(v) => setCurrency(v as CurrencyCode)}>
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.symbol} {c.code} &bull; {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Timezone */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  {t('profile.timezone')}
                 </Label>
                 <Select value={timezone} onValueChange={setTimezone}>
                   <SelectTrigger className="h-11">
@@ -738,28 +784,12 @@ export function ProfileView() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                  Language
-                </Label>
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {languages.map((l) => (
-                      <SelectItem key={l.value} value={l.value}>
-                        {l.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+
+              {/* Date Format */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  Date Format
+                  {t('profile.dateFormat')}
                 </Label>
                 <Select value={dateFormat} onValueChange={setDateFormat}>
                   <SelectTrigger className="h-11">
@@ -775,6 +805,12 @@ export function ProfileView() {
                 </Select>
               </div>
             </div>
+
+            {/* Info note */}
+            <p className="text-xs text-muted-foreground">
+              Language and currency preferences are saved automatically. Timezone and date format are saved when you click below.
+            </p>
+
             <div className="flex justify-end pt-2">
               <Button
                 onClick={handleSaveSettings}
@@ -784,12 +820,12 @@ export function ProfileView() {
                 {settingsLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
+                    {t('common.loading')}
                   </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Save Preferences
+                    {t('common.save')} {t('settings.general')}
                   </>
                 )}
               </Button>
@@ -804,7 +840,7 @@ export function ProfileView() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Lock className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-lg">Security</CardTitle>
+              <CardTitle className="text-lg">{t('settings.security')}</CardTitle>
             </div>
             <CardDescription>Manage your password and authentication settings</CardDescription>
           </CardHeader>
@@ -907,7 +943,7 @@ export function ProfileView() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <ExternalLink className="h-5 w-5 text-amber-500" />
-              <CardTitle className="text-lg">Connected Accounts</CardTitle>
+              <CardTitle className="text-lg">{t('settings.integrations')}</CardTitle>
             </div>
             <CardDescription>Manage your third-party account connections</CardDescription>
           </CardHeader>
@@ -972,7 +1008,7 @@ export function ProfileView() {
           <CardHeader>
             <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
               <AlertTriangle className="h-5 w-5" />
-              <CardTitle className="text-lg text-red-600 dark:text-red-400">Danger Zone</CardTitle>
+              <CardTitle className="text-lg text-red-600 dark:text-red-400">{t('profile.dangerZone')}</CardTitle>
             </div>
             <CardDescription>
               Irreversible actions that permanently affect your account
@@ -984,7 +1020,7 @@ export function ProfileView() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <p className="font-medium text-sm text-red-700 dark:text-red-300">Delete Account</p>
+                    <p className="font-medium text-sm text-red-700 dark:text-red-300">{t('profile.deleteAccount')}</p>
                   </div>
                   <p className="text-xs text-red-500 dark:text-red-400">
                     Permanently delete your account and all associated data, including leads,

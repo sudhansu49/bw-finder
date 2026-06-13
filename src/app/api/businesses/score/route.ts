@@ -207,7 +207,7 @@ export async function POST(request: NextRequest) {
                 content: `You are a business analyst that scores leads for a digital services agency. Analyze the business data and provide adjusted scores. Return ONLY a JSON object with these fields:
 - leadScore: integer 0-100 (how good a lead this is for selling website/SEO/marketing services)
 - opportunityScore: integer 0-100 (revenue potential of this client)
-- estimatedMonthlyRevenue: integer (estimated monthly business revenue in USD)
+- estimatedMonthlyRevenue: integer (estimated monthly business revenue in INR)
 - reasoning: brief 1-sentence explanation
 
 Consider: businesses WITHOUT websites are BETTER leads. More reviews and higher ratings indicate established businesses that can afford services. Larger cities mean more potential customers. Some categories naturally have higher revenue.`,

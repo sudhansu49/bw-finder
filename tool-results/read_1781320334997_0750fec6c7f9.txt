@@ -1,0 +1,1029 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Label } from '@/components/ui/label'
+     9→import { Badge } from '@/components/ui/badge'
+    10→import { Separator } from '@/components/ui/separator'
+    11→import { Switch } from '@/components/ui/switch'
+    12→import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+    13→import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+    14→import { Skeleton } from '@/components/ui/skeleton'
+    15→import { motion } from 'framer-motion'
+    16→import {
+    17→  User,
+    18→  Mail,
+    19→  Phone,
+    20→  Building2,
+    21→  MapPin,
+    22→  Shield,
+    23→  Lock,
+    24→  Globe,
+    25→  Calendar,
+    26→  Trash2,
+    27→  AlertTriangle,
+    28→  Save,
+    29→  Camera,
+    30→  ExternalLink,
+    31→  Loader2,
+    32→} from 'lucide-react'
+    33→import { useToast } from '@/hooks/use-toast'
+    34→
+    35→// ─── Helpers ──────────────────────────────────────────────────────────────────
+    36→
+    37→function getInitials(name: string): string {
+    38→  return name
+    39→    .split(' ')
+    40→    .map((n) => n[0])
+    41→    .join('')
+    42→    .toUpperCase()
+    43→    .slice(0, 2)
+    44→}
+    45→
+    46→function roleLabel(role: string): string {
+    47→  const map: Record<string, string> = {
+    48→    super_admin: 'Super Admin',
+    49→    admin: 'Admin',
+    50→    agency_owner: 'Agency Owner',
+    51→    team_member: 'Team Member',
+    52→    user: 'User',
+    53→  }
+    54→  return map[role] || role
+    55→}
+    56→
+    57→function roleBadgeStyle(role: string): string {
+    58→  switch (role) {
+    59→    case 'super_admin':
+    60→      return 'bg-red-100 text-red-700 border-red-200 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30'
+    61→    case 'admin':
+    62→      return 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30'
+    63→    case 'agency_owner':
+    64→      return 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30'
+    65→    case 'team_member':
+    66→      return 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-500/20 dark:text-sky-400 dark:border-sky-500/30'
+    67→    default:
+    68→      return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30'
+    69→  }
+    70→}
+    71→
+    72→function planBadgeStyle(plan: string | null | undefined): string {
+    73→  switch ((plan || '').toLowerCase()) {
+    74→    case 'pro':
+    75→      return 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30'
+    76→    case 'enterprise':
+    77→      return 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30'
+    78→    case 'starter':
+    79→      return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30'
+    80→    default:
+    81→      return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30'
+    82→  }
+    83→}
+    84→
+    85→function formatDate(dateStr: string | null | undefined): string {
+    86→  if (!dateStr) return 'N/A'
+    87→  try {
+    88→    return new Date(dateStr).toLocaleDateString('en-US', {
+    89→      year: 'numeric',
+    90→      month: 'long',
+    91→      day: 'numeric',
+    92→    })
+    93→  } catch {
+    94→    return dateStr
+    95→  }
+    96→}
+    97→
+    98→// ─── Animation Variants ───────────────────────────────────────────────────────
+    99→
+   100→const fadeUp = {
+   101→  initial: { opacity: 0, y: 20 },
+   102→  animate: { opacity: 1, y: 0 },
+   103→}
+   104→
+   105→// ─── Timezone / Language / DateFormat Options ─────────────────────────────────
+   106→
+   107→const timezones = [
+   108→  'UTC',
+   109→  'America/New_York',
+   110→  'America/Chicago',
+   111→  'America/Denver',
+   112→  'America/Los_Angeles',
+   113→  'Europe/London',
+   114→  'Europe/Paris',
+   115→  'Europe/Berlin',
+   116→  'Asia/Tokyo',
+   117→  'Asia/Shanghai',
+   118→  'Asia/Kolkata',
+   119→  'Australia/Sydney',
+   120→]
+   121→
+   122→const languages = [
+   123→  { value: 'en', label: 'English' },
+   124→  { value: 'es', label: 'Spanish' },
+   125→  { value: 'fr', label: 'French' },
+   126→  { value: 'de', label: 'German' },
+   127→  { value: 'pt', label: 'Portuguese' },
+   128→  { value: 'ja', label: 'Japanese' },
+   129→  { value: 'zh', label: 'Chinese' },
+   130→  { value: 'ar', label: 'Arabic' },
+   131→]
+   132→
+   133→const dateFormats = [
+   134→  { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
+   135→  { value: 'DD/MM/YYYY', label: 'DD/MM/YYYY' },
+   136→  { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+   137→  { value: 'DD.MM.YYYY', label: 'DD.MM.YYYY' },
+   138→]
+   139→
+   140→// ─── Connected Account Type ───────────────────────────────────────────────────
+   141→
+   142→interface ConnectedAccount {
+   143→  provider: string
+   144→  label: string
+   145→  connected: boolean
+   146→  email?: string
+   147→  icon: React.ElementType
+   148→  color: string
+   149→}
+   150→
+   151→const defaultAccounts: ConnectedAccount[] = [
+   152→  {
+   153→    provider: 'google',
+   154→    label: 'Google',
+   155→    connected: true,
+   156→    email: '',
+   157→    icon: Globe,
+   158→    color: 'bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-400',
+   159→  },
+   160→  {
+   161→    provider: 'linkedin',
+   162→    label: 'LinkedIn',
+   163→    connected: false,
+   164→    icon: ExternalLink,
+   165→    color: 'bg-sky-100 text-sky-600 dark:bg-sky-500/20 dark:text-sky-400',
+   166→  },
+   167→]
+   168→
+   169→// ─── API Response Type ────────────────────────────────────────────────────────
+   170→
+   171→interface UserProfile {
+   172→  id: string
+   173→  email: string
+   174→  name: string
+   175→  company: string | null
+   176→  role: string
+   177→  avatar: string | null
+   178→  credits: number
+   179→  planId: string | null
+   180→  status: string
+   181→  agencyId: string | null
+   182→  lastLoginAt: string | null
+   183→  loginIp: string | null
+   184→  createdAt: string
+   185→  updatedAt: string
+   186→  plan: {
+   187→    id: string
+   188→    name: string
+   189→    description: string
+   190→    price: number
+   191→    credits: number
+   192→    features: string
+   193→    maxLeads: number
+   194→    maxSearches: number
+   195→    maxExports: number
+   196→  } | null
+   197→}
+   198→
+   199→// ─── Main Component ───────────────────────────────────────────────────────────
+   200→
+   201→export function ProfileView() {
+   202→  const { user, setUser } = useAppStore()
+   203→  const { toast } = useToast()
+   204→
+   205→  // Profile data from API
+   206→  const [profileData, setProfileData] = useState<UserProfile | null>(null)
+   207→  const [profileLoading, setProfileLoading] = useState(true)
+   208→
+   209→  // Personal info form
+   210→  const [personalForm, setPersonalForm] = useState({
+   211→    name: '',
+   212→    email: '',
+   213→    phone: '',
+   214→    company: '',
+   215→    jobTitle: '',
+   216→    location: '',
+   217→  })
+   218→  const [personalLoading, setPersonalLoading] = useState(false)
+   219→
+   220→  // Account settings
+   221→  const [timezone, setTimezone] = useState('America/Los_Angeles')
+   222→  const [language, setLanguage] = useState('en')
+   223→  const [dateFormat, setDateFormat] = useState('MM/DD/YYYY')
+   224→  const [settingsLoading, setSettingsLoading] = useState(false)
+   225→
+   226→  // Security
+   227→  const [passwordForm, setPasswordForm] = useState({
+   228→    current: '',
+   229→    new: '',
+   230→    confirm: '',
+   231→  })
+   232→  const [twoFactor, setTwoFactor] = useState(false)
+   233→  const [passwordLoading, setPasswordLoading] = useState(false)
+   234→
+   235→  // Connected accounts
+   236→  const [accounts, setAccounts] = useState<ConnectedAccount[]>(defaultAccounts)
+   237→
+   238→  // Delete account confirmation
+   239→  const [deleteConfirm, setDeleteConfirm] = useState('')
+   240→
+   241→  // ── Fetch profile on mount ──
+   242→  useEffect(() => {
+   243→    const fetchProfile = async () => {
+   244→      const userId = user?.id
+   245→      if (!userId) {
+   246→        setProfileLoading(false)
+   247→        return
+   248→      }
+   249→
+   250→      try {
+   251→        const res = await fetch(`/api/user/profile?userId=${userId}`)
+   252→        if (!res.ok) {
+   253→          throw new Error('Failed to fetch profile')
+   254→        }
+   255→        const data = await res.json()
+   256→        const profile: UserProfile = data.user
+   257→        setProfileData(profile)
+   258→
+   259→        // Pre-fill form fields from API response
+   260→        setPersonalForm({
+   261→          name: profile.name || '',
+   262→          email: profile.email || '',
+   263→          phone: '',
+   264→          company: profile.company || '',
+   265→          jobTitle: '',
+   266→          location: '',
+   267→        })
+   268→
+   269→        // Update connected accounts with real email
+   270→        setAccounts((prev) =>
+   271→          prev.map((a) =>
+   272→            a.provider === 'google'
+   273→              ? { ...a, email: profile.email }
+   274→              : a
+   275→          )
+   276→        )
+   277→      } catch {
+   278→        toast({
+   279→          title: 'Error',
+   280→          description: 'Failed to load profile data. Please refresh the page.',
+   281→          variant: 'destructive',
+   282→        })
+   283→      } finally {
+   284→        setProfileLoading(false)
+   285→      }
+   286→    }
+   287→
+   288→    fetchProfile()
+   289→  }, [user?.id, toast])
+   290→
+   291→  // ── Derived display values ──
+   292→  const displayName = profileData?.name || user?.name || 'User'
+   293→  const displayEmail = profileData?.email || user?.email || ''
+   294→  const displayCompany = profileData?.company || user?.company || ''
+   295→  const displayRole = profileData?.role || user?.role || 'user'
+   296→  const displayPlan = profileData?.plan?.name || user?.planName || ''
+   297→  const displayCredits = profileData?.credits ?? user?.credits ?? 0
+   298→
+   299→  // ── Handlers ──
+   300→
+   301→  const handleSavePersonal = async () => {
+   302→    const userId = user?.id
+   303→    if (!userId) return
+   304→
+   305→    setPersonalLoading(true)
+   306→    try {
+   307→      const res = await fetch('/api/user/profile', {
+   308→        method: 'PUT',
+   309→        headers: { 'Content-Type': 'application/json' },
+   310→        body: JSON.stringify({
+   311→          userId,
+   312→          name: personalForm.name,
+   313→          email: personalForm.email,
+   314→          company: personalForm.company,
+   315→          phone: personalForm.phone,
+   316→          jobTitle: personalForm.jobTitle,
+   317→          location: personalForm.location,
+   318→        }),
+   319→      })
+   320→
+   321→      if (!res.ok) {
+   322→        const errorData = await res.json().catch(() => ({}))
+   323→        throw new Error(errorData.error || 'Failed to update profile')
+   324→      }
+   325→
+   326→      const data = await res.json()
+   327→      const updatedProfile: UserProfile = data.user
+   328→      setProfileData(updatedProfile)
+   329→
+   330→      // Update Zustand store
+   331→      if (user) {
+   332→        setUser({
+   333→          ...user,
+   334→          name: personalForm.name,
+   335→          email: personalForm.email,
+   336→          company: personalForm.company || null,
+   337→        })
+   338→      }
+   339→
+   340→      toast({
+   341→        title: 'Profile Updated',
+   342→        description: 'Your personal information has been saved successfully.',
+   343→      })
+   344→    } catch (err) {
+   345→      toast({
+   346→        title: 'Error',
+   347→        description: err instanceof Error ? err.message : 'Failed to update profile. Please try again.',
+   348→        variant: 'destructive',
+   349→      })
+   350→    } finally {
+   351→      setPersonalLoading(false)
+   352→    }
+   353→  }
+   354→
+   355→  const handleSaveSettings = async () => {
+   356→    setSettingsLoading(true)
+   357→    try {
+   358→      await new Promise((r) => setTimeout(r, 600))
+   359→      toast({
+   360→        title: 'Settings Saved',
+   361→        description: 'Your account preferences have been updated.',
+   362→      })
+   363→    } catch {
+   364→      toast({
+   365→        title: 'Error',
+   366→        description: 'Failed to save settings. Please try again.',
+   367→        variant: 'destructive',
+   368→      })
+   369→    } finally {
+   370→      setSettingsLoading(false)
+   371→    }
+   372→  }
+   373→
+   374→  const handleChangePassword = async () => {
+   375→    const userId = user?.id
+   376→    if (!userId) return
+   377→
+   378→    if (!passwordForm.current || !passwordForm.new || !passwordForm.confirm) {
+   379→      toast({
+   380→        title: 'Missing Fields',
+   381→        description: 'Please fill in all password fields.',
+   382→        variant: 'destructive',
+   383→      })
+   384→      return
+   385→    }
+   386→    if (passwordForm.new !== passwordForm.confirm) {
+   387→      toast({
+   388→        title: 'Passwords Don\'t Match',
+   389→        description: 'New password and confirmation must match.',
+   390→        variant: 'destructive',
+   391→      })
+   392→      return
+   393→    }
+   394→    if (passwordForm.new.length < 8) {
+   395→      toast({
+   396→        title: 'Weak Password',
+   397→        description: 'New password must be at least 8 characters long.',
+   398→        variant: 'destructive',
+   399→      })
+   400→      return
+   401→    }
+   402→    setPasswordLoading(true)
+   403→    try {
+   404→      const res = await fetch('/api/user/password', {
+   405→        method: 'POST',
+   406→        headers: { 'Content-Type': 'application/json' },
+   407→        body: JSON.stringify({
+   408→          userId,
+   409→          currentPassword: passwordForm.current,
+   410→          newPassword: passwordForm.new,
+   411→        }),
+   412→      })
+   413→
+   414→      if (!res.ok) {
+   415→        const errorData = await res.json().catch(() => ({}))
+   416→        throw new Error(errorData.error || 'Failed to change password')
+   417→      }
+   418→
+   419→      setPasswordForm({ current: '', new: '', confirm: '' })
+   420→      toast({
+   421→        title: 'Password Changed',
+   422→        description: 'Your password has been updated successfully.',
+   423→      })
+   424→    } catch (err) {
+   425→      toast({
+   426→        title: 'Error',
+   427→        description: err instanceof Error ? err.message : 'Failed to change password. Please try again.',
+   428→        variant: 'destructive',
+   429→      })
+   430→    } finally {
+   431→      setPasswordLoading(false)
+   432→    }
+   433→  }
+   434→
+   435→  const handleToggle2FA = (enabled: boolean) => {
+   436→    setTwoFactor(enabled)
+   437→    toast({
+   438→      title: enabled ? '2FA Enabled' : '2FA Disabled',
+   439→      description: enabled
+   440→        ? 'Two-factor authentication is now active on your account.'
+   441→        : 'Two-factor authentication has been turned off.',
+   442→    })
+   443→  }
+   444→
+   445→  const handleToggleAccount = (provider: string) => {
+   446→    setAccounts((prev) =>
+   447→      prev.map((a) =>
+   448→        a.provider === provider ? { ...a, connected: !a.connected } : a
+   449→      )
+   450→    )
+   451→    const account = accounts.find((a) => a.provider === provider)
+   452→    toast({
+   453→      title: account?.connected ? `${account.label} Disconnected` : `${account?.label} Connected`,
+   454→      description: account?.connected
+   455→        ? `Your ${account?.label} account has been disconnected.`
+   456→        : `Your ${account?.label} account has been linked successfully.`,
+   457→    })
+   458→  }
+   459→
+   460→  const handleDeleteAccount = async () => {
+   461→    if (deleteConfirm !== 'DELETE') {
+   462→      toast({
+   463→        title: 'Confirmation Required',
+   464→        description: 'Please type DELETE to confirm account deletion.',
+   465→        variant: 'destructive',
+   466→      })
+   467→      return
+   468→    }
+   469→    toast({
+   470→      title: 'Account Deletion Requested',
+   471→      description: 'Your account will be deleted within 30 days. Contact support to cancel.',
+   472→      variant: 'destructive',
+   473→    })
+   474→    setDeleteConfirm('')
+   475→  }
+   476→
+   477→  // ── Render ──
+   478→
+   479→  const initials = getInitials(personalForm.name || displayName || 'U')
+   480→  const joinDate = formatDate(profileData?.createdAt)
+   481→
+   482→  // ── Loading skeleton ──
+   483→  if (profileLoading) {
+   484→    return (
+   485→      <div className="space-y-6 max-w-3xl">
+   486→        <div>
+   487→          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Profile</h1>
+   488→          <p className="text-muted-foreground">Manage your personal information and account preferences</p>
+   489→        </div>
+   490→        <Card className="border-0 shadow-sm overflow-hidden">
+   491→          <Skeleton className="h-28 w-full" />
+   492→          <CardContent className="relative px-6 pb-6">
+   493→            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
+   494→              <Skeleton className="h-24 w-24 rounded-full" />
+   495→              <div className="space-y-2 flex-1">
+   496→                <Skeleton className="h-6 w-48" />
+   497→                <Skeleton className="h-4 w-64" />
+   498→                <Skeleton className="h-4 w-32" />
+   499→              </div>
+   500→            </div>
+   501→          </CardContent>
+   502→        </Card>
+   503→        <Card className="border-0 shadow-sm">
+   504→          <CardHeader>
+   505→            <Skeleton className="h-5 w-48" />
+   506→            <Skeleton className="h-4 w-64" />
+   507→          </CardHeader>
+   508→          <CardContent className="space-y-5">
+   509→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+   510→              {[...Array(6)].map((_, i) => (
+   511→                <div key={i} className="space-y-2">
+   512→                  <Skeleton className="h-4 w-24" />
+   513→                  <Skeleton className="h-11 w-full" />
+   514→                </div>
+   515→              ))}
+   516→            </div>
+   517→          </CardContent>
+   518→        </Card>
+   519→      </div>
+   520→    )
+   521→  }
+   522→
+   523→  return (
+   524→    <div className="space-y-6 max-w-3xl">
+   525→      {/* ── Page Title ── */}
+   526→      <div>
+   527→        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Profile</h1>
+   528→        <p className="text-muted-foreground">Manage your personal information and account preferences</p>
+   529→      </div>
+   530→
+   531→      {/* ── Profile Header ── */}
+   532→      <motion.div {...fadeUp} transition={{ duration: 0.3 }}>
+   533→        <Card className="border-0 shadow-sm overflow-hidden">
+   534→          <div className="h-28 bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 relative">
+   535→            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImciIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMS41IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMTUpIi8+PC9kZWZzPjxyZWN0IGZpbGw9InVybCgjZykiIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiLz48L3N2Zz4=')] opacity-50" />
+   536→          </div>
+   537→          <CardContent className="relative px-6 pb-6">
+   538→            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-12">
+   539→              <div className="relative">
+   540→                <Avatar className="h-24 w-24 border-4 border-white dark:border-slate-900 shadow-lg">
+   541→                  <AvatarFallback className="bg-amber-500 text-white text-2xl font-bold">
+   542→                    {initials}
+   543→                  </AvatarFallback>
+   544→                </Avatar>
+   545→                <button
+   546→                  className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-white dark:bg-slate-800 border-2 border-white dark:border-slate-900 shadow-sm flex items-center justify-center text-slate-500 hover:text-amber-500 transition-colors"
+   547→                  aria-label="Change avatar"
+   548→                >
+   549→                  <Camera className="h-4 w-4" />
+   550→                </button>
+   551→              </div>
+   552→              <div className="flex-1 min-w-0 pt-1 sm:pt-0 sm:pb-1">
+   553→                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+   554→                  <h2 className="text-xl font-bold text-slate-900 dark:text-white truncate">
+   555→                    {personalForm.name || displayName}
+   556→                  </h2>
+   557→                  <div className="flex items-center gap-2 flex-wrap">
+   558→                    <Badge
+   559→                      variant="outline"
+   560→                      className={`text-xs ${roleBadgeStyle(displayRole)}`}
+   561→                    >
+   562→                      <Shield className="h-3 w-3 mr-1" />
+   563→                      {roleLabel(displayRole)}
+   564→                    </Badge>
+   565→                    <Badge
+   566→                      variant="outline"
+   567→                      className={`text-xs ${planBadgeStyle(displayPlan)}`}
+   568→                    >
+   569→                      {displayPlan} Plan
+   570→                    </Badge>
+   571→                  </div>
+   572→                </div>
+   573→                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1.5">
+   574→                  <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+   575→                    <Mail className="h-3.5 w-3.5" />
+   576→                    {personalForm.email || displayEmail}
+   577→                  </span>
+   578→                  <span className="hidden sm:inline text-muted-foreground/40">&bull;</span>
+   579→                  <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+   580→                    <Calendar className="h-3.5 w-3.5" />
+   581→                    Joined {joinDate}
+   582→                  </span>
+   583→                </div>
+   584→                <div className="flex items-center gap-2 mt-2">
+   585→                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 px-2 py-0.5 rounded-full">
+   586→                    {displayCredits} credits remaining
+   587→                  </span>
+   588→                </div>
+   589→              </div>
+   590→            </div>
+   591→          </CardContent>
+   592→        </Card>
+   593→      </motion.div>
+   594→
+   595→      {/* ── Personal Information ── */}
+   596→      <motion.div {...fadeUp} transition={{ duration: 0.3, delay: 0.05 }}>
+   597→        <Card className="border-0 shadow-sm">
+   598→          <CardHeader>
+   599→            <div className="flex items-center gap-2">
+   600→              <User className="h-5 w-5 text-amber-500" />
+   601→              <CardTitle className="text-lg">Personal Information</CardTitle>
+   602→            </div>
+   603→            <CardDescription>Update your personal details and contact information</CardDescription>
+   604→          </CardHeader>
+   605→          <CardContent className="space-y-5">
+   606→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+   607→              <div className="space-y-2">
+   608→                <Label htmlFor="profile-name" className="flex items-center gap-2">
+   609→                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+   610→                  Full Name
+   611→                </Label>
+   612→                <Input
+   613→                  id="profile-name"
+   614→                  placeholder="Your full name"
+   615→                  value={personalForm.name}
+   616→                  onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
+   617→                  className="h-11"
+   618→                />
+   619→              </div>
+   620→              <div className="space-y-2">
+   621→                <Label htmlFor="profile-email" className="flex items-center gap-2">
+   622→                  <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+   623→                  Email Address
+   624→                </Label>
+   625→                <Input
+   626→                  id="profile-email"
+   627→                  type="email"
+   628→                  placeholder="you@example.com"
+   629→                  value={personalForm.email}
+   630→                  onChange={(e) => setPersonalForm({ ...personalForm, email: e.target.value })}
+   631→                  className="h-11"
+   632→                />
+   633→              </div>
+   634→              <div className="space-y-2">
+   635→                <Label htmlFor="profile-phone" className="flex items-center gap-2">
+   636→                  <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+   637→                  Phone Number
+   638→                </Label>
+   639→                <Input
+   640→                  id="profile-phone"
+   641→                  type="tel"
+   642→                  placeholder="+1 (555) 000-0000"
+   643→                  value={personalForm.phone}
+   644→                  onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
+   645→                  className="h-11"
+   646→                />
+   647→              </div>
+   648→              <div className="space-y-2">
+   649→                <Label htmlFor="profile-company" className="flex items-center gap-2">
+   650→                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+   651→                  Company
+   652→                </Label>
+   653→                <Input
+   654→                  id="profile-company"
+   655→                  placeholder="Your company name"
+   656→                  value={personalForm.company}
+   657→                  onChange={(e) => setPersonalForm({ ...personalForm, company: e.target.value })}
+   658→                  className="h-11"
+   659→                />
+   660→              </div>
+   661→              <div className="space-y-2">
+   662→                <Label htmlFor="profile-jobtitle" className="flex items-center gap-2">
+   663→                  <Shield className="h-3.5 w-3.5 text-muted-foreground" />
+   664→                  Job Title
+   665→                </Label>
+   666→                <Input
+   667→                  id="profile-jobtitle"
+   668→                  placeholder="Your job title"
+   669→                  value={personalForm.jobTitle}
+   670→                  onChange={(e) => setPersonalForm({ ...personalForm, jobTitle: e.target.value })}
+   671→                  className="h-11"
+   672→                />
+   673→              </div>
+   674→              <div className="space-y-2">
+   675→                <Label htmlFor="profile-location" className="flex items-center gap-2">
+   676→                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+   677→                  Location
+   678→                </Label>
+   679→                <Input
+   680→                  id="profile-location"
+   681→                  placeholder="City, State"
+   682→                  value={personalForm.location}
+   683→                  onChange={(e) => setPersonalForm({ ...personalForm, location: e.target.value })}
+   684→                  className="h-11"
+   685→                />
+   686→              </div>
+   687→            </div>
+   688→            <div className="flex justify-end pt-2">
+   689→              <Button
+   690→                onClick={handleSavePersonal}
+   691→                disabled={personalLoading}
+   692→                className="bg-amber-500 hover:bg-amber-600 text-white"
+   693→              >
+   694→                {personalLoading ? (
+   695→                  <>
+   696→                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+   697→                    Saving...
+   698→                  </>
+   699→                ) : (
+   700→                  <>
+   701→                    <Save className="mr-2 h-4 w-4" />
+   702→                    Save Changes
+   703→                  </>
+   704→                )}
+   705→              </Button>
+   706→            </div>
+   707→          </CardContent>
+   708→        </Card>
+   709→      </motion.div>
+   710→
+   711→      {/* ── Account Settings ── */}
+   712→      <motion.div {...fadeUp} transition={{ duration: 0.3, delay: 0.1 }}>
+   713→        <Card className="border-0 shadow-sm">
+   714→          <CardHeader>
+   715→            <div className="flex items-center gap-2">
+   716→              <Globe className="h-5 w-5 text-amber-500" />
+   717→              <CardTitle className="text-lg">Account Settings</CardTitle>
+   718→            </div>
+   719→            <CardDescription>Customize your regional and display preferences</CardDescription>
+   720→          </CardHeader>
+   721→          <CardContent className="space-y-5">
+   722→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+   723→              <div className="space-y-2">
+   724→                <Label className="flex items-center gap-2">
+   725→                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+   726→                  Timezone
+   727→                </Label>
+   728→                <Select value={timezone} onValueChange={setTimezone}>
+   729→                  <SelectTrigger className="h-11">
+   730→                    <SelectValue placeholder="Select timezone" />
+   731→                  </SelectTrigger>
+   732→                  <SelectContent>
+   733→                    {timezones.map((tz) => (
+   734→                      <SelectItem key={tz} value={tz}>
+   735→                        {tz}
+   736→                      </SelectItem>
+   737→                    ))}
+   738→                  </SelectContent>
+   739→                </Select>
+   740→              </div>
+   741→              <div className="space-y-2">
+   742→                <Label className="flex items-center gap-2">
+   743→                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+   744→                  Language
+   745→                </Label>
+   746→                <Select value={language} onValueChange={setLanguage}>
+   747→                  <SelectTrigger className="h-11">
+   748→                    <SelectValue placeholder="Select language" />
+   749→                  </SelectTrigger>
+   750→                  <SelectContent>
+   751→                    {languages.map((l) => (
+   752→                      <SelectItem key={l.value} value={l.value}>
+   753→                        {l.label}
+   754→                      </SelectItem>
+   755→                    ))}
+   756→                  </SelectContent>
+   757→                </Select>
+   758→              </div>
+   759→              <div className="space-y-2">
+   760→                <Label className="flex items-center gap-2">
+   761→                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+   762→                  Date Format
+   763→                </Label>
+   764→                <Select value={dateFormat} onValueChange={setDateFormat}>
+   765→                  <SelectTrigger className="h-11">
+   766→                    <SelectValue placeholder="Select format" />
+   767→                  </SelectTrigger>
+   768→                  <SelectContent>
+   769→                    {dateFormats.map((df) => (
+   770→                      <SelectItem key={df.value} value={df.value}>
+   771→                        {df.label}
+   772→                      </SelectItem>
+   773→                    ))}
+   774→                  </SelectContent>
+   775→                </Select>
+   776→              </div>
+   777→            </div>
+   778→            <div className="flex justify-end pt-2">
+   779→              <Button
+   780→                onClick={handleSaveSettings}
+   781→                disabled={settingsLoading}
+   782→                className="bg-amber-500 hover:bg-amber-600 text-white"
+   783→              >
+   784→                {settingsLoading ? (
+   785→                  <>
+   786→                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+   787→                    Saving...
+   788→                  </>
+   789→                ) : (
+   790→                  <>
+   791→                    <Save className="mr-2 h-4 w-4" />
+   792→                    Save Preferences
+   793→                  </>
+   794→                )}
+   795→              </Button>
+   796→            </div>
+   797→          </CardContent>
+   798→        </Card>
+   799→      </motion.div>
+   800→
+   801→      {/* ── Security ── */}
+   802→      <motion.div {...fadeUp} transition={{ duration: 0.3, delay: 0.15 }}>
+   803→        <Card className="border-0 shadow-sm">
+   804→          <CardHeader>
+   805→            <div className="flex items-center gap-2">
+   806→              <Lock className="h-5 w-5 text-amber-500" />
+   807→              <CardTitle className="text-lg">Security</CardTitle>
+   808→            </div>
+   809→            <CardDescription>Manage your password and authentication settings</CardDescription>
+   810→          </CardHeader>
+   811→          <CardContent className="space-y-6">
+   812→            {/* Change Password */}
+   813→            <div>
+   814→              <h3 className="text-sm font-semibold mb-4">Change Password</h3>
+   815→              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   816→                <div className="space-y-2">
+   817→                  <Label htmlFor="current-password">Current Password</Label>
+   818→                  <Input
+   819→                    id="current-password"
+   820→                    type="password"
+   821→                    placeholder="Enter current password"
+   822→                    value={passwordForm.current}
+   823→                    onChange={(e) => setPasswordForm({ ...passwordForm, current: e.target.value })}
+   824→                    className="h-11"
+   825→                  />
+   826→                </div>
+   827→                <div className="space-y-2">
+   828→                  <Label htmlFor="new-password">New Password</Label>
+   829→                  <Input
+   830→                    id="new-password"
+   831→                    type="password"
+   832→                    placeholder="Enter new password"
+   833→                    value={passwordForm.new}
+   834→                    onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
+   835→                    className="h-11"
+   836→                  />
+   837→                </div>
+   838→                <div className="space-y-2">
+   839→                  <Label htmlFor="confirm-password">Confirm Password</Label>
+   840→                  <Input
+   841→                    id="confirm-password"
+   842→                    type="password"
+   843→                    placeholder="Confirm new password"
+   844→                    value={passwordForm.confirm}
+   845→                    onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+   846→                    className="h-11"
+   847→                  />
+   848→                </div>
+   849→              </div>
+   850→              <div className="flex justify-end mt-4">
+   851→                <Button
+   852→                  variant="outline"
+   853→                  onClick={handleChangePassword}
+   854→                  disabled={passwordLoading}
+   855→                >
+   856→                  {passwordLoading ? (
+   857→                    <>
+   858→                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+   859→                      Updating...
+   860→                    </>
+   861→                  ) : (
+   862→                    <>
+   863→                      <Lock className="mr-2 h-4 w-4" />
+   864→                      Update Password
+   865→                    </>
+   866→                  )}
+   867→                </Button>
+   868→              </div>
+   869→            </div>
+   870→
+   871→            <Separator />
+   872→
+   873→            {/* Two-Factor Auth */}
+   874→            <div className="flex items-center justify-between">
+   875→              <div className="space-y-0.5">
+   876→                <div className="flex items-center gap-2">
+   877→                  <Shield className="h-4 w-4 text-muted-foreground" />
+   878→                  <h3 className="text-sm font-semibold">Two-Factor Authentication</h3>
+   879→                </div>
+   880→                <p className="text-xs text-muted-foreground">
+   881→                  {twoFactor
+   882→                    ? '2FA is enabled. Your account is protected with an extra security layer.'
+   883→                    : 'Add an extra layer of security to your account by enabling two-factor authentication.'}
+   884→                </p>
+   885→              </div>
+   886→              <div className="flex items-center gap-3">
+   887→                <Badge
+   888→                  variant="outline"
+   889→                  className={
+   890→                    twoFactor
+   891→                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30'
+   892→                      : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30'
+   893→                  }
+   894→                >
+   895→                  {twoFactor ? 'Enabled' : 'Disabled'}
+   896→                </Badge>
+   897→                <Switch checked={twoFactor} onCheckedChange={handleToggle2FA} />
+   898→              </div>
+   899→            </div>
+   900→          </CardContent>
+   901→        </Card>
+   902→      </motion.div>
+   903→
+   904→      {/* ── Connected Accounts ── */}
+   905→      <motion.div {...fadeUp} transition={{ duration: 0.3, delay: 0.2 }}>
+   906→        <Card className="border-0 shadow-sm">
+   907→          <CardHeader>
+   908→            <div className="flex items-center gap-2">
+   909→              <ExternalLink className="h-5 w-5 text-amber-500" />
+   910→              <CardTitle className="text-lg">Connected Accounts</CardTitle>
+   911→            </div>
+   912→            <CardDescription>Manage your third-party account connections</CardDescription>
+   913→          </CardHeader>
+   914→          <CardContent className="space-y-3">
+   915→            {accounts.map((account) => {
+   916→              const Icon = account.icon
+   917→              return (
+   918→                <div
+   919→                  key={account.provider}
+   920→                  className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl"
+   921→                >
+   922→                  <div className="flex items-center gap-3">
+   923→                    <div
+   924→                      className={`h-10 w-10 rounded-lg flex items-center justify-center ${account.color}`}
+   925→                    >
+   926→                      <Icon className="h-5 w-5" />
+   927→                    </div>
+   928→                    <div>
+   929→                      <p className="text-sm font-medium">{account.label}</p>
+   930→                      {account.connected && account.email ? (
+   931→                        <p className="text-xs text-muted-foreground">{account.email}</p>
+   932→                      ) : (
+   933→                        <p className="text-xs text-muted-foreground">Not connected</p>
+   934→                      )}
+   935→                    </div>
+   936→                  </div>
+   937→                  <div className="flex items-center gap-2">
+   938→                    <Badge
+   939→                      variant="outline"
+   940→                      className={
+   941→                        account.connected
+   942→                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30'
+   943→                          : 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-500/20 dark:text-slate-400 dark:border-slate-500/30'
+   944→                      }
+   945→                    >
+   946→                      {account.connected ? 'Connected' : 'Not Connected'}
+   947→                    </Badge>
+   948→                    <Button
+   949→                      variant={account.connected ? 'outline' : 'default'}
+   950→                      size="sm"
+   951→                      className={
+   952→                        account.connected
+   953→                          ? 'text-xs hover:text-red-600 hover:border-red-300'
+   954→                          : 'text-xs bg-amber-500 hover:bg-amber-600 text-white'
+   955→                      }
+   956→                      onClick={() => handleToggleAccount(account.provider)}
+   957→                    >
+   958→                      {account.connected ? 'Disconnect' : 'Connect'}
+   959→                    </Button>
+   960→                  </div>
+   961→                </div>
+   962→              )
+   963→            })}
+   964→          </CardContent>
+   965→        </Card>
+   966→      </motion.div>
+   967→
+   968→      {/* ── Danger Zone ── */}
+   969→      <motion.div {...fadeUp} transition={{ duration: 0.3, delay: 0.25 }}>
+   970→        <Card className="border-0 shadow-sm border-red-200 dark:border-red-500/20 overflow-hidden">
+   971→          <div className="h-1 bg-gradient-to-r from-red-400 to-red-600" />
+   972→          <CardHeader>
+   973→            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+   974→              <AlertTriangle className="h-5 w-5" />
+   975→              <CardTitle className="text-lg text-red-600 dark:text-red-400">Danger Zone</CardTitle>
+   976→            </div>
+   977→            <CardDescription>
+   978→              Irreversible actions that permanently affect your account
+   979→            </CardDescription>
+   980→          </CardHeader>
+   981→          <CardContent>
+   982→            <div className="p-4 bg-red-50 dark:bg-red-500/10 rounded-xl space-y-4">
+   983→              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+   984→                <div className="flex-1">
+   985→                  <div className="flex items-center gap-2 mb-1">
+   986→                    <Trash2 className="h-4 w-4 text-red-600 dark:text-red-400" />
+   987→                    <p className="font-medium text-sm text-red-700 dark:text-red-300">Delete Account</p>
+   988→                  </div>
+   989→                  <p className="text-xs text-red-500 dark:text-red-400">
+   990→                    Permanently delete your account and all associated data, including leads,
+   991→                    campaigns, and export history. This action cannot be undone.
+   992→                  </p>
+   993→                </div>
+   994→              </div>
+   995→              <div className="flex flex-col sm:flex-row items-start sm:items-end gap-3">
+   996→                <div className="flex-1 space-y-1.5 w-full sm:w-auto">
+   997→                  <Label
+   998→                    htmlFor="delete-confirm"
+   999→                    className="text-xs text-red-600 dark:text-red-400 font-medium"
+  1000→                  >
+  1001→                    Type <span className="font-bold">DELETE</span> to confirm
+  1002→                  </Label>
+  1003→                  <Input
+  1004→                    id="delete-confirm"
+  1005→                    placeholder="DELETE"
+  1006→                    value={deleteConfirm}
+  1007→                    onChange={(e) => setDeleteConfirm(e.target.value)}
+  1008→                    className="h-10 border-red-300 dark:border-red-500/30 focus-visible:ring-red-500 bg-white dark:bg-slate-900"
+  1009→                  />
+  1010→                </div>
+  1011→                <Button
+  1012→                  variant="destructive"
+  1013→                  size="sm"
+  1014→                  className="text-xs shrink-0"
+  1015→                  disabled={deleteConfirm !== 'DELETE'}
+  1016→                  onClick={handleDeleteAccount}
+  1017→                >
+  1018→                  <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+  1019→                  Delete My Account
+  1020→                </Button>
+  1021→              </div>
+  1022→            </div>
+  1023→          </CardContent>
+  1024→        </Card>
+  1025→      </motion.div>
+  1026→    </div>
+  1027→  )
+  1028→}
+  1029→

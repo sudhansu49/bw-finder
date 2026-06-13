@@ -39,7 +39,6 @@ import {
   CheckCircle2,
   X,
   Clock,
-  DollarSign,
   Package,
   Download,
   Eye,
@@ -56,6 +55,7 @@ import {
   Search,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrency, useTranslation } from '@/lib/i18n/hooks'
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -156,6 +156,8 @@ const tierConfig = {
 }
 
 function PackageCard({ pkg, onSelect }: { pkg: ProposalPackage; onSelect: () => void }) {
+  const { format: formatCurr, symbol: currSymbol } = useCurrency()
+  const { t } = useTranslation()
   const config = tierConfig[pkg.tier]
   const Icon = config.icon
   const includedFeatures = pkg.features.filter(f => f.included)
@@ -187,9 +189,9 @@ function PackageCard({ pkg, onSelect }: { pkg: ProposalPackage; onSelect: () => 
         {/* Price */}
         <div className="flex items-baseline gap-2">
           {pkg.originalPrice && (
-            <span className="text-sm text-slate-400 line-through">${pkg.originalPrice.toLocaleString()}</span>
+            <span className="text-sm text-slate-400 line-through">{formatCurr(pkg.originalPrice)}</span>
           )}
-          <span className={`text-3xl font-extrabold ${config.priceColor}`}>${pkg.price.toLocaleString()}</span>
+          <span className={`text-3xl font-extrabold ${config.priceColor}`}>{formatCurr(pkg.price)}</span>
         </div>
         <p className="text-xs text-muted-foreground mt-1">one-time setup fee</p>
       </div>
@@ -237,6 +239,8 @@ function PackageCard({ pkg, onSelect }: { pkg: ProposalPackage; onSelect: () => 
 export function ProposalView() {
   const { user } = useAppStore()
   const { toast } = useToast()
+  const { format: formatCurr, formatCompact, symbol: currSymbol } = useCurrency()
+  const { t } = useTranslation()
   const [businesses, setBusinesses] = useState<Business[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState<string | null>(null)
@@ -351,10 +355,6 @@ export function ProposalView() {
     } catch {
       toast({ title: 'Error exporting PDF', variant: 'destructive' })
     }
-  }
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(price)
   }
 
   if (loading) {
@@ -633,7 +633,7 @@ export function ProposalView() {
                       </div>
                       <div className="text-center">
                         <div className="text-2xl font-bold text-amber-400">
-                          ${(proposal.totalOpportunityValue / 1000).toFixed(0)}k
+                          {formatCompact(proposal.totalOpportunityValue)}
                         </div>
                         <div className="text-[10px] text-slate-400 uppercase">Opp. Value</div>
                       </div>
@@ -672,7 +672,7 @@ export function ProposalView() {
                 <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-slate-50 rounded-xl">
                   <Button className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white" onClick={() => handleExportPDF(selectedBusiness.id)}>
                     <Download className="mr-2 h-4 w-4" />
-                    Export as PDF
+                    {t('proposal.downloadPdf')}
                   </Button>
                   <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleGenerateProposal(selectedBusiness, true)}>
                     <Sparkles className="mr-2 h-4 w-4" />

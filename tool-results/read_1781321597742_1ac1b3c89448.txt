@@ -1,0 +1,693 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect } from 'react'
+     4→import { useAppStore } from '@/store/app-store'
+     5→import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+     6→import { Button } from '@/components/ui/button'
+     7→import { Input } from '@/components/ui/input'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Separator } from '@/components/ui/separator'
+    10→import { Progress } from '@/components/ui/progress'
+    11→import {
+    12→  Select,
+    13→  SelectContent,
+    14→  SelectItem,
+    15→  SelectTrigger,
+    16→  SelectValue,
+    17→} from '@/components/ui/select'
+    18→import {
+    19→  Table,
+    20→  TableBody,
+    21→  TableCell,
+    22→  TableHead,
+    23→  TableHeader,
+    24→  TableRow,
+    25→} from '@/components/ui/table'
+    26→import {
+    27→  Dialog,
+    28→  DialogContent,
+    29→  DialogHeader,
+    30→  DialogTitle,
+    31→} from '@/components/ui/dialog'
+    32→import { ScrollArea } from '@/components/ui/scroll-area'
+    33→import { motion, AnimatePresence } from 'framer-motion'
+    34→import {
+    35→  FileText,
+    36→  Building2,
+    37→  Loader2,
+    38→  Sparkles,
+    39→  CheckCircle2,
+    40→  X,
+    41→  Clock,
+    42→  DollarSign,
+    43→  Package,
+    44→  Download,
+    45→  Eye,
+    46→  Star,
+    47→  ArrowRight,
+    48→  Zap,
+    49→  Crown,
+    50→  Shield,
+    51→  ChevronLeft,
+    52→  ChevronRight,
+    53→  TrendingUp,
+    54→  Target,
+    55→  MessageSquare,
+    56→  Search,
+    57→} from 'lucide-react'
+    58→import { useToast } from '@/hooks/use-toast'
+    59→
+    60→// ── Types ──────────────────────────────────────────────────────────
+    61→
+    62→interface PackageFeature {
+    63→  name: string
+    64→  included: boolean
+    65→  highlight?: boolean
+    66→}
+    67→
+    68→interface ProposalPackage {
+    69→  name: string
+    70→  tier: 'basic' | 'professional' | 'premium'
+    71→  price: number
+    72→  originalPrice?: number
+    73→  timeline: string
+    74→  deliveryWeeks: number
+    75→  features: PackageFeature[]
+    76→  description: string
+    77→  recommended?: boolean
+    78→}
+    79→
+    80→interface ProposalData {
+    81→  businessName: string
+    82→  category: string
+    83→  city: string | null
+    84→  country: string | null
+    85→  generatedAt: string
+    86→  packages: ProposalPackage[]
+    87→  auditSummary: string
+    88→  auditScore: number | null
+    89→  totalOpportunityValue: number
+    90→  servicesFromAudit: string[]
+    91→  customMessage: string
+    92→  validUntil: string
+    93→  companyName: string
+    94→  contactEmail: string
+    95→  contactPhone: string
+    96→}
+    97→
+    98→interface Business {
+    99→  id: string
+   100→  name: string
+   101→  category: string
+   102→  city?: string
+   103→  country?: string
+   104→  phone?: string
+   105→  email?: string
+   106→  website?: string | null
+   107→  hasWebsite: boolean
+   108→  websiteStatus?: string | null
+   109→  leadScore?: number | null
+   110→  opportunityScore?: number | null
+   111→  estimatedMonthlyRevenue?: number | null
+   112→  auditScore?: number | null
+   113→  proposalData?: string | null
+   114→  proposalDate?: string | null
+   115→}
+   116→
+   117→// ── Package Card Component ────────────────────────────────────────
+   118→
+   119→const tierConfig = {
+   120→  basic: {
+   121→    gradient: 'from-slate-50 to-slate-100',
+   122→    border: 'border-slate-200',
+   123→    headerBg: 'bg-slate-50',
+   124→    accent: 'text-slate-700',
+   125→    accentBg: 'bg-slate-100',
+   126→    priceColor: 'text-slate-800',
+   127→    icon: Shield,
+   128→    iconColor: 'text-slate-500',
+   129→    checkColor: 'text-slate-500',
+   130→    ring: 'ring-slate-200',
+   131→  },
+   132→  professional: {
+   133→    gradient: 'from-amber-50 to-orange-50',
+   134→    border: 'border-amber-300',
+   135→    headerBg: 'bg-amber-50',
+   136→    accent: 'text-amber-700',
+   137→    accentBg: 'bg-amber-100',
+   138→    priceColor: 'text-amber-800',
+   139→    icon: Zap,
+   140→    iconColor: 'text-amber-500',
+   141→    checkColor: 'text-amber-500',
+   142→    ring: 'ring-amber-400',
+   143→  },
+   144→  premium: {
+   145→    gradient: 'from-emerald-50 to-teal-50',
+   146→    border: 'border-emerald-300',
+   147→    headerBg: 'bg-emerald-50',
+   148→    accent: 'text-emerald-700',
+   149→    accentBg: 'bg-emerald-100',
+   150→    priceColor: 'text-emerald-800',
+   151→    icon: Crown,
+   152→    iconColor: 'text-emerald-500',
+   153→    checkColor: 'text-emerald-500',
+   154→    ring: 'ring-emerald-400',
+   155→  },
+   156→}
+   157→
+   158→function PackageCard({ pkg, onSelect }: { pkg: ProposalPackage; onSelect: () => void }) {
+   159→  const config = tierConfig[pkg.tier]
+   160→  const Icon = config.icon
+   161→  const includedFeatures = pkg.features.filter(f => f.included)
+   162→  const excludedFeatures = pkg.features.filter(f => !f.included)
+   163→
+   164→  return (
+   165→    <motion.div
+   166→      initial={{ opacity: 0, y: 20 }}
+   167→      animate={{ opacity: 1, y: 0 }}
+   168→      transition={{ delay: pkg.tier === 'basic' ? 0 : pkg.tier === 'professional' ? 0.1 : 0.2 }}
+   169→      className={`relative rounded-2xl border-2 ${config.border} bg-white overflow-hidden flex flex-col ${pkg.recommended ? 'shadow-lg shadow-amber-100' : 'shadow-sm'}`}
+   170→    >
+   171→      {pkg.recommended && (
+   172→        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center py-1.5 text-xs font-bold tracking-wider uppercase">
+   173→          ★ Recommended
+   174→        </div>
+   175→      )}
+   176→
+   177→      {/* Header */}
+   178→      <div className={`p-5 ${config.headerBg} bg-gradient-to-br ${config.gradient}`}>
+   179→        <div className="flex items-center gap-2 mb-2">
+   180→          <div className={`h-8 w-8 rounded-lg ${config.accentBg} flex items-center justify-center`}>
+   181→            <Icon className={`h-4 w-4 ${config.iconColor}`} />
+   182→          </div>
+   183→          <h3 className="text-lg font-bold uppercase tracking-wide text-slate-900">{pkg.name}</h3>
+   184→        </div>
+   185→        <p className="text-xs text-muted-foreground mb-4 line-clamp-2">{pkg.description}</p>
+   186→        
+   187→        {/* Price */}
+   188→        <div className="flex items-baseline gap-2">
+   189→          {pkg.originalPrice && (
+   190→            <span className="text-sm text-slate-400 line-through">${pkg.originalPrice.toLocaleString()}</span>
+   191→          )}
+   192→          <span className={`text-3xl font-extrabold ${config.priceColor}`}>${pkg.price.toLocaleString()}</span>
+   193→        </div>
+   194→        <p className="text-xs text-muted-foreground mt-1">one-time setup fee</p>
+   195→      </div>
+   196→
+   197→      {/* Timeline */}
+   198→      <div className={`mx-5 mt-4 mb-3 px-3 py-2 rounded-lg ${config.accentBg} flex items-center justify-center gap-2`}>
+   199→        <Clock className={`h-3.5 w-3.5 ${config.iconColor}`} />
+   200→        <span className={`text-xs font-semibold ${config.accent}`}>Delivery: {pkg.timeline}</span>
+   201→      </div>
+   202→
+   203→      {/* Features */}
+   204→      <div className="px-5 flex-1">
+   205→        <ul className="space-y-1.5">
+   206→          {includedFeatures.map((f, i) => (
+   207→            <li key={i} className="flex items-start gap-2">
+   208→              <CheckCircle2 className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${config.checkColor}`} />
+   209→              <span className={`text-xs ${f.highlight ? 'font-semibold text-slate-800' : 'text-slate-600'}`}>{f.name}</span>
+   210→            </li>
+   211→          ))}
+   212→          {excludedFeatures.slice(0, 3).map((f, i) => (
+   213→            <li key={`ex-${i}`} className="flex items-start gap-2">
+   214→              <X className="h-3.5 w-3.5 mt-0.5 shrink-0 text-slate-300" />
+   215→              <span className="text-xs text-slate-400 line-through">{f.name}</span>
+   216→            </li>
+   217→          ))}
+   218→        </ul>
+   219→      </div>
+   220→
+   221→      {/* CTA */}
+   222→      <div className="p-5 pt-4">
+   223→        <Button
+   224→          className={`w-full ${pkg.recommended ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-800 hover:bg-slate-900 text-white'}`}
+   225→          onClick={onSelect}
+   226→        >
+   227→          Select {pkg.name}
+   228→          <ArrowRight className="ml-2 h-4 w-4" />
+   229→        </Button>
+   230→      </div>
+   231→    </motion.div>
+   232→  )
+   233→}
+   234→
+   235→// ── Main Component ─────────────────────────────────────────────────
+   236→
+   237→export function ProposalView() {
+   238→  const { user } = useAppStore()
+   239→  const { toast } = useToast()
+   240→  const [businesses, setBusinesses] = useState<Business[]>([])
+   241→  const [loading, setLoading] = useState(true)
+   242→  const [generating, setGenerating] = useState<string | null>(null)
+   243→  const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null)
+   244→  const [proposal, setProposal] = useState<ProposalData | null>(null)
+   245→  const [proposalOpen, setProposalOpen] = useState(false)
+   246→  const [loadingProposal, setLoadingProposal] = useState(false)
+   247→  const [searchTerm, setSearchTerm] = useState('')
+   248→  const [categoryFilter, setCategoryFilter] = useState('All')
+   249→  const [page, setPage] = useState(1)
+   250→  const pageSize = 8
+   251→
+   252→  const categories = ['All', 'Restaurant', 'Salon', 'Beauty Parlour', 'Spa', 'Gym', 'Clinic', 'Hotel', 'Real Estate', 'Dentist', 'Lawyer', 'School', 'Other']
+   253→
+   254→  // Fetch businesses
+   255→  useEffect(() => {
+   256→    const fetchBusinesses = async () => {
+   257→      try {
+   258→        const res = await fetch('/api/businesses?limit=200')
+   259→        if (res.ok) {
+   260→          const data = await res.json()
+   261→          setBusinesses(data.businesses || [])
+   262→        }
+   263→      } catch { setBusinesses([]) }
+   264→      finally { setLoading(false) }
+   265→    }
+   266→    fetchBusinesses()
+   267→  }, [user?.id])
+   268→
+   269→  const filteredBusinesses = businesses.filter(b => {
+   270→    const matchesSearch = !searchTerm || b.name.toLowerCase().includes(searchTerm.toLowerCase()) || b.city?.toLowerCase().includes(searchTerm.toLowerCase())
+   271→    const matchesCategory = categoryFilter === 'All' || b.category === categoryFilter
+   272→    return matchesSearch && matchesCategory
+   273→  })
+   274→
+   275→  const totalPages = Math.ceil(filteredBusinesses.length / pageSize)
+   276→  const paginatedBusinesses = filteredBusinesses.slice((page - 1) * pageSize, page * pageSize)
+   277→
+   278→  const proposalsGenerated = businesses.filter(b => b.proposalData).length
+   279→
+   280→  // Generate proposal
+   281→  const handleGenerateProposal = async (business: Business, useAI = false) => {
+   282→    setGenerating(business.id)
+   283→    try {
+   284→      const res = await fetch('/api/businesses/proposal', {
+   285→        method: 'POST',
+   286→        headers: { 'Content-Type': 'application/json' },
+   287→        body: JSON.stringify({ businessId: business.id, useAI }),
+   288→      })
+   289→      if (res.ok) {
+   290→        const data = await res.json()
+   291→        setProposal(data.proposal)
+   292→        setSelectedBusiness(business)
+   293→        setProposalOpen(true)
+   294→        toast({ title: 'Proposal Generated!', description: `Proposal for ${business.name} is ready.` })
+   295→        // Refresh businesses list
+   296→        const bizRes = await fetch('/api/businesses?limit=200')
+   297→        if (bizRes.ok) {
+   298→          const bizData = await bizRes.json()
+   299→          setBusinesses(bizData.businesses || [])
+   300→        }
+   301→      } else {
+   302→        toast({ title: 'Failed to generate proposal', variant: 'destructive' })
+   303→      }
+   304→    } catch {
+   305→      toast({ title: 'Error generating proposal', variant: 'destructive' })
+   306→    } finally {
+   307→      setGenerating(null)
+   308→    }
+   309→  }
+   310→
+   311→  // View existing proposal
+   312→  const handleViewProposal = async (business: Business) => {
+   313→    setSelectedBusiness(business)
+   314→    setLoadingProposal(true)
+   315→    setProposalOpen(true)
+   316→    try {
+   317→      const res = await fetch(`/api/businesses/proposal?businessId=${business.id}`)
+   318→      if (res.ok) {
+   319→        const data = await res.json()
+   320→        setProposal(data.proposal)
+   321→      } else {
+   322→        toast({ title: 'Failed to load proposal', variant: 'destructive' })
+   323→      }
+   324→    } catch {
+   325→      toast({ title: 'Error loading proposal', variant: 'destructive' })
+   326→    } finally {
+   327→      setLoadingProposal(false)
+   328→    }
+   329→  }
+   330→
+   331→  // Export PDF
+   332→  const handleExportPDF = async (businessId: string) => {
+   333→    try {
+   334→      toast({ title: 'Generating PDF...', description: 'Your proposal PDF is being prepared.' })
+   335→      const res = await fetch(`/api/businesses/proposal/pdf?businessId=${businessId}`)
+   336→      if (res.ok) {
+   337→        const html = await res.text()
+   338→        // Open in new window for printing
+   339→        const printWindow = window.open('', '_blank')
+   340→        if (printWindow) {
+   341→          printWindow.document.write(html)
+   342→          printWindow.document.close()
+   343→          setTimeout(() => {
+   344→            printWindow.print()
+   345→          }, 500)
+   346→        }
+   347→        toast({ title: 'PDF Ready!', description: 'Use the print dialog to save as PDF.' })
+   348→      } else {
+   349→        toast({ title: 'Failed to generate PDF', variant: 'destructive' })
+   350→      }
+   351→    } catch {
+   352→      toast({ title: 'Error exporting PDF', variant: 'destructive' })
+   353→    }
+   354→  }
+   355→
+   356→  const formatPrice = (price: number) => {
+   357→    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(price)
+   358→  }
+   359→
+   360→  if (loading) {
+   361→    return (
+   362→      <div className="flex items-center justify-center h-64">
+   363→        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+   364→      </div>
+   365→    )
+   366→  }
+   367→
+   368→  return (
+   369→    <div className="space-y-6">
+   370→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   371→        <div>
+   372→          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+   373→            <FileText className="h-6 w-6 text-amber-500" />
+   374→            AI Website Proposal
+   375→          </h1>
+   376→          <p className="text-muted-foreground">Generate professional 3-tier proposals for businesses</p>
+   377→        </div>
+   378→      </div>
+   379→
+   380→      {/* Stats */}
+   381→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+   382→        <Card className="border-0 shadow-sm">
+   383→          <CardContent className="p-4">
+   384→            <div className="flex items-center gap-3">
+   385→              <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center">
+   386→                <Building2 className="h-5 w-5 text-slate-600" />
+   387→              </div>
+   388→              <div>
+   389→                <p className="text-2xl font-bold text-slate-900">{businesses.length}</p>
+   390→                <p className="text-xs text-muted-foreground">Businesses</p>
+   391→              </div>
+   392→            </div>
+   393→          </CardContent>
+   394→        </Card>
+   395→        <Card className="border-0 shadow-sm">
+   396→          <CardContent className="p-4">
+   397→            <div className="flex items-center gap-3">
+   398→              <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+   399→                <FileText className="h-5 w-5 text-emerald-600" />
+   400→              </div>
+   401→              <div>
+   402→                <p className="text-2xl font-bold text-emerald-600">{proposalsGenerated}</p>
+   403→                <p className="text-xs text-muted-foreground">Proposals</p>
+   404→              </div>
+   405→            </div>
+   406→          </CardContent>
+   407→        </Card>
+   408→        <Card className="border-0 shadow-sm">
+   409→          <CardContent className="p-4">
+   410→            <div className="flex items-center gap-3">
+   411→              <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center">
+   412→                <Target className="h-5 w-5 text-amber-600" />
+   413→              </div>
+   414→              <div>
+   415→                <p className="text-2xl font-bold text-amber-600">{businesses.filter(b => !b.hasWebsite).length}</p>
+   416→                <p className="text-xs text-muted-foreground">No Website</p>
+   417→              </div>
+   418→            </div>
+   419→          </CardContent>
+   420→        </Card>
+   421→        <Card className="border-0 shadow-sm">
+   422→          <CardContent className="p-4">
+   423→            <div className="flex items-center gap-3">
+   424→              <div className="h-10 w-10 rounded-xl bg-red-50 flex items-center justify-center">
+   425→                <Package className="h-5 w-5 text-red-600" />
+   426→              </div>
+   427→              <div>
+   428→                <p className="text-2xl font-bold text-red-600">{businesses.filter(b => !b.hasWebsite && !b.proposalData).length}</p>
+   429→                <p className="text-xs text-muted-foreground">Need Proposal</p>
+   430→              </div>
+   431→            </div>
+   432→          </CardContent>
+   433→        </Card>
+   434→      </div>
+   435→
+   436→      {/* Filters */}
+   437→      <Card className="border-0 shadow-sm">
+   438→        <CardContent className="p-4">
+   439→          <div className="flex flex-col sm:flex-row gap-4">
+   440→            <div className="flex-1 relative">
+   441→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+   442→              <Input
+   443→                placeholder="Search by name or city..."
+   444→                value={searchTerm}
+   445→                onChange={(e) => { setSearchTerm(e.target.value); setPage(1) }}
+   446→                className="pl-10 h-10"
+   447→              />
+   448→            </div>
+   449→            <Select value={categoryFilter} onValueChange={(v) => { setCategoryFilter(v); setPage(1) }}>
+   450→              <SelectTrigger className="w-full sm:w-48 h-10">
+   451→                <SelectValue placeholder="Category" />
+   452→              </SelectTrigger>
+   453→              <SelectContent>
+   454→                {categories.map((cat) => (
+   455→                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+   456→                ))}
+   457→              </SelectContent>
+   458→            </Select>
+   459→          </div>
+   460→        </CardContent>
+   461→      </Card>
+   462→
+   463→      {/* Businesses Table */}
+   464→      <Card className="border-0 shadow-sm">
+   465→        <CardContent className="p-0">
+   466→          <ScrollArea className="w-full">
+   467→            <div className="min-w-[700px]">
+   468→              <Table>
+   469→                <TableHeader>
+   470→                  <TableRow className="bg-slate-50/50">
+   471→                    <TableHead>Business</TableHead>
+   472→                    <TableHead>Category</TableHead>
+   473→                    <TableHead>Location</TableHead>
+   474→                    <TableHead>Website</TableHead>
+   475→                    <TableHead>Proposal</TableHead>
+   476→                    <TableHead className="text-right">Actions</TableHead>
+   477→                  </TableRow>
+   478→                </TableHeader>
+   479→                <TableBody>
+   480→                  <AnimatePresence>
+   481→                    {paginatedBusinesses.map((business) => (
+   482→                      <motion.tr
+   483→                        key={business.id}
+   484→                        initial={{ opacity: 0 }}
+   485→                        animate={{ opacity: 1 }}
+   486→                        exit={{ opacity: 0 }}
+   487→                        className="hover:bg-slate-50 cursor-pointer"
+   488→                        onClick={() => business.proposalData ? handleViewProposal(business) : handleGenerateProposal(business)}
+   489→                      >
+   490→                        <TableCell>
+   491→                          <div className="flex items-center gap-2">
+   492→                            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${business.proposalData ? 'bg-emerald-50' : business.hasWebsite ? 'bg-slate-50' : 'bg-amber-50'}`}>
+   493→                              <Building2 className={`h-4 w-4 ${business.proposalData ? 'text-emerald-600' : 'text-amber-600'}`} />
+   494→                            </div>
+   495→                            <div>
+   496→                              <span className="font-medium text-sm block max-w-[160px] truncate">{business.name}</span>
+   497→                              {business.leadScore != null && (
+   498→                                <span className="text-[10px] text-muted-foreground">Lead: {business.leadScore}/100</span>
+   499→                              )}
+   500→                            </div>
+   501→                          </div>
+   502→                        </TableCell>
+   503→                        <TableCell>
+   504→                          <Badge variant="secondary" className="text-xs">{business.category}</Badge>
+   505→                        </TableCell>
+   506→                        <TableCell className="text-sm text-muted-foreground">
+   507→                          {[business.city, business.country].filter(Boolean).join(', ') || '-'}
+   508→                        </TableCell>
+   509→                        <TableCell>
+   510→                          {business.hasWebsite ? (
+   511→                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] border border-emerald-200">Yes</Badge>
+   512→                          ) : (
+   513→                            <Badge className="bg-red-100 text-red-800 hover:bg-red-100 text-[10px] border border-red-200">No</Badge>
+   514→                          )}
+   515→                        </TableCell>
+   516→                        <TableCell>
+   517→                          {business.proposalData ? (
+   518→                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[10px] border border-emerald-200">
+   519→                              <CheckCircle2 className="h-3 w-3 mr-1" />Generated
+   520→                            </Badge>
+   521→                          ) : (
+   522→                            <Badge variant="outline" className="text-[10px]">Pending</Badge>
+   523→                          )}
+   524→                        </TableCell>
+   525→                        <TableCell className="text-right">
+   526→                          <div className="flex items-center justify-end gap-1">
+   527→                            {business.proposalData ? (
+   528→                              <>
+   529→                                <Button size="sm" variant="ghost" className="h-7 text-xs text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); handleViewProposal(business) }}>
+   530→                                  <Eye className="h-3.5 w-3.5 mr-1" />View
+   531→                                </Button>
+   532→                                <Button size="sm" variant="ghost" className="h-7 text-xs text-slate-600 hover:bg-slate-50" onClick={(e) => { e.stopPropagation(); handleExportPDF(business.id) }}>
+   533→                                  <Download className="h-3.5 w-3.5 mr-1" />PDF
+   534→                                </Button>
+   535→                              </>
+   536→                            ) : (
+   537→                              <>
+   538→                                <Button
+   539→                                  size="sm"
+   540→                                  variant="outline"
+   541→                                  className="text-xs border-amber-200 text-amber-700 hover:bg-amber-50"
+   542→                                  disabled={generating === business.id}
+   543→                                  onClick={(e) => { e.stopPropagation(); handleGenerateProposal(business) }}
+   544→                                >
+   545→                                  {generating === business.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <FileText className="h-3 w-3 mr-1" />}
+   546→                                  Generate
+   547→                                </Button>
+   548→                                <Button
+   549→                                  size="sm"
+   550→                                  variant="ghost"
+   551→                                  className="text-xs text-amber-600 hover:bg-amber-50"
+   552→                                  disabled={generating === business.id}
+   553→                                  onClick={(e) => { e.stopPropagation(); handleGenerateProposal(business, true) }}
+   554→                                  title="AI-Enhanced Proposal"
+   555→                                >
+   556→                                  {generating === business.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+   557→                                </Button>
+   558→                              </>
+   559→                            )}
+   560→                          </div>
+   561→                        </TableCell>
+   562→                      </motion.tr>
+   563→                    ))}
+   564→                  </AnimatePresence>
+   565→                </TableBody>
+   566→              </Table>
+   567→            </div>
+   568→          </ScrollArea>
+   569→
+   570→          {paginatedBusinesses.length === 0 && (
+   571→            <div className="text-center py-12">
+   572→              <FileText className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+   573→              <p className="text-muted-foreground">No businesses found. Discover some first!</p>
+   574→            </div>
+   575→          )}
+   576→        </CardContent>
+   577→      </Card>
+   578→
+   579→      {/* Pagination */}
+   580→      {totalPages > 1 && (
+   581→        <div className="flex items-center justify-between">
+   582→          <p className="text-sm text-muted-foreground">
+   583→            Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredBusinesses.length)} of {filteredBusinesses.length}
+   584→          </p>
+   585→          <div className="flex items-center gap-2">
+   586→            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.max(1, page - 1))} disabled={page === 1}>
+   587→              <ChevronLeft className="h-4 w-4" />
+   588→            </Button>
+   589→            {Array.from({ length: totalPages }).map((_, i) => (
+   590→              <Button key={i} variant={page === i + 1 ? 'default' : 'outline'} size="icon"
+   591→                className={`h-8 w-8 ${page === i + 1 ? 'bg-amber-500 hover:bg-amber-600 text-white' : ''}`}
+   592→                onClick={() => setPage(i + 1)}>{i + 1}</Button>
+   593→            ))}
+   594→            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page === totalPages}>
+   595→              <ChevronRight className="h-4 w-4" />
+   596→            </Button>
+   597→          </div>
+   598→        </div>
+   599→      )}
+   600→
+   601→      {/* ── Proposal Dialog ────────────────────────────────────────── */}
+   602→      <Dialog open={proposalOpen} onOpenChange={setProposalOpen}>
+   603→        <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto">
+   604→          {loadingProposal ? (
+   605→            <div className="flex flex-col items-center justify-center py-16">
+   606→              <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-200 border-t-amber-500" />
+   607→              <p className="mt-4 text-muted-foreground font-medium">Loading proposal...</p>
+   608→            </div>
+   609→          ) : proposal && selectedBusiness ? (
+   610→            <>
+   611→              <DialogHeader>
+   612→                <DialogTitle className="flex items-center gap-2 text-lg">
+   613→                  <FileText className="h-5 w-5 text-amber-500" />
+   614→                  Website Proposal for {proposal.businessName}
+   615→                </DialogTitle>
+   616→              </DialogHeader>
+   617→
+   618→              <div className="space-y-6 mt-2">
+   619→                {/* Audit Summary Banner */}
+   620→                <div className="rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 text-white p-5">
+   621→                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   622→                    <div>
+   623→                      <h3 className="text-lg font-bold">{proposal.businessName}</h3>
+   624→                      <p className="text-sm text-slate-300">{proposal.category}{proposal.city ? ` • ${proposal.city}` : ''}{proposal.country ? `, ${proposal.country}` : ''}</p>
+   625→                      <p className="text-xs text-slate-400 mt-2 line-clamp-2">{proposal.auditSummary}</p>
+   626→                    </div>
+   627→                    <div className="flex gap-4">
+   628→                      <div className="text-center">
+   629→                        <div className={`text-2xl font-bold ${proposal.auditScore != null && proposal.auditScore < 40 ? 'text-red-400' : proposal.auditScore != null && proposal.auditScore < 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
+   630→                          {proposal.auditScore ?? '-'}
+   631→                        </div>
+   632→                        <div className="text-[10px] text-slate-400 uppercase">Audit Score</div>
+   633→                      </div>
+   634→                      <div className="text-center">
+   635→                        <div className="text-2xl font-bold text-amber-400">
+   636→                          ${(proposal.totalOpportunityValue / 1000).toFixed(0)}k
+   637→                        </div>
+   638→                        <div className="text-[10px] text-slate-400 uppercase">Opp. Value</div>
+   639→                      </div>
+   640→                    </div>
+   641→                  </div>
+   642→                  {proposal.servicesFromAudit.length > 0 && (
+   643→                    <div className="mt-3 flex flex-wrap gap-1.5">
+   644→                      {proposal.servicesFromAudit.map((s, i) => (
+   645→                        <span key={i} className="inline-block bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded text-[10px]">{s}</span>
+   646→                      ))}
+   647→                    </div>
+   648→                  )}
+   649→                </div>
+   650→
+   651→                {/* 3 Package Cards */}
+   652→                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+   653→                  {proposal.packages.map((pkg) => (
+   654→                    <PackageCard key={pkg.tier} pkg={pkg} onSelect={() => {}} />
+   655→                  ))}
+   656→                </div>
+   657→
+   658→                {/* Cover Letter */}
+   659→                <Card className="border-0 shadow-sm">
+   660→                  <CardHeader className="pb-2">
+   661→                    <CardTitle className="text-sm flex items-center gap-2">
+   662→                      <MessageSquare className="h-4 w-4 text-amber-500" />
+   663→                      Cover Letter
+   664→                    </CardTitle>
+   665→                  </CardHeader>
+   666→                  <CardContent>
+   667→                    <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{proposal.customMessage}</p>
+   668→                  </CardContent>
+   669→                </Card>
+   670→
+   671→                {/* Action Bar */}
+   672→                <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-slate-50 rounded-xl">
+   673→                  <Button className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white" onClick={() => handleExportPDF(selectedBusiness.id)}>
+   674→                    <Download className="mr-2 h-4 w-4" />
+   675→                    Export as PDF
+   676→                  </Button>
+   677→                  <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleGenerateProposal(selectedBusiness, true)}>
+   678→                    <Sparkles className="mr-2 h-4 w-4" />
+   679→                    Enhance with AI
+   680→                  </Button>
+   681→                  <div className="text-xs text-muted-foreground text-center sm:text-right sm:ml-auto">
+   682→                    Valid until {new Date(proposal.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+   683→                  </div>
+   684→                </div>
+   685→              </div>
+   686→            </>
+   687→          ) : null}
+   688→        </DialogContent>
+   689→      </Dialog>
+   690→    </div>
+   691→  )
+   692→}
+   693→

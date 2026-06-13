@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAppStore, type UserView } from '@/store/app-store'
+import { useTranslation, useCurrency } from '@/lib/i18n/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -148,12 +149,6 @@ const item = {
   show: { opacity: 1, y: 0 },
 }
 
-function formatCurrency(value: number): string {
-  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
-  if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`
-  return `$${value.toLocaleString()}`
-}
-
 function getScoreColor(score: number | null | undefined): { bg: string; text: string } {
   if (score === null || score === undefined) return { bg: 'bg-slate-100', text: 'text-slate-400' }
   if (score >= 70) return { bg: 'bg-emerald-50', text: 'text-emerald-600' }
@@ -163,6 +158,8 @@ function getScoreColor(score: number | null | undefined): { bg: string; text: st
 
 export function DashboardView() {
   const { user, setCurrentView } = useAppStore()
+  const { t } = useTranslation()
+  const { format: formatCurr, formatCompact: formatCompactCurr, formatNumber: formatNum, symbol } = useCurrency()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -234,7 +231,7 @@ export function DashboardView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {user?.name || 'User'}. Here&apos;s your business overview.</p>
+          <p className="text-muted-foreground">{t('dashboard.welcome')}, {user?.name || 'User'}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setCurrentView('user-lead-finder')} className="bg-amber-500 hover:bg-amber-600 text-white">
@@ -283,12 +280,12 @@ export function DashboardView() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Total Leads</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.totalLeads')}</p>
                   <p className="text-4xl font-bold tracking-tight">{stats.totalLeads}</p>
                   <div className="flex items-center gap-1 text-xs">
                     <span className="text-emerald-600 flex items-center">
                       <CheckCircle2 className="h-3 w-3 mr-0.5" />
-                      {stats.wonLeadsCount} won
+                      {stats.wonLeadsCount} {t('dashboard.wonDeals').toLowerCase()}
                     </span>
                     <span className="text-muted-foreground mx-1">·</span>
                     <span className="text-amber-600">{stats.activeLeads} active</span>
@@ -309,7 +306,7 @@ export function DashboardView() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">No Website Leads</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.noWebsiteBusinesses')}</p>
                   <p className="text-4xl font-bold tracking-tight">{stats.noWebsiteBusinesses}</p>
                   <div className="flex items-center gap-1 text-xs">
                     <span className="text-red-600 font-semibold">{noWebsitePct}%</span>
@@ -357,11 +354,11 @@ export function DashboardView() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Revenue Potential</p>
-                  <p className="text-4xl font-bold tracking-tight">{formatCurrency(stats.pipelineValue)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.pipelineValue')}</p>
+                  <p className="text-4xl font-bold tracking-tight">{formatCompactCurr(stats.pipelineValue)}</p>
                   <div className="flex items-center gap-1 text-xs">
                     <DollarSign className="h-3 w-3 text-orange-600" />
-                    <span className="text-orange-600 font-semibold">{formatCurrency(stats.wonDealsValue)} closed</span>
+                    <span className="text-orange-600 font-semibold">{formatCompactCurr(stats.wonDealsValue)} {t('dashboard.wonDeals').toLowerCase()}</span>
                   </div>
                 </div>
                 <div className="h-14 w-14 rounded-2xl bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -446,7 +443,7 @@ export function DashboardView() {
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">Win Rate</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t('dashboard.conversionRate')}</p>
                     <div className="flex items-baseline gap-1 mt-1">
                       <p className="text-4xl font-bold text-emerald-600">{stats.conversionRate}%</p>
                     </div>
@@ -494,7 +491,7 @@ export function DashboardView() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  {stats.lostLeadsCount} lost deals
+                  {stats.lostLeadsCount} {t('dashboard.lostDeals').toLowerCase()}
                 </p>
               </CardContent>
             </Card>
@@ -565,7 +562,7 @@ export function DashboardView() {
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v / 1000}k`} />
+                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} tickFormatter={(v) => formatCompactCurr(v)} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={3} fill="url(#revenueGradient)" />
                 </AreaChart>
@@ -615,7 +612,7 @@ export function DashboardView() {
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <Target className="h-5 w-5 text-amber-500" />
-                  Top Opportunity Leads
+                  {t('dashboard.topOpportunities')}
                 </CardTitle>
                 <CardDescription>Highest-scoring leads ranked by AI opportunity score</CardDescription>
               </div>
@@ -666,10 +663,10 @@ export function DashboardView() {
                           </div>
                         </td>
                         <td className="py-3 text-sm font-medium text-right">
-                          {lead.business.estimatedMonthlyRevenue ? `$${lead.business.estimatedMonthlyRevenue.toLocaleString()}` : '-'}
+                          {lead.business.estimatedMonthlyRevenue ? formatCurr(lead.business.estimatedMonthlyRevenue) : '-'}
                         </td>
                         <td className="py-3 text-sm font-medium text-right">
-                          {lead.estimatedValue ? `$${lead.estimatedValue.toLocaleString()}` : '-'}
+                          {lead.estimatedValue ? formatCurr(lead.estimatedValue) : '-'}
                         </td>
                       </tr>
                     )
@@ -736,7 +733,7 @@ export function DashboardView() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Total Est. Revenue</p>
                     <div className="flex items-baseline gap-1">
-                      <p className="text-3xl font-bold mt-1">{formatCurrency(stats.scoringStats?.totalEstimatedRevenue || 0)}</p>
+                      <p className="text-3xl font-bold mt-1">{formatCompactCurr(stats.scoringStats?.totalEstimatedRevenue || 0)}</p>
                       <span className="text-sm text-muted-foreground">/mo</span>
                     </div>
                   </div>
@@ -818,7 +815,7 @@ export function DashboardView() {
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Opp. Value</p>
                       <p className="text-3xl font-bold text-orange-600 mt-1">
-                        {formatCurrency(stats.auditStats.totalOpportunityValue)}
+                        {formatCompactCurr(stats.auditStats.totalOpportunityValue)}
                       </p>
                     </div>
                     <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
@@ -965,7 +962,7 @@ export function DashboardView() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-lg">Recent Leads</CardTitle>
+              <CardTitle className="text-lg">{t('dashboard.recentActivity')}</CardTitle>
               <CardDescription>Latest leads in your pipeline</CardDescription>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setCurrentView('leads')} className="text-amber-600">
@@ -1016,7 +1013,7 @@ export function DashboardView() {
                         </Badge>
                       </td>
                       <td className="py-3 text-sm font-medium text-right">
-                        ${lead.estimatedValue.toLocaleString()}
+                        {formatCurr(lead.estimatedValue)}
                       </td>
                     </tr>
                   ))}

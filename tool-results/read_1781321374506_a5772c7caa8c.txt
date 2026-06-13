@@ -1,0 +1,1120 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useEffect } from 'react'
+     4→     4→import { useAppStore, type UserView } from '@/store/app-store'
+     5→     5→import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+     6→     6→import { Button } from '@/components/ui/button'
+     7→     7→import { Badge } from '@/components/ui/badge'
+     8→     8→import { Progress } from '@/components/ui/progress'
+     9→     9→import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
+    10→    10→import { Bar, BarChart, XAxis, YAxis, Pie, PieChart, Cell, Area, AreaChart, CartesianGrid, Line, LineChart } from 'recharts'
+    11→    11→import { motion } from 'framer-motion'
+    12→    12→import {
+    13→    13→  Building2,
+    14→    14→  Unplug,
+    15→    15→  Users,
+    16→    16→  DollarSign,
+    17→    17→  Search,
+    18→    18→  UserPlus,
+    19→    19→  BarChart3,
+    20→    20→  Globe,
+    21→    21→  Target,
+    22→    22→  TrendingUp,
+    23→    23→  ClipboardCheck,
+    24→    24→  AlertTriangle,
+    25→    25→  Sparkles,
+    26→    26→  Shield,
+    27→    27→  FileText,
+    28→    28→  ArrowUpRight,
+    29→    29→  ArrowDownRight,
+    30→    30→  Clock,
+    31→    31→  CheckCircle2,
+    32→    32→  XCircle,
+    33→    33→  Zap,
+    34→    34→  Activity,
+    35→    35→  ChevronRight,
+    36→    36→  Calculator,
+    37→    37→  MessageSquare,
+    38→    38→  Mail,
+    39→    39→} from 'lucide-react'
+    40→    40→
+    41→    41→interface DashboardStats {
+    42→    42→  totalLeads: number
+    43→    43→  totalBusinesses: number
+    44→    44→  noWebsiteBusinesses: number
+    45→    45→  noWebsiteLeads: number
+    46→    46→  highOpportunityLeads: number
+    47→    47→  mediumOpportunityLeads: number
+    48→    48→  lowOpportunityLeads: number
+    49→    49→  activeLeads: number
+    50→    50→  wonLeadsCount: number
+    51→    51→  lostLeadsCount: number
+    52→    52→  wonDealsValue: number
+    53→    53→  pipelineValue: number
+    54→    54→  totalLeadsValue: number
+    55→    55→  totalEstimatedRevenue: number
+    56→    56→  revenueByMonth: { month: string; revenue: number; deals: number }[]
+    57→    57→  conversionRate: number
+    58→    58→  avgDealCycle: number
+    59→    59→  funnelData: { stage: string; count: number }[]
+    60→    60→  stageConversions: { from: string; to: string; rate: number }[]
+    61→    61→  leadsByStatus: { status: string; rawStatus: string; count: number }[]
+    62→    62→  businessesByCategory: { category: string; count: number }[]
+    63→    63→  businessesByCountry: { country: string; count: number }[]
+    64→    64→  websiteStatusBreakdown: { status: string; count: number }[]
+    65→    65→  recentLeads: {
+    66→    66→    id: string
+    67→    67→    business: { name: string; category: string; city?: string; country?: string }
+    68→    68→    status: string
+    69→    69→    estimatedValue: number
+    70→    70→    priority: string
+    71→    71→  }[]
+    72→    72→  topOpportunityLeads: {
+    73→    73→    id: string
+    74→    74→    status: string
+    75→    75→    estimatedValue: number
+    76→    76→    business: {
+    77→    77→      id: string
+    78→    78→      name: string
+    79→    79→      category: string
+    80→    80→      city: string | null
+    81→    81→      hasWebsite: boolean
+    82→    82→      leadScore: number | null
+    83→    83→      opportunityScore: number | null
+    84→    84→      estimatedMonthlyRevenue: number | null
+    85→    85→    }
+    86→    86→  }[]
+    87→    87→  scoringStats: {
+    88→    88→    avgLeadScore: number
+    89→    89→    avgOpportunityScore: number
+    90→    90→    totalEstimatedRevenue: number
+    91→    91→    scoredCount: number
+    92→    92→  }
+    93→    93→  auditStats: {
+    94→    94→    auditedCount: number
+    95→    95→    avgAuditScore: number
+    96→    96→    totalOpportunityValue: number
+    97→    97→    criticalIssues: number
+    98→    98→    warningIssues: number
+    99→    99→    opportunities: number
+   100→   100→  }
+   101→   101→  topAuditOpportunities: {
+   102→   102→    id: string
+   103→   103→    name: string
+   104→   104→    category: string
+   105→   105→    city: string | null
+   106→   106→    auditScore: number | null
+   107→   107→    leadScore: number | null
+   108→   108→  }[]
+   109→   109→  searchStats: {
+   110→   110→    totalSearches: number
+   111→   111→    completedSearches: number
+   112→   112→  }
+   113→   113→}
+   114→   114→
+   115→   115→const statusColors: Record<string, string> = {
+   116→   116→  New: '#94a3b8',
+   117→   117→  'New Lead': '#94a3b8',
+   118→   118→  Contacted: '#f59e0b',
+   119→   119→  Interested: '#3b82f6',
+   120→   120→  Qualified: '#10b981',
+   121→   121→  Meeting: '#8b5cf6',
+   122→   122→  Proposal: '#f97316',
+   123→   123→  'Proposal Sent': '#ec4899',
+   124→   124→  Negotiation: '#a855f7',
+   125→   125→  Won: '#22c55e',
+   126→   126→  Lost: '#ef4444',
+   127→   127→}
+   128→   128→
+   129→   129→const categoryColors = [
+   130→   130→  '#f59e0b', '#f97316', '#ef4444', '#10b981', '#a855f7',
+   131→   131→  '#06b6d4', '#ec4899', '#84cc16', '#6366f1', '#14b8a6',
+   132→   132→]
+   133→   133→
+   134→   134→const funnelColors = [
+   135→   135→  '#94a3b8', '#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#22c55e',
+   136→   136→]
+   137→   137→
+   138→   138→const container = {
+   139→   139→  hidden: { opacity: 0 },
+   140→   140→  show: {
+   141→   141→    opacity: 1,
+   142→   142→    transition: { staggerChildren: 0.08 },
+   143→   143→  },
+   144→   144→}
+   145→   145→
+   146→   146→const item = {
+   147→   147→  hidden: { opacity: 0, y: 20 },
+   148→   148→  show: { opacity: 1, y: 0 },
+   149→   149→}
+   150→   150→
+   151→   151→function formatCurrency(value: number): string {
+   152→   152→  if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`
+   153→   153→  if (value >= 1000) return `$${(value / 1000).toFixed(0)}k`
+   154→   154→  return `$${value.toLocaleString()}`
+   155→   155→}
+   156→   156→
+   157→   157→function getScoreColor(score: number | null | undefined): { bg: string; text: string } {
+   158→   158→  if (score === null || score === undefined) return { bg: 'bg-slate-100', text: 'text-slate-400' }
+   159→   159→  if (score >= 70) return { bg: 'bg-emerald-50', text: 'text-emerald-600' }
+   160→   160→  if (score >= 40) return { bg: 'bg-amber-50', text: 'text-amber-600' }
+   161→   161→  return { bg: 'bg-red-50', text: 'text-red-500' }
+   162→   162→}
+   163→   163→
+   164→   164→export function DashboardView() {
+   165→   165→  const { user, setCurrentView } = useAppStore()
+   166→   166→  const [stats, setStats] = useState<DashboardStats | null>(null)
+   167→   167→  const [loading, setLoading] = useState(true)
+   168→   168→
+   169→   169→  useEffect(() => {
+   170→   170→    const fetchStats = async () => {
+   171→   171→      try {
+   172→   172→        const userId = user?.id || 'demo'
+   173→   173→        const res = await fetch(`/api/analytics?userId=${userId}`)
+   174→   174→        if (res.ok) {
+   175→   175→          const data = await res.json()
+   176→   176→          setStats(data)
+   177→   177→        } else {
+   178→   178→          setStats(getEmptyStats())
+   179→   179→        }
+   180→   180→      } catch {
+   181→   181→        setStats(getEmptyStats())
+   182→   182→      } finally {
+   183→   183→        setLoading(false)
+   184→   184→      }
+   185→   185→    }
+   186→   186→    fetchStats()
+   187→   187→  }, [user?.id])
+   188→   188→
+   189→   189→  if (loading) {
+   190→   190→    return (
+   191→   191→      <div className="flex items-center justify-center h-64">
+   192→   192→        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500" />
+   193→   193→      </div>
+   194→   194→    )
+   195→   195→  }
+   196→   196→
+   197→   197→  if (!stats) return null
+   198→   198→
+   199→   199→  const noWebsitePct = stats.totalBusinesses > 0
+   200→   200→    ? Math.round((stats.noWebsiteBusinesses / stats.totalBusinesses) * 100)
+   201→   201→    : 0
+   202→   202→
+   203→   203→  const highOppPct = stats.totalLeads > 0
+   204→   204→    ? Math.round((stats.highOpportunityLeads / stats.totalLeads) * 100)
+   205→   205→    : 0
+   206→   206→
+   207→   207→  const maxFunnelCount = Math.max(...stats.funnelData.map(f => f.count), 1)
+   208→   208→
+   209→   209→  const priorityColors: Record<string, string> = {
+   210→   210→    urgent: 'bg-red-100 text-red-700',
+   211→   211→    high: 'bg-orange-100 text-orange-700',
+   212→   212→    medium: 'bg-amber-100 text-amber-700',
+   213→   213→    low: 'bg-slate-100 text-slate-700',
+   214→   214→  }
+   215→   215→
+   216→   216→  const revenueChartConfig = stats.revenueByMonth.reduce((acc, m) => {
+   217→   217→    acc[m.month] = { label: m.month, color: '#f59e0b' }
+   218→   218→    return acc
+   219→   219→  }, {} as Record<string, { label: string; color: string }>)
+   220→   220→
+   221→   221→  const barChartConfig = stats.leadsByStatus.reduce((acc, s) => {
+   222→   222→    acc[s.status] = { label: s.status, color: statusColors[s.status] || '#94a3b8' }
+   223→   223→    return acc
+   224→   224→  }, {} as Record<string, { label: string; color: string }>)
+   225→   225→
+   226→   226→  const pieChartConfig = stats.businessesByCategory.reduce((acc, c, i) => {
+   227→   227→    acc[c.category] = { label: c.category, color: categoryColors[i % categoryColors.length] }
+   228→   228→    return acc
+   229→   229→  }, {} as Record<string, { label: string; color: string }>)
+   230→   230→
+   231→   231→  return (
+   232→   232→    <div className="space-y-6">
+   233→   233→      {/* Header */}
+   234→   234→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   235→   235→        <div>
+   236→   236→          <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
+   237→   237→          <p className="text-muted-foreground">Welcome back, {user?.name || 'User'}. Here&apos;s your business overview.</p>
+   238→   238→        </div>
+   239→   239→        <div className="flex gap-2">
+   240→   240→          <Button onClick={() => setCurrentView('user-lead-finder')} className="bg-amber-500 hover:bg-amber-600 text-white">
+   241→   241→            <Search className="h-4 w-4 mr-2" /> Discover
+   242→   242→          </Button>
+   243→   243→          <Button onClick={() => setCurrentView('user-crm')} variant="outline">
+   244→   244→            <Activity className="h-4 w-4 mr-2" /> Pipeline
+   245→   245→          </Button>
+   246→   246→        </div>
+   247→   247→      </div>
+   248→   248→
+   249→   249→      {/* ── Quick Actions ──────────────────────────────── */}
+   250→   250→      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+   251→   251→        {[
+   252→   252→          { label: 'Find Leads', icon: Search, view: 'user-lead-finder' as UserView, color: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' },
+   253→   253→          { label: 'Pipeline', icon: Activity, view: 'user-crm' as UserView, color: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30' },
+   254→   254→          { label: 'AI Audit', icon: ClipboardCheck, view: 'user-audit' as UserView, color: 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/30' },
+   255→   255→          { label: 'Proposal', icon: FileText, view: 'user-proposal' as UserView, color: 'bg-orange-50 dark:bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-500/30' },
+   256→   256→          { label: 'WhatsApp', icon: MessageSquare, view: 'user-whatsapp' as UserView, color: 'bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/30' },
+   257→   257→          { label: 'Email', icon: Mail, view: 'user-email' as UserView, color: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/30' },
+   258→   258→        ].map((action) => (
+   259→   259→          <motion.button
+   260→   260→            key={action.label}
+   261→   261→            whileHover={{ scale: 1.03 }}
+   262→   262→            whileTap={{ scale: 0.97 }}
+   263→   263→            onClick={() => setCurrentView(action.view)}
+   264→   264→            className={`flex flex-col items-center gap-2 p-4 rounded-xl border ${action.color} hover:shadow-md transition-all duration-200 cursor-pointer`}
+   265→   265→          >
+   266→   266→            <action.icon className="h-6 w-6" />
+   267→   267→            <span className="text-xs font-semibold">{action.label}</span>
+   268→   268→          </motion.button>
+   269→   269→        ))}
+   270→   270→      </div>
+   271→   271→
+   272→   272→      {/* ── Section 1: KPI Hero Cards ──────────────────────────────── */}
+   273→   273→      <motion.div
+   274→   274→        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+   275→   275→        variants={container}
+   276→   276→        initial="hidden"
+   277→   277→        animate="show"
+   278→   278→      >
+   279→   279→        {/* Total Leads */}
+   280→   280→        <motion.div variants={item}>
+   281→   281→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   282→   282→            <div className="h-1 bg-gradient-to-r from-amber-400 to-amber-600" />
+   283→   283→            <CardContent className="p-6">
+   284→   284→              <div className="flex items-center justify-between">
+   285→   285→                <div className="space-y-1">
+   286→   286→                  <p className="text-sm font-medium text-muted-foreground">Total Leads</p>
+   287→   287→                  <p className="text-4xl font-bold tracking-tight">{stats.totalLeads}</p>
+   288→   288→                  <div className="flex items-center gap-1 text-xs">
+   289→   289→                    <span className="text-emerald-600 flex items-center">
+   290→   290→                      <CheckCircle2 className="h-3 w-3 mr-0.5" />
+   291→   291→                      {stats.wonLeadsCount} won
+   292→   292→                    </span>
+   293→   293→                    <span className="text-muted-foreground mx-1">·</span>
+   294→   294→                    <span className="text-amber-600">{stats.activeLeads} active</span>
+   295→   295→                  </div>
+   296→   296→                </div>
+   297→   297→                <div className="h-14 w-14 rounded-2xl bg-amber-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   298→   298→                  <Users className="h-7 w-7 text-amber-600" />
+   299→   299→                </div>
+   300→   300→              </div>
+   301→   301→            </CardContent>
+   302→   302→          </Card>
+   303→   303→        </motion.div>
+   304→   304→
+   305→   305→        {/* No Website Leads */}
+   306→   306→        <motion.div variants={item}>
+   307→   307→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   308→   308→            <div className="h-1 bg-gradient-to-r from-red-400 to-red-600" />
+   309→   309→            <CardContent className="p-6">
+   310→   310→              <div className="flex items-center justify-between">
+   311→   311→                <div className="space-y-1">
+   312→   312→                  <p className="text-sm font-medium text-muted-foreground">No Website Leads</p>
+   313→   313→                  <p className="text-4xl font-bold tracking-tight">{stats.noWebsiteBusinesses}</p>
+   314→   314→                  <div className="flex items-center gap-1 text-xs">
+   315→   315→                    <span className="text-red-600 font-semibold">{noWebsitePct}%</span>
+   316→   316→                    <span className="text-muted-foreground">of businesses</span>
+   317→   317→                  </div>
+   318→   318→                </div>
+   319→   319→                <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   320→   320→                  <Unplug className="h-7 w-7 text-red-600" />
+   321→   321→                </div>
+   322→   322→              </div>
+   323→   323→              <div className="mt-3">
+   324→   324→                <Progress value={noWebsitePct} className="h-1.5" />
+   325→   325→              </div>
+   326→   326→            </CardContent>
+   327→   327→          </Card>
+   328→   328→        </motion.div>
+   329→   329→
+   330→   330→        {/* High Opportunity Leads */}
+   331→   331→        <motion.div variants={item}>
+   332→   332→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   333→   333→            <div className="h-1 bg-gradient-to-r from-emerald-400 to-emerald-600" />
+   334→   334→            <CardContent className="p-6">
+   335→   335→              <div className="flex items-center justify-between">
+   336→   336→                <div className="space-y-1">
+   337→   337→                  <p className="text-sm font-medium text-muted-foreground">High Opportunity</p>
+   338→   338→                  <p className="text-4xl font-bold tracking-tight">{stats.highOpportunityLeads}</p>
+   339→   339→                  <div className="flex items-center gap-1 text-xs">
+   340→   340→                    <Zap className="h-3 w-3 text-emerald-600" />
+   341→   341→                    <span className="text-emerald-600 font-semibold">{highOppPct}%</span>
+   342→   342→                    <span className="text-muted-foreground">of leads scored 70+</span>
+   343→   343→                  </div>
+   344→   344→                </div>
+   345→   345→                <div className="h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   346→   346→                  <Target className="h-7 w-7 text-emerald-600" />
+   347→   347→                </div>
+   348→   348→              </div>
+   349→   349→            </CardContent>
+   350→   350→          </Card>
+   351→   351→        </motion.div>
+   352→   352→
+   353→   353→        {/* Revenue Potential */}
+   354→   354→        <motion.div variants={item}>
+   355→   355→          <Card className="border-0 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+   356→   356→            <div className="h-1 bg-gradient-to-r from-orange-400 to-orange-600" />
+   357→   357→            <CardContent className="p-6">
+   358→   358→              <div className="flex items-center justify-between">
+   359→   359→                <div className="space-y-1">
+   360→   360→                  <p className="text-sm font-medium text-muted-foreground">Revenue Potential</p>
+   361→   361→                  <p className="text-4xl font-bold tracking-tight">{formatCurrency(stats.pipelineValue)}</p>
+   362→   362→                  <div className="flex items-center gap-1 text-xs">
+   363→   363→                    <DollarSign className="h-3 w-3 text-orange-600" />
+   364→   364→                    <span className="text-orange-600 font-semibold">{formatCurrency(stats.wonDealsValue)} closed</span>
+   365→   365→                  </div>
+   366→   366→                </div>
+   367→   367→                <div className="h-14 w-14 rounded-2xl bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+   368→   368→                  <TrendingUp className="h-7 w-7 text-orange-600" />
+   369→   369→                </div>
+   370→   370→              </div>
+   371→   371→            </CardContent>
+   372→   372→          </Card>
+   373→   373→        </motion.div>
+   374→   374→      </motion.div>
+   375→   375→
+   376→   376→      {/* ── Section 5: Conversion Metrics ──────────────────────────── */}
+   377→   377→      <div>
+   378→   378→        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+   379→   379→          <Calculator className="h-5 w-5 text-amber-500" />
+   380→   380→          Conversion Metrics
+   381→   381→        </h2>
+   382→   382→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+   383→   383→          {/* Conversion Funnel */}
+   384→   384→          <Card className="border-0 shadow-sm lg:col-span-2">
+   385→   385→            <CardHeader className="pb-2">
+   386→   386→              <CardTitle className="text-lg">Sales Funnel</CardTitle>
+   387→   387→              <CardDescription>Leads flowing through your pipeline stages</CardDescription>
+   388→   388→            </CardHeader>
+   389→   389→            <CardContent>
+   390→   390→              {stats.funnelData.length > 0 && stats.funnelData.some(f => f.count > 0) ? (
+   391→   391→                <div className="space-y-2">
+   392→   392→                  {stats.funnelData.map((stage, index) => {
+   393→   393→                    const widthPct = maxFunnelCount > 0 ? Math.max((stage.count / maxFunnelCount) * 100, 8) : 8
+   394→   394→                    const conversionFromPrev = index > 0 && stats.funnelData[index - 1].count > 0
+   395→   395→                      ? Math.round((stage.count / stats.funnelData[index - 1].count) * 100)
+   396→   396→                      : null
+   397→   397→                    return (
+   398→   398→                      <motion.div
+   399→   399→                        key={stage.stage}
+   400→   400→                        initial={{ opacity: 0, x: -20 }}
+   401→   401→                        animate={{ opacity: 1, x: 0 }}
+   402→   402→                        transition={{ delay: index * 0.1 }}
+   403→   403→                        className="flex items-center gap-3"
+   404→   404→                      >
+   405→   405→                        <div className="w-28 text-right">
+   406→   406→                          <span className="text-sm font-medium text-slate-700">{stage.stage}</span>
+   407→   407→                        </div>
+   408→   408→                        <div className="flex-1 flex items-center gap-2">
+   409→   409→                          <div className="flex-1 bg-slate-100 rounded-full h-9 relative overflow-hidden">
+   410→   410→                            <motion.div
+   411→   411→                              initial={{ width: 0 }}
+   412→   412→                              animate={{ width: `${widthPct}%` }}
+   413→   413→                              transition={{ delay: index * 0.1 + 0.3, duration: 0.6, ease: 'easeOut' }}
+   414→   414→                              className="h-full rounded-full flex items-center justify-end pr-3"
+   415→   415→                              style={{ backgroundColor: funnelColors[index] }}
+   416→   416→                            >
+   417→   417→                              <span className="text-xs font-bold text-white drop-shadow-sm">{stage.count}</span>
+   418→   418→                            </motion.div>
+   419→   419→                          </div>
+   420→   420→                          {conversionFromPrev !== null && (
+   421→   421→                            <span className={`text-xs font-medium w-12 text-right ${
+   422→   422→                              conversionFromPrev >= 50 ? 'text-emerald-600' :
+   423→   423→                              conversionFromPrev >= 25 ? 'text-amber-600' :
+   424→   424→                              'text-red-500'
+   425→   425→                            }`}>
+   426→   426→                              {conversionFromPrev}%
+   427→   427→                            </span>
+   428→   428→                          )}
+   429→   429→                          {conversionFromPrev === null && <span className="w-12" />}
+   430→   430→                        </div>
+   431→   431→                      </motion.div>
+   432→   432→                    )
+   433→   433→                  })}
+   434→   434→                </div>
+   435→   435→              ) : (
+   436→   436→                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+   437→   437→                  No leads in pipeline yet. Start discovering businesses!
+   438→   438→                </div>
+   439→   439→              )}
+   440→   440→            </CardContent>
+   441→   441→          </Card>
+   442→   442→
+   443→   443→          {/* Key Conversion Stats */}
+   444→   444→          <div className="space-y-4">
+   445→   445→            <Card className="border-0 shadow-sm">
+   446→   446→              <CardContent className="p-6">
+   447→   447→                <div className="flex items-center justify-between">
+   448→   448→                  <div>
+   449→   449→                    <p className="text-sm font-medium text-muted-foreground">Win Rate</p>
+   450→   450→                    <div className="flex items-baseline gap-1 mt-1">
+   451→   451→                      <p className="text-4xl font-bold text-emerald-600">{stats.conversionRate}%</p>
+   452→   452→                    </div>
+   453→   453→                  </div>
+   454→   454→                  <div className="h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+   455→   455→                    <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+   456→   456→                  </div>
+   457→   457→                </div>
+   458→   458→                <p className="text-xs text-muted-foreground mt-2">
+   459→   459→                  {stats.wonLeadsCount} won / {stats.totalLeads} total leads
+   460→   460→                </p>
+   461→   461→              </CardContent>
+   462→   462→            </Card>
+   463→   463→
+   464→   464→            <Card className="border-0 shadow-sm">
+   465→   465→              <CardContent className="p-6">
+   466→   466→                <div className="flex items-center justify-between">
+   467→   467→                  <div>
+   468→   468→                    <p className="text-sm font-medium text-muted-foreground">Avg Deal Cycle</p>
+   469→   469→                    <div className="flex items-baseline gap-1 mt-1">
+   470→   470→                      <p className="text-4xl font-bold text-amber-600">{stats.avgDealCycle}</p>
+   471→   471→                      <span className="text-sm text-muted-foreground">days</span>
+   472→   472→                    </div>
+   473→   473→                  </div>
+   474→   474→                  <div className="h-14 w-14 rounded-2xl bg-amber-50 flex items-center justify-center">
+   475→   475→                    <Clock className="h-7 w-7 text-amber-600" />
+   476→   476→                  </div>
+   477→   477→                </div>
+   478→   478→              </CardContent>
+   479→   479→            </Card>
+   480→   480→
+   481→   481→            <Card className="border-0 shadow-sm">
+   482→   482→              <CardContent className="p-6">
+   483→   483→                <div className="flex items-center justify-between">
+   484→   484→                  <div>
+   485→   485→                    <p className="text-sm font-medium text-muted-foreground">Lost Rate</p>
+   486→   486→                    <div className="flex items-baseline gap-1 mt-1">
+   487→   487→                      <p className="text-4xl font-bold text-red-500">
+   488→   488→                        {stats.totalLeads > 0 ? Math.round((stats.lostLeadsCount / stats.totalLeads) * 100) : 0}%
+   489→   489→                      </p>
+   490→   490→                    </div>
+   491→   491→                  </div>
+   492→   492→                  <div className="h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center">
+   493→   493→                    <XCircle className="h-7 w-7 text-red-500" />
+   494→   494→                  </div>
+   495→   495→                </div>
+   496→   496→                <p className="text-xs text-muted-foreground mt-2">
+   497→   497→                  {stats.lostLeadsCount} lost deals
+   498→   498→                </p>
+   499→   499→              </CardContent>
+   500→   500→            </Card>
+   501→   501→          </div>
+   502→   502→        </div>
+   503→   503→      </div>
+   504→   504→
+   505→   505→      {/* ── Stage-to-Stage Conversion ──────────────────────────────── */}
+   506→   506→      {stats.stageConversions.length > 0 && (
+   507→   507→        <Card className="border-0 shadow-sm">
+   508→   508→          <CardHeader className="pb-2">
+   509→   509→            <CardTitle className="text-lg flex items-center gap-2">
+   510→   510→              <TrendingUp className="h-5 w-5 text-amber-500" />
+   511→   511→              Stage Conversion Rates
+   512→   512→            </CardTitle>
+   513→   513→            <CardDescription>How leads move from one stage to the next</CardDescription>
+   514→   514→          </CardHeader>
+   515→   515→          <CardContent>
+   516→   516→            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+   517→   517→              {stats.stageConversions.map((conv, i) => (
+   518→   518→                <motion.div
+   519→   519→                  key={i}
+   520→   520→                  initial={{ opacity: 0, scale: 0.9 }}
+   521→   521→                  animate={{ opacity: 1, scale: 1 }}
+   522→   522→                  transition={{ delay: i * 0.08 }}
+   523→   523→                  className="relative"
+   524→   524→                >
+   525→   525→                  <div className="bg-slate-50 rounded-xl p-4 text-center">
+   526→   526→                    <div className="text-xs text-muted-foreground mb-1">{conv.from}</div>
+   527→   527→                    <div className="flex items-center justify-center gap-1">
+   528→   528→                      <ArrowDownRight className="h-4 w-4 text-slate-400" />
+   529→   529→                    </div>
+   530→   530→                    <div className={`text-2xl font-bold ${
+   531→   531→                      conv.rate >= 50 ? 'text-emerald-600' :
+   532→   532→                      conv.rate >= 25 ? 'text-amber-600' :
+   533→   533→                      'text-red-500'
+   534→   534→                    }`}>
+   535→   535→                      {conv.rate}%
+   536→   536→                    </div>
+   537→   537→                    <div className="text-xs text-muted-foreground mt-1">→ {conv.to}</div>
+   538→   538→                  </div>
+   539→   539→                </motion.div>
+   540→   540→              ))}
+   541→   541→            </div>
+   542→   542→          </CardContent>
+   543→   543→        </Card>
+   544→   544→      )}
+   545→   545→
+   546→   546→      {/* ── Revenue Trend ──────────────────────────────────────────── */}
+   547→   547→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   548→   548→        <Card className="border-0 shadow-sm">
+   549→   549→          <CardHeader className="pb-2">
+   550→   550→            <CardTitle className="text-lg flex items-center gap-2">
+   551→   551→              <DollarSign className="h-5 w-5 text-amber-500" />
+   552→   552→              Revenue Trend
+   553→   553→            </CardTitle>
+   554→   554→            <CardDescription>Monthly won deal value over the last 6 months</CardDescription>
+   555→   555→          </CardHeader>
+   556→   556→          <CardContent>
+   557→   557→            {stats.revenueByMonth.some(m => m.revenue > 0) ? (
+   558→   558→              <ChartContainer config={revenueChartConfig} className="h-[280px] w-full">
+   559→   559→                <AreaChart data={stats.revenueByMonth} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+   560→   560→                  <defs>
+   561→   561→                    <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+   562→   562→                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+   563→   563→                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+   564→   564→                    </linearGradient>
+   565→   565→                  </defs>
+   566→   566→                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+   567→   567→                  <XAxis dataKey="month" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   568→   568→                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v / 1000}k`} />
+   569→   569→                  <ChartTooltip content={<ChartTooltipContent />} />
+   570→   570→                  <Area type="monotone" dataKey="revenue" stroke="#f59e0b" strokeWidth={3} fill="url(#revenueGradient)" />
+   571→   571→                </AreaChart>
+   572→   572→              </ChartContainer>
+   573→   573→            ) : (
+   574→   574→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   575→   575→                No revenue data yet. Win your first deal!
+   576→   576→              </div>
+   577→   577→            )}
+   578→   578→          </CardContent>
+   579→   579→        </Card>
+   580→   580→
+   581→   581→        {/* Leads by Status */}
+   582→   582→        <Card className="border-0 shadow-sm">
+   583→   583→          <CardHeader className="pb-2">
+   584→   584→            <CardTitle className="text-lg">Leads by Status</CardTitle>
+   585→   585→            <CardDescription>Distribution across pipeline stages</CardDescription>
+   586→   586→          </CardHeader>
+   587→   587→          <CardContent>
+   588→   588→            {stats.leadsByStatus.length > 0 ? (
+   589→   589→              <ChartContainer config={barChartConfig} className="h-[280px] w-full">
+   590→   590→                <BarChart data={stats.leadsByStatus} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+   591→   591→                  <XAxis dataKey="status" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
+   592→   592→                  <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   593→   593→                  <ChartTooltip content={<ChartTooltipContent />} />
+   594→   594→                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+   595→   595→                    {stats.leadsByStatus.map((entry, index) => (
+   596→   596→                      <Cell key={`cell-${index}`} fill={statusColors[entry.status] || '#94a3b8'} />
+   597→   597→                    ))}
+   598→   598→                  </Bar>
+   599→   599→                </BarChart>
+   600→   600→              </ChartContainer>
+   601→   601→            ) : (
+   602→   602→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   603→   603→                No lead data yet. Start discovering businesses!
+   604→   604→              </div>
+   605→   605→            )}
+   606→   606→          </CardContent>
+   607→   607→        </Card>
+   608→   608→      </div>
+   609→   609→
+   610→   610→      {/* ── Top Opportunity Leads ──────────────────────────────────── */}
+   611→   611→      {stats.topOpportunityLeads && stats.topOpportunityLeads.length > 0 && (
+   612→   612→        <Card className="border-0 shadow-sm">
+   613→   613→          <CardHeader className="pb-2">
+   614→   614→            <div className="flex items-center justify-between">
+   615→   615→              <div>
+   616→   616→                <CardTitle className="text-lg flex items-center gap-2">
+   617→   617→                  <Target className="h-5 w-5 text-amber-500" />
+   618→   618→                  Top Opportunity Leads
+   619→   619→                </CardTitle>
+   620→   620→                <CardDescription>Highest-scoring leads ranked by AI opportunity score</CardDescription>
+   621→   621→              </div>
+   622→   622→              <Button variant="ghost" size="sm" onClick={() => setCurrentView('leads')} className="text-amber-600">
+   623→   623→                View All <ChevronRight className="h-4 w-4" />
+   624→   624→              </Button>
+   625→   625→            </div>
+   626→   626→          </CardHeader>
+   627→   627→          <CardContent>
+   628→   628→            <div className="overflow-x-auto">
+   629→   629→              <table className="w-full">
+   630→   630→                <thead>
+   631→   631→                  <tr className="border-b text-left">
+   632→   632→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+   633→   633→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Website</th>
+   634→   634→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Lead Score</th>
+   635→   635→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Opp. Score</th>
+   636→   636→                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Est. Revenue/mo</th>
+   637→   637→                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Deal Value</th>
+   638→   638→                  </tr>
+   639→   639→                </thead>
+   640→   640→                <tbody>
+   641→   641→                  {stats.topOpportunityLeads.map((lead) => {
+   642→   642→                    const ls = getScoreColor(lead.business.leadScore)
+   643→   643→                    const os = getScoreColor(lead.business.opportunityScore)
+   644→   644→                    return (
+   645→   645→                      <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+   646→   646→                        <td className="py-3">
+   647→   647→                          <p className="text-sm font-medium">{lead.business.name}</p>
+   648→   648→                          <p className="text-xs text-muted-foreground">
+   649→   649→                            {lead.business.category}
+   650→   650→                            {lead.business.city && ` · ${lead.business.city}`}
+   651→   651→                          </p>
+   652→   652→                        </td>
+   653→   653→                        <td className="py-3">
+   654→   654→                          <Badge variant="secondary" className={`text-xs ${lead.business.hasWebsite ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+   655→   655→                            {lead.business.hasWebsite ? 'Has Site' : 'No Site'}
+   656→   656→                          </Badge>
+   657→   657→                        </td>
+   658→   658→                        <td className="py-3">
+   659→   659→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${ls.bg}`}>
+   660→   660→                            <span className={`text-xs font-bold ${ls.text}`}>{lead.business.leadScore !== null && lead.business.leadScore !== undefined ? lead.business.leadScore : '-'}</span>
+   661→   661→                          </div>
+   662→   662→                        </td>
+   663→   663→                        <td className="py-3">
+   664→   664→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${os.bg}`}>
+   665→   665→                            <span className={`text-xs font-bold ${os.text}`}>{lead.business.opportunityScore !== null && lead.business.opportunityScore !== undefined ? lead.business.opportunityScore : '-'}</span>
+   666→   666→                          </div>
+   667→   667→                        </td>
+   668→   668→                        <td className="py-3 text-sm font-medium text-right">
+   669→   669→                          {lead.business.estimatedMonthlyRevenue ? `$${lead.business.estimatedMonthlyRevenue.toLocaleString()}` : '-'}
+   670→   670→                        </td>
+   671→   671→                        <td className="py-3 text-sm font-medium text-right">
+   672→   672→                          {lead.estimatedValue ? `$${lead.estimatedValue.toLocaleString()}` : '-'}
+   673→   673→                        </td>
+   674→   674→                      </tr>
+   675→   675→                    )
+   676→   676→                  })}
+   677→   677→                </tbody>
+   678→   678→              </table>
+   679→   679→            </div>
+   680→   680→          </CardContent>
+   681→   681→        </Card>
+   682→   682→      )}
+   683→   683→
+   684→   684→      {/* ── AI Scoring Overview ────────────────────────────────────── */}
+   685→   685→      <div>
+   686→   686→        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+   687→   687→          <Sparkles className="h-5 w-5 text-amber-500" />
+   688→   688→          AI Lead Scoring
+   689→   689→        </h2>
+   690→   690→        <motion.div
+   691→   691→          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+   692→   692→          variants={container}
+   693→   693→          initial="hidden"
+   694→   694→          animate="show"
+   695→   695→        >
+   696→   696→          <motion.div variants={item}>
+   697→   697→            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   698→   698→              <CardContent className="p-6">
+   699→   699→                <div className="flex items-center justify-between">
+   700→   700→                  <div>
+   701→   701→                    <p className="text-sm font-medium text-muted-foreground">Avg Lead Score</p>
+   702→   702→                    <div className="flex items-baseline gap-1">
+   703→   703→                      <p className="text-3xl font-bold mt-1">{stats.scoringStats?.avgLeadScore || 0}</p>
+   704→   704→                      <span className="text-sm text-muted-foreground">/100</span>
+   705→   705→                    </div>
+   706→   706→                  </div>
+   707→   707→                  <div className={`h-12 w-12 rounded-xl ${(stats.scoringStats?.avgLeadScore || 0) >= 70 ? 'bg-emerald-50' : 'bg-amber-50'} flex items-center justify-center`}>
+   708→   708→                    <Target className={`h-6 w-6 ${(stats.scoringStats?.avgLeadScore || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600'}`} />
+   709→   709→                  </div>
+   710→   710→                </div>
+   711→   711→              </CardContent>
+   712→   712→            </Card>
+   713→   713→          </motion.div>
+   714→   714→          <motion.div variants={item}>
+   715→   715→            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   716→   716→              <CardContent className="p-6">
+   717→   717→                <div className="flex items-center justify-between">
+   718→   718→                  <div>
+   719→   719→                    <p className="text-sm font-medium text-muted-foreground">Avg Opportunity</p>
+   720→   720→                    <div className="flex items-baseline gap-1">
+   721→   721→                      <p className="text-3xl font-bold mt-1">{stats.scoringStats?.avgOpportunityScore || 0}</p>
+   722→   722→                      <span className="text-sm text-muted-foreground">/100</span>
+   723→   723→                    </div>
+   724→   724→                  </div>
+   725→   725→                  <div className={`h-12 w-12 rounded-xl ${(stats.scoringStats?.avgOpportunityScore || 0) >= 70 ? 'bg-emerald-50' : 'bg-amber-50'} flex items-center justify-center`}>
+   726→   726→                    <TrendingUp className={`h-6 w-6 ${(stats.scoringStats?.avgOpportunityScore || 0) >= 70 ? 'text-emerald-600' : 'text-amber-600'}`} />
+   727→   727→                  </div>
+   728→   728→                </div>
+   729→   729→              </CardContent>
+   730→   730→            </Card>
+   731→   731→          </motion.div>
+   732→   732→          <motion.div variants={item}>
+   733→   733→            <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   734→   734→              <CardContent className="p-6">
+   735→   735→                <div className="flex items-center justify-between">
+   736→   736→                  <div>
+   737→   737→                    <p className="text-sm font-medium text-muted-foreground">Total Est. Revenue</p>
+   738→   738→                    <div className="flex items-baseline gap-1">
+   739→   739→                      <p className="text-3xl font-bold mt-1">{formatCurrency(stats.scoringStats?.totalEstimatedRevenue || 0)}</p>
+   740→   740→                      <span className="text-sm text-muted-foreground">/mo</span>
+   741→   741→                    </div>
+   742→   742→                  </div>
+   743→   743→                  <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
+   744→   744→                    <DollarSign className="h-6 w-6 text-orange-600" />
+   745→   745→                  </div>
+   746→   746→                </div>
+   747→   747→              </CardContent>
+   748→   748→            </Card>
+   749→   749→          </motion.div>
+   750→   750→        </motion.div>
+   751→   751→      </div>
+   752→   752→
+   753→   753→      {/* ── AI Business Audit Overview ─────────────────────────────── */}
+   754→   754→      {stats.auditStats && stats.auditStats.auditedCount > 0 && (
+   755→   755→        <div>
+   756→   756→          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+   757→   757→            <ClipboardCheck className="h-5 w-5 text-amber-500" />
+   758→   758→            AI Business Audit
+   759→   759→          </h2>
+   760→   760→          <motion.div
+   761→   761→            className="grid grid-cols-1 sm:grid-cols-4 gap-4"
+   762→   762→            variants={container}
+   763→   763→            initial="hidden"
+   764→   764→            animate="show"
+   765→   765→          >
+   766→   766→            <motion.div variants={item}>
+   767→   767→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   768→   768→                <CardContent className="p-6">
+   769→   769→                  <div className="flex items-center justify-between">
+   770→   770→                    <div>
+   771→   771→                      <p className="text-sm font-medium text-muted-foreground">Audited</p>
+   772→   772→                      <p className="text-3xl font-bold mt-1">{stats.auditStats.auditedCount}</p>
+   773→   773→                    </div>
+   774→   774→                    <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center">
+   775→   775→                      <ClipboardCheck className="h-6 w-6 text-emerald-600" />
+   776→   776→                    </div>
+   777→   777→                  </div>
+   778→   778→                </CardContent>
+   779→   779→              </Card>
+   780→   780→            </motion.div>
+   781→   781→            <motion.div variants={item}>
+   782→   782→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   783→   783→                <CardContent className="p-6">
+   784→   784→                  <div className="flex items-center justify-between">
+   785→   785→                    <div>
+   786→   786→                      <p className="text-sm font-medium text-muted-foreground">Avg Audit Score</p>
+   787→   787→                      <div className="flex items-baseline gap-1">
+   788→   788→                        <p className="text-3xl font-bold mt-1">{stats.auditStats.avgAuditScore}</p>
+   789→   789→                        <span className="text-sm text-muted-foreground">/100</span>
+   790→   790→                      </div>
+   791→   791→                    </div>
+   792→   792→                    <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center">
+   793→   793→                      <Shield className="h-6 w-6 text-amber-600" />
+   794→   794→                    </div>
+   795→   795→                  </div>
+   796→   796→                </CardContent>
+   797→   797→              </Card>
+   798→   798→            </motion.div>
+   799→   799→            <motion.div variants={item}>
+   800→   800→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   801→   801→                <CardContent className="p-6">
+   802→   802→                  <div className="flex items-center justify-between">
+   803→   803→                    <div>
+   804→   804→                      <p className="text-sm font-medium text-muted-foreground">Critical Issues</p>
+   805→   805→                      <p className="text-3xl font-bold text-red-600 mt-1">{stats.auditStats.criticalIssues}</p>
+   806→   806→                    </div>
+   807→   807→                    <div className="h-12 w-12 rounded-xl bg-red-50 flex items-center justify-center">
+   808→   808→                      <AlertTriangle className="h-6 w-6 text-red-600" />
+   809→   809→                    </div>
+   810→   810→                  </div>
+   811→   811→                </CardContent>
+   812→   812→              </Card>
+   813→   813→            </motion.div>
+   814→   814→            <motion.div variants={item}>
+   815→   815→              <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
+   816→   816→                <CardContent className="p-6">
+   817→   817→                  <div className="flex items-center justify-between">
+   818→   818→                    <div>
+   819→   819→                      <p className="text-sm font-medium text-muted-foreground">Opp. Value</p>
+   820→   820→                      <p className="text-3xl font-bold text-orange-600 mt-1">
+   821→   821→                        {formatCurrency(stats.auditStats.totalOpportunityValue)}
+   822→   822→                      </p>
+   823→   823→                    </div>
+   824→   824→                    <div className="h-12 w-12 rounded-xl bg-orange-50 flex items-center justify-center">
+   825→   825→                      <Sparkles className="h-6 w-6 text-orange-600" />
+   826→   826→                    </div>
+   827→   827→                  </div>
+   828→   828→                </CardContent>
+   829→   829→              </Card>
+   830→   830→            </motion.div>
+   831→   831→          </motion.div>
+   832→   832→        </div>
+   833→   833→      )}
+   834→   834→
+   835→   835→      {/* ── Top Audit Opportunities ────────────────────────────────── */}
+   836→   836→      {stats.topAuditOpportunities && stats.topAuditOpportunities.length > 0 && (
+   837→   837→        <Card className="border-0 shadow-sm">
+   838→   838→          <CardHeader className="pb-2">
+   839→   839→            <CardTitle className="text-lg flex items-center gap-2">
+   840→   840→              <Sparkles className="h-5 w-5 text-amber-500" />
+   841→   841→              Top Audit Opportunities
+   842→   842→            </CardTitle>
+   843→   843→            <CardDescription>Businesses with the most digital gaps — best opportunities for your services</CardDescription>
+   844→   844→          </CardHeader>
+   845→   845→          <CardContent>
+   846→   846→            <div className="overflow-x-auto">
+   847→   847→              <table className="w-full">
+   848→   848→                <thead>
+   849→   849→                  <tr className="border-b text-left">
+   850→   850→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+   851→   851→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Category</th>
+   852→   852→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Audit Score</th>
+   853→   853→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Lead Score</th>
+   854→   854→                  </tr>
+   855→   855→                </thead>
+   856→   856→                <tbody>
+   857→   857→                  {stats.topAuditOpportunities.map((biz) => {
+   858→   858→                    const as = getScoreColor(biz.auditScore)
+   859→   859→                    const ls = getScoreColor(biz.leadScore)
+   860→   860→                    return (
+   861→   861→                      <tr key={biz.id} className="border-b last:border-0 hover:bg-slate-50">
+   862→   862→                        <td className="py-3">
+   863→   863→                          <p className="text-sm font-medium">{biz.name}</p>
+   864→   864→                          <p className="text-xs text-muted-foreground">{biz.city || ''}</p>
+   865→   865→                        </td>
+   866→   866→                        <td className="py-3">
+   867→   867→                          <Badge variant="secondary" className="text-xs">{biz.category}</Badge>
+   868→   868→                        </td>
+   869→   869→                        <td className="py-3">
+   870→   870→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${as.bg}`}>
+   871→   871→                            <span className={`text-xs font-bold ${as.text}`}>{biz.auditScore !== null && biz.auditScore !== undefined ? biz.auditScore : '-'}</span>
+   872→   872→                          </div>
+   873→   873→                        </td>
+   874→   874→                        <td className="py-3">
+   875→   875→                          <div className={`inline-flex h-8 w-8 items-center justify-center rounded-full ${ls.bg}`}>
+   876→   876→                            <span className={`text-xs font-bold ${ls.text}`}>{biz.leadScore !== null && biz.leadScore !== undefined ? biz.leadScore : '-'}</span>
+   877→   877→                          </div>
+   878→   878→                        </td>
+   879→   879→                      </tr>
+   880→   880→                    )
+   881→   881→                  })}
+   882→   882→                </tbody>
+   883→   883→              </table>
+   884→   884→            </div>
+   885→   885→          </CardContent>
+   886→   886→        </Card>
+   887→   887→      )}
+   888→   888→
+   889→   889→      {/* ── Businesses by Category + Country ────────────────────────── */}
+   890→   890→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+   891→   891→        <Card className="border-0 shadow-sm">
+   892→   892→          <CardHeader className="pb-2">
+   893→   893→            <CardTitle className="text-lg">Businesses by Category</CardTitle>
+   894→   894→            <CardDescription>Top business categories discovered</CardDescription>
+   895→   895→          </CardHeader>
+   896→   896→          <CardContent>
+   897→   897→            {stats.businessesByCategory.length > 0 ? (
+   898→   898→              <ChartContainer config={pieChartConfig} className="h-[280px] w-full">
+   899→   899→                <PieChart>
+   900→   900→                  <ChartTooltip content={<ChartTooltipContent />} />
+   901→   901→                  <Pie
+   902→   902→                    data={stats.businessesByCategory}
+   903→   903→                    dataKey="count"
+   904→   904→                    nameKey="category"
+   905→   905→                    cx="50%"
+   906→   906→                    cy="50%"
+   907→   907→                    outerRadius={100}
+   908→   908→                    innerRadius={50}
+   909→   909→                    strokeWidth={2}
+   910→   910→                    stroke="#fff"
+   911→   911→                  >
+   912→   912→                    {stats.businessesByCategory.map((_, index) => (
+   913→   913→                      <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
+   914→   914→                    ))}
+   915→   915→                  </Pie>
+   916→   916→                </PieChart>
+   917→   917→              </ChartContainer>
+   918→   918→            ) : (
+   919→   919→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   920→   920→                No business data yet. Run a discovery search!
+   921→   921→              </div>
+   922→   922→            )}
+   923→   923→          </CardContent>
+   924→   924→        </Card>
+   925→   925→
+   926→   926→        <Card className="border-0 shadow-sm">
+   927→   927→          <CardHeader className="pb-2">
+   928→   928→            <CardTitle className="text-lg flex items-center gap-2">
+   929→   929→              <Globe className="h-5 w-5 text-amber-500" />
+   930→   930→              Businesses by Country
+   931→   931→            </CardTitle>
+   932→   932→            <CardDescription>Geographic distribution of discovered businesses</CardDescription>
+   933→   933→          </CardHeader>
+   934→   934→          <CardContent>
+   935→   935→            {stats.businessesByCountry.length > 0 ? (
+   936→   936→              <ChartContainer
+   937→   937→                config={stats.businessesByCountry.reduce((acc, c, i) => {
+   938→   938→                  acc[c.country] = { label: c.country, color: categoryColors[i % categoryColors.length] }
+   939→   939→                  return acc
+   940→   940→                }, {} as Record<string, { label: string; color: string }>)}
+   941→   941→                className="h-[280px] w-full"
+   942→   942→              >
+   943→   943→                <BarChart data={stats.businessesByCountry} layout="vertical" margin={{ top: 5, right: 10, left: 60, bottom: 5 }}>
+   944→   944→                  <XAxis type="number" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   945→   945→                  <YAxis dataKey="country" type="category" tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
+   946→   946→                  <ChartTooltip content={<ChartTooltipContent />} />
+   947→   947→                  <Bar dataKey="count" radius={[0, 6, 6, 0]}>
+   948→   948→                    {stats.businessesByCountry.map((_, index) => (
+   949→   949→                      <Cell key={`cell-${index}`} fill={categoryColors[index % categoryColors.length]} />
+   950→   950→                    ))}
+   951→   951→                  </Bar>
+   952→   952→                </BarChart>
+   953→   953→              </ChartContainer>
+   954→   954→            ) : (
+   955→   955→              <div className="h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+   956→   956→                No country data yet. Discover businesses in different locations!
+   957→   957→              </div>
+   958→   958→            )}
+   959→   959→          </CardContent>
+   960→   960→        </Card>
+   961→   961→      </div>
+   962→   962→
+   963→   963→      {/* ── Recent Leads ───────────────────────────────────────────── */}
+   964→   964→      <Card className="border-0 shadow-sm">
+   965→   965→        <CardHeader className="pb-2">
+   966→   966→          <div className="flex items-center justify-between">
+   967→   967→            <div>
+   968→   968→              <CardTitle className="text-lg">Recent Leads</CardTitle>
+   969→   969→              <CardDescription>Latest leads in your pipeline</CardDescription>
+   970→   970→            </div>
+   971→   971→            <Button variant="ghost" size="sm" onClick={() => setCurrentView('leads')} className="text-amber-600">
+   972→   972→              View All <ChevronRight className="h-4 w-4" />
+   973→   973→            </Button>
+   974→   974→          </div>
+   975→   975→        </CardHeader>
+   976→   976→        <CardContent>
+   977→   977→          {stats.recentLeads.length > 0 ? (
+   978→   978→            <div className="overflow-x-auto">
+   979→   979→              <table className="w-full">
+   980→   980→                <thead>
+   981→   981→                  <tr className="border-b text-left">
+   982→   982→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Business</th>
+   983→   983→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Status</th>
+   984→   984→                    <th className="pb-3 text-sm font-medium text-muted-foreground">Priority</th>
+   985→   985→                    <th className="pb-3 text-sm font-medium text-muted-foreground text-right">Value</th>
+   986→   986→                  </tr>
+   987→   987→                </thead>
+   988→   988→                <tbody>
+   989→   989→                  {stats.recentLeads.map((lead) => (
+   990→   990→                    <tr key={lead.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+   991→   991→                      <td className="py-3">
+   992→   992→                        <div>
+   993→   993→                          <p className="text-sm font-medium">{lead.business.name}</p>
+   994→   994→                          <p className="text-xs text-muted-foreground">
+   995→   995→                            {lead.business.category}
+   996→   996→                            {lead.business.city && ` · ${lead.business.city}`}
+   997→   997→                            {lead.business.country && `, ${lead.business.country}`}
+   998→   998→                          </p>
+   999→   999→                        </div>
+  1000→  1000→                      </td>
+  1001→  1001→                      <td className="py-3">
+  1002→  1002→                        <Badge
+  1003→  1003→                          variant="secondary"
+  1004→  1004→                          className="text-xs"
+  1005→  1005→                          style={{
+  1006→  1006→                            backgroundColor: statusColors[lead.status] + '20',
+  1007→  1007→                            color: statusColors[lead.status],
+  1008→  1008→                          }}
+  1009→  1009→                        >
+  1010→  1010→                          {lead.status}
+  1011→  1011→                        </Badge>
+  1012→  1012→                      </td>
+  1013→  1013→                      <td className="py-3">
+  1014→  1014→                        <Badge variant="secondary" className={`text-xs ${priorityColors[lead.priority] || ''}`}>
+  1015→  1015→                          {lead.priority}
+  1016→  1016→                        </Badge>
+  1017→  1017→                      </td>
+  1018→  1018→                      <td className="py-3 text-sm font-medium text-right">
+  1019→  1019→                        ${lead.estimatedValue.toLocaleString()}
+  1020→  1020→                      </td>
+  1021→  1021→                    </tr>
+  1022→  1022→                  ))}
+  1023→  1023→                </tbody>
+  1024→  1024→              </table>
+  1025→  1025→            </div>
+  1026→  1026→          ) : (
+  1027→  1027→            <div className="h-[120px] flex items-center justify-center text-muted-foreground text-sm">
+  1028→  1028→              No leads yet. Start discovering businesses!
+  1029→  1029→            </div>
+  1030→  1030→          )}
+  1031→  1031→        </CardContent>
+  1032→  1032→      </Card>
+  1033→  1033→
+  1034→  1034→      {/* ── Quick Actions ──────────────────────────────────────────── */}
+  1035→  1035→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+  1036→  1036→        <Button
+  1037→  1037→          onClick={() => setCurrentView('search')}
+  1038→  1038→          className="h-16 bg-amber-500 hover:bg-amber-600 text-white flex items-center gap-2 text-sm"
+  1039→  1039→        >
+  1040→  1040→          <Search className="h-4 w-4" />
+  1041→  1041→          Discover
+  1042→  1042→        </Button>
+  1043→  1043→        <Button
+  1044→  1044→          onClick={() => setCurrentView('audit')}
+  1045→  1045→          variant="outline"
+  1046→  1046→          className="h-16 border-2 hover:bg-orange-50 hover:border-orange-200 hover:text-orange-700 flex items-center gap-2 text-sm"
+  1047→  1047→        >
+  1048→  1048→          <ClipboardCheck className="h-4 w-4" />
+  1049→  1049→          AI Audit
+  1050→  1050→        </Button>
+  1051→  1051→        <Button
+  1052→  1052→          onClick={() => setCurrentView('proposal')}
+  1053→  1053→          variant="outline"
+  1054→  1054→          className="h-16 border-2 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 flex items-center gap-2 text-sm"
+  1055→  1055→        >
+  1056→  1056→          <FileText className="h-4 w-4" />
+  1057→  1057→          Proposals
+  1058→  1058→        </Button>
+  1059→  1059→        <Button
+  1060→  1060→          onClick={() => setCurrentView('crm')}
+  1061→  1061→          variant="outline"
+  1062→  1062→          className="h-16 border-2 hover:bg-emerald-50 hover:border-emerald-200 hover:text-emerald-700 flex items-center gap-2 text-sm"
+  1063→  1063→        >
+  1064→  1064→          <Activity className="h-4 w-4" />
+  1065→  1065→          Pipeline
+  1066→  1066→        </Button>
+  1067→  1067→        <Button
+  1068→  1068→          onClick={() => setCurrentView('leads')}
+  1069→  1069→          variant="outline"
+  1070→  1070→          className="h-16 border-2 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 flex items-center gap-2 text-sm"
+  1071→  1071→        >
+  1072→  1072→          <UserPlus className="h-4 w-4" />
+  1073→  1073→          Add Lead
+  1074→  1074→        </Button>
+  1075→  1075→      </div>
+  1076→  1076→    </div>
+  1077→  1077→  )
+  1078→  1078→}
+  1079→  1079→
+  1080→  1080→function getEmptyStats(): DashboardStats {
+  1081→  1081→  return {
+  1082→  1082→    totalLeads: 0,
+  1083→  1083→    totalBusinesses: 0,
+  1084→  1084→    noWebsiteBusinesses: 0,
+  1085→  1085→    noWebsiteLeads: 0,
+  1086→  1086→    highOpportunityLeads: 0,
+  1087→  1087→    mediumOpportunityLeads: 0,
+  1088→  1088→    lowOpportunityLeads: 0,
+  1089→  1089→    activeLeads: 0,
+  1090→  1090→    wonLeadsCount: 0,
+  1091→  1091→    lostLeadsCount: 0,
+  1092→  1092→    wonDealsValue: 0,
+  1093→  1093→    pipelineValue: 0,
+  1094→  1094→    totalLeadsValue: 0,
+  1095→  1095→    totalEstimatedRevenue: 0,
+  1096→  1096→    revenueByMonth: [],
+  1097→  1097→    conversionRate: 0,
+  1098→  1098→    avgDealCycle: 0,
+  1099→  1099→    funnelData: [
+  1100→  1100→      { stage: 'New Lead', count: 0 },
+  1101→  1101→      { stage: 'Contacted', count: 0 },
+  1102→  1102→      { stage: 'Interested', count: 0 },
+  1103→  1103→      { stage: 'Meeting', count: 0 },
+  1104→  1104→      { stage: 'Proposal', count: 0 },
+  1105→  1105→      { stage: 'Won', count: 0 },
+  1106→  1106→    ],
+  1107→  1107→    stageConversions: [],
+  1108→  1108→    leadsByStatus: [],
+  1109→  1109→    businessesByCategory: [],
+  1110→  1110→    businessesByCountry: [],
+  1111→  1111→    websiteStatusBreakdown: [],
+  1112→  1112→    recentLeads: [],
+  1113→  1113→    topOpportunityLeads: [],
+  1114→  1114→    scoringStats: { avgLeadScore: 0, avgOpportunityScore: 0, totalEstimatedRevenue: 0, scoredCount: 0 },
+  1115→  1115→    auditStats: { auditedCount: 0, avgAuditScore: 0, totalOpportunityValue: 0, criticalIssues: 0, warningIssues: 0, opportunities: 0 },
+  1116→  1116→    topAuditOpportunities: [],
+  1117→  1117→    searchStats: { totalSearches: 0, completedSearches: 0 },
+  1118→  1118→  }
+  1119→  1119→}
+  1120→  1120→

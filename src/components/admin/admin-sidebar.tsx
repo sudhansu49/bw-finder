@@ -40,70 +40,71 @@ import {
   ArrowLeftRight,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useTranslation } from '@/lib/i18n/hooks'
 
 interface NavItem {
   view: AdminView
-  label: string
+  labelKey: string
   icon: React.ElementType
 }
 
 interface NavGroup {
-  title: string
+  titleKey: string
   items: NavItem[]
 }
 
 const navGroups: NavGroup[] = [
   {
-    title: 'MAIN',
+    titleKey: 'nav.main',
     items: [
-      { view: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { view: 'admin-users', label: 'Users', icon: Users },
-      { view: 'admin-agencies', label: 'Agencies', icon: Building2 },
-      { view: 'admin-subscriptions', label: 'Subscriptions', icon: CreditCard },
-      { view: 'admin-payments', label: 'Payments', icon: DollarSign },
-      { view: 'admin-transactions', label: 'Transactions', icon: Receipt },
+      { view: 'admin-dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { view: 'admin-users', labelKey: 'nav.users', icon: Users },
+      { view: 'admin-agencies', labelKey: 'nav.agencies', icon: Building2 },
+      { view: 'admin-subscriptions', labelKey: 'nav.subscriptions', icon: CreditCard },
+      { view: 'admin-payments', labelKey: 'nav.payments', icon: DollarSign },
+      { view: 'admin-transactions', labelKey: 'nav.transactions', icon: Receipt },
     ],
   },
   {
-    title: 'DATA',
+    titleKey: 'nav.data',
     items: [
-      { view: 'admin-leads', label: 'Leads', icon: Target },
-      { view: 'admin-categories', label: 'Categories', icon: Tag },
-      { view: 'admin-locations', label: 'Locations', icon: MapPin },
-      { view: 'admin-credits', label: 'Credits', icon: Coins },
+      { view: 'admin-leads', labelKey: 'nav.leads', icon: Target },
+      { view: 'admin-categories', labelKey: 'nav.categories', icon: Tag },
+      { view: 'admin-locations', labelKey: 'nav.locations', icon: MapPin },
+      { view: 'admin-credits', labelKey: 'nav.credits', icon: Coins },
     ],
   },
   {
-    title: 'SYSTEM',
+    titleKey: 'nav.system',
     items: [
-      { view: 'admin-api-usage', label: 'API Usage', icon: Activity },
-      { view: 'admin-system-health', label: 'System Health', icon: Heart },
-      { view: 'admin-audit-logs', label: 'Audit Logs', icon: FileText },
-      { view: 'admin-reports', label: 'Reports', icon: BarChart3 },
+      { view: 'admin-api-usage', labelKey: 'nav.apiUsage', icon: Activity },
+      { view: 'admin-system-health', labelKey: 'nav.systemHealth', icon: Heart },
+      { view: 'admin-audit-logs', labelKey: 'nav.auditLogs', icon: FileText },
+      { view: 'admin-reports', labelKey: 'nav.reports', icon: BarChart3 },
     ],
   },
   {
-    title: 'SUPPORT',
+    titleKey: 'nav.support',
     items: [
-      { view: 'admin-support', label: 'Support', icon: LifeBuoy },
-      { view: 'admin-announcements', label: 'Announcements', icon: Megaphone },
+      { view: 'admin-support', labelKey: 'nav.helpCenter', icon: LifeBuoy },
+      { view: 'admin-announcements', labelKey: 'nav.announcements', icon: Megaphone },
     ],
   },
   {
-    title: 'MARKETING',
+    titleKey: 'nav.marketing',
     items: [
-      { view: 'admin-email-broadcast', label: 'Email Broadcast', icon: Mail },
-      { view: 'admin-whatsapp-broadcast', label: 'WhatsApp', icon: Smartphone },
-      { view: 'admin-marketing', label: 'Marketing', icon: TrendingUp },
+      { view: 'admin-email-broadcast', labelKey: 'nav.emailBroadcast', icon: Mail },
+      { view: 'admin-whatsapp-broadcast', labelKey: 'nav.whatsappBroadcast', icon: Smartphone },
+      { view: 'admin-marketing', labelKey: 'nav.marketing', icon: TrendingUp },
     ],
   },
   {
-    title: 'CONFIG',
+    titleKey: 'nav.config',
     items: [
-      { view: 'admin-integrations', label: 'Integrations', icon: Puzzle },
-      { view: 'admin-ai-usage', label: 'AI Usage', icon: Brain },
-      { view: 'admin-feature-flags', label: 'Feature Flags', icon: ToggleLeft },
-      { view: 'admin-settings', label: 'Settings', icon: Settings },
+      { view: 'admin-integrations', labelKey: 'nav.integrations', icon: Puzzle },
+      { view: 'admin-ai-usage', labelKey: 'nav.aiUsage', icon: Brain },
+      { view: 'admin-feature-flags', labelKey: 'nav.featureFlags', icon: ToggleLeft },
+      { view: 'admin-settings', labelKey: 'nav.settings', icon: Settings },
     ],
   },
 ]
@@ -144,6 +145,8 @@ export function AdminSidebar() {
     setActivePanel,
     setCurrentView,
   } = useAppStore()
+
+  const { t } = useTranslation()
 
   const handleNavClick = (view: AdminView) => {
     setCurrentAdminView(view)
@@ -189,7 +192,7 @@ export function AdminSidebar() {
             </button>
           </TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
-            {item.label}
+            {t(item.labelKey)}
           </TooltipContent>
         </Tooltip>
       )
@@ -210,7 +213,7 @@ export function AdminSidebar() {
         `}
       >
         <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-red-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{t(item.labelKey)}</span>
         {isActive && (
           <motion.div
             layoutId="admin-sidebar-indicator-expanded"
@@ -271,10 +274,10 @@ export function AdminSidebar() {
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="space-y-4">
           {navGroups.map((group) => (
-            <div key={group.title}>
+            <div key={group.titleKey}>
               {!adminSidebarCollapsed && (
                 <h3 className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-                  {group.title}
+                  {t(group.titleKey)}
                 </h3>
               )}
               {adminSidebarCollapsed && <div className="my-1" />}

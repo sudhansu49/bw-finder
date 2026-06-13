@@ -33,55 +33,56 @@ import {
   Shield,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { useTranslation } from '@/lib/i18n/hooks'
 
 interface NavItem {
   view: UserView
-  label: string
+  labelKey: string
   icon: React.ElementType
 }
 
 interface NavGroup {
-  title: string
+  titleKey: string
   items: NavItem[]
 }
 
 const navGroups: NavGroup[] = [
   {
-    title: 'OVERVIEW',
+    titleKey: 'nav.overview',
     items: [
-      { view: 'user-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { view: 'user-lead-finder', label: 'Lead Finder', icon: Search },
-      { view: 'user-website-detection', label: 'Website Detection', icon: Globe },
-      { view: 'user-lead-scoring', label: 'Lead Scoring', icon: Target },
-      { view: 'user-outreach', label: 'Outreach', icon: Megaphone },
+      { view: 'user-dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+      { view: 'user-lead-finder', labelKey: 'nav.leadFinder', icon: Search },
+      { view: 'user-website-detection', labelKey: 'nav.websiteDetection', icon: Globe },
+      { view: 'user-lead-scoring', labelKey: 'nav.leadScoring', icon: Target },
+      { view: 'user-outreach', labelKey: 'nav.outreach', icon: Megaphone },
     ],
   },
   {
-    title: 'TOOLS',
+    titleKey: 'nav.tools',
     items: [
-      { view: 'user-audit', label: 'AI Audit', icon: ClipboardCheck },
-      { view: 'user-proposal', label: 'Proposal Generator', icon: FileText },
-      { view: 'user-whatsapp', label: 'WhatsApp Generator', icon: Smartphone },
-      { view: 'user-email', label: 'Email Generator', icon: Mail },
-      { view: 'user-crm', label: 'CRM', icon: Kanban },
+      { view: 'user-audit', labelKey: 'nav.aiAudit', icon: ClipboardCheck },
+      { view: 'user-proposal', labelKey: 'nav.proposalGenerator', icon: FileText },
+      { view: 'user-whatsapp', labelKey: 'nav.whatsappGenerator', icon: Smartphone },
+      { view: 'user-email', labelKey: 'nav.emailGenerator', icon: Mail },
+      { view: 'user-crm', labelKey: 'nav.crm', icon: Kanban },
     ],
   },
   {
-    title: 'OUTPUT',
+    titleKey: 'nav.output',
     items: [
-      { view: 'user-reports', label: 'Reports', icon: BarChart3 },
-      { view: 'user-exports', label: 'Exports', icon: Download },
+      { view: 'user-reports', labelKey: 'nav.reports', icon: BarChart3 },
+      { view: 'user-exports', labelKey: 'nav.exports', icon: Download },
     ],
   },
   {
-    title: 'ACCOUNT',
+    titleKey: 'nav.account',
     items: [
-      { view: 'user-settings', label: 'Settings', icon: Settings },
-      { view: 'user-profile', label: 'Profile', icon: User },
-      { view: 'user-billing', label: 'Billing', icon: CreditCard },
-      { view: 'user-subscription', label: 'Subscription', icon: Crown },
-      { view: 'user-notifications', label: 'Notifications', icon: Bell },
-      { view: 'user-help', label: 'Help Center', icon: LifeBuoy },
+      { view: 'user-settings', labelKey: 'nav.settings', icon: Settings },
+      { view: 'user-profile', labelKey: 'nav.profile', icon: User },
+      { view: 'user-billing', labelKey: 'nav.billing', icon: CreditCard },
+      { view: 'user-subscription', labelKey: 'nav.subscription', icon: Crown },
+      { view: 'user-notifications', labelKey: 'nav.notifications', icon: Bell },
+      { view: 'user-help', labelKey: 'nav.helpCenter', icon: LifeBuoy },
     ],
   },
 ]
@@ -123,6 +124,7 @@ export function UserSidebar() {
     setCurrentAdminView,
   } = useAppStore()
 
+  const { t } = useTranslation()
   const isAdmin = user?.role === 'super_admin' || user?.role === 'admin'
 
   const handleNavClick = (view: UserView) => {
@@ -169,7 +171,7 @@ export function UserSidebar() {
             </button>
           </TooltipTrigger>
           <TooltipContent side="right" className="font-medium">
-            {item.label}
+            {t(item.labelKey)}
           </TooltipContent>
         </Tooltip>
       )
@@ -190,7 +192,7 @@ export function UserSidebar() {
         `}
       >
         <Icon className={`h-5 w-5 shrink-0 ${isActive ? 'text-amber-500' : 'text-slate-500 group-hover:text-slate-300'}`} />
-        <span className="truncate">{item.label}</span>
+        <span className="truncate">{t(item.labelKey)}</span>
         {isActive && (
           <motion.div
             layoutId="sidebar-indicator-expanded"
@@ -251,10 +253,10 @@ export function UserSidebar() {
       <ScrollArea className="flex-1 min-h-0 px-3 py-3">
         <div className="space-y-4">
           {navGroups.map((group) => (
-            <div key={group.title}>
+            <div key={group.titleKey}>
               {!userSidebarCollapsed && (
                 <h3 className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-600">
-                  {group.title}
+                  {t(group.titleKey)}
                 </h3>
               )}
               {userSidebarCollapsed && <div className="my-1" />}

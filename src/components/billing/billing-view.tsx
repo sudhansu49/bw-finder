@@ -42,6 +42,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import { useCurrency, useTranslation } from '@/lib/i18n/hooks'
 
 // ─── API Response Types ──────────────────────────────────────────────────────────
 
@@ -140,12 +141,7 @@ function formatDate(dateStr: string): string {
   }
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(amount)
-}
+// formatCurrency replaced by useCurrency hook inside the component
 
 function formatExpiry(month: number, year: number): string {
   return `${String(month).padStart(2, '0')}/${year}`
@@ -156,6 +152,8 @@ function formatExpiry(month: number, year: number): string {
 export function BillingView() {
   const { user } = useAppStore()
   const { toast } = useToast()
+  const { format: formatCurr, formatCompact: formatCompactCurr, symbol: currSymbol } = useCurrency()
+  const { t } = useTranslation()
   const [billingData, setBillingData] = useState<BillingData | null>(null)
   const [billingLoading, setBillingLoading] = useState(true)
   const [autoRecharge, setAutoRecharge] = useState(true)
@@ -337,12 +335,12 @@ export function BillingView() {
           <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">Current Balance</span>
+                <span className="text-sm font-medium text-muted-foreground">{t('billing.creditsBalance')}</span>
                 <div className="h-9 w-9 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center">
                   <DollarSign className="h-5 w-5 text-emerald-600" />
                 </div>
               </div>
-              <p className="text-3xl font-bold text-slate-900 dark:text-white">{formatCurrency(currentBalance)}</p>
+              <p className="text-3xl font-bold text-slate-900 dark:text-white">{formatCurr(currentBalance)}</p>
               <p className="text-xs text-muted-foreground mt-1">Credit balance</p>
             </CardContent>
           </Card>
@@ -363,7 +361,7 @@ export function BillingView() {
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-white">{nextPaymentDate !== 'N/A' ? nextPaymentDate.split(',')[0] : 'N/A'}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                {planName} renewal — {formatCurrency(planPrice)}
+                {planName} renewal — {formatCurr(planPrice)}
               </p>
             </CardContent>
           </Card>
@@ -377,7 +375,7 @@ export function BillingView() {
           <Card className="border-0 shadow-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-muted-foreground">Payment Method</span>
+                <span className="text-sm font-medium text-muted-foreground">{t('billing.paymentMethod')}</span>
                 <div className="h-9 w-9 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
                   <CreditCard className="h-5 w-5 text-blue-600" />
                 </div>
@@ -406,10 +404,10 @@ export function BillingView() {
                 </div>
               </div>
               <p className="text-3xl font-bold text-slate-900 dark:text-white">
-                {formatCurrency(summary?.thisMonthSpent ?? 0)}
+                {formatCurr(summary?.thisMonthSpent ?? 0)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                This month • Total: {formatCurrency(summary?.totalSpent ?? 0)}
+                This month • Total: {formatCurr(summary?.totalSpent ?? 0)}
               </p>
             </CardContent>
           </Card>
@@ -431,7 +429,7 @@ export function BillingView() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5 text-amber-500" />
-                    <CardTitle className="text-lg">Payment Method</CardTitle>
+                    <CardTitle className="text-lg">{t('billing.paymentMethod')}</CardTitle>
                   </div>
                   <Button
                     variant="outline"
@@ -499,7 +497,7 @@ export function BillingView() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-amber-500" />
-                    <CardTitle className="text-lg">Billing History</CardTitle>
+                    <CardTitle className="text-lg">{t('billing.invoice')}</CardTitle>
                   </div>
                   <Badge variant="outline" className="text-xs">
                     {transactions.length} transactions
@@ -596,7 +594,7 @@ export function BillingView() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Zap className="h-5 w-5 text-amber-500" />
-                  <CardTitle className="text-lg">Usage This Month</CardTitle>
+                  <CardTitle className="text-lg">{t('billing.usageHistory')}</CardTitle>
                 </div>
                 <CardDescription>Your resource consumption this billing period</CardDescription>
               </CardHeader>
