@@ -60,7 +60,7 @@ async function parallelWebSearch(
         if (i > 0) await delay(400 * i)
         
         const searchResult = await withRetry(
-          () => zai.functions.invoke('web_search', { query, num: 10 }),
+          () => zai.functions.invoke('web_search', { query, num: 15 }),
           1, // max 1 retry for speed
           1500
         )
@@ -240,6 +240,7 @@ export async function POST(request: NextRequest) {
         `${category} in ${locationString} list directory reviews`,
         `best ${category} near ${city || state || country} contact details`,
         `${category} ${locationString} yellow pages google maps`,
+        `"justdial.com" OR "sulekha.com" OR "yelp.com" OR "yellowpages.com" ${category} list in ${locationString}`
       ]
 
       // Execute searches IN PARALLEL for speed (was sequential with 3s delays)
@@ -303,8 +304,8 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      // Prepare search results text for LLM analysis (limit to first 20 results for speed)
-      const limitedResults = allResults.slice(0, 20)
+      // Prepare search results text for LLM analysis (limit to first 40 results for speed)
+      const limitedResults = allResults.slice(0, 40)
       const resultsText = limitedResults
         .map(
           (result, index) =>
@@ -342,10 +343,10 @@ export async function POST(request: NextRequest) {
 IMPORTANT RULES:
 1. Return ONLY a valid JSON array of business objects. No markdown, no explanation.
 2. If no businesses can be extracted, return an empty array.
-3. Extract as many businesses as possible from the search results.
+3. Extract as many businesses as possible (up to 40 unique businesses) from the search results.
 4. If a business has no website URL or only social media, set hasWebsite to false and website to null.
 5. Social media URLs should be full URLs starting with https://.
-6. Be thorough - extract every business mentioned in the results.`,
+6. Be thorough - extract every single business name, address, and phone number mentioned in any of the search snippets. Do not aggregate or skip any matches.`,
               },
               {
                 role: 'user',
