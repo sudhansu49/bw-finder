@@ -849,8 +849,8 @@ export function AuditView() {
                 <Button
                   className="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold"
                   onClick={() => {
-                    setDetailOpen(false)
-                    setCurrentView('proposal')
+                    setReportOpen(false)
+                    setCurrentView('user-proposal')
                   }}
                 >
                   <FileText className="mr-2 h-4 w-4" />

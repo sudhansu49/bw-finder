@@ -155,7 +155,7 @@ const tierConfig = {
   },
 }
 
-function PackageCard({ pkg, onSelect }: { pkg: ProposalPackage; onSelect: () => void }) {
+function PackageCard({ pkg, onSelect, isSelected }: { pkg: ProposalPackage; onSelect: () => void; isSelected?: boolean }) {
   const { format: formatCurr, symbol: currSymbol } = useCurrency()
   const { t } = useTranslation()
   const config = tierConfig[pkg.tier]
@@ -168,13 +168,17 @@ function PackageCard({ pkg, onSelect }: { pkg: ProposalPackage; onSelect: () => 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: pkg.tier === 'basic' ? 0 : pkg.tier === 'professional' ? 0.1 : 0.2 }}
-      className={`relative rounded-2xl border-2 ${config.border} bg-white overflow-hidden flex flex-col ${pkg.recommended ? 'shadow-lg shadow-amber-100' : 'shadow-sm'}`}
+      className={`relative rounded-2xl border-2 ${isSelected ? 'border-amber-500 ring-2 ring-amber-500/20' : config.border} bg-white dark:bg-slate-900 overflow-hidden flex flex-col ${isSelected ? 'shadow-md shadow-amber-500/10' : pkg.recommended ? 'shadow-lg shadow-amber-100 dark:shadow-none' : 'shadow-sm'}`}
     >
-      {pkg.recommended && (
-        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center py-1.5 text-xs font-bold tracking-wider uppercase">
+      {isSelected ? (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center py-1.5 text-xs font-bold tracking-wider uppercase flex items-center justify-center gap-1">
+          <CheckCircle2 className="h-3 w-3" /> Selected Package
+        </div>
+      ) : pkg.recommended ? (
+        <div className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-center py-1.5 text-xs font-bold tracking-wider uppercase">
           ★ Recommended
         </div>
-      )}
+      ) : null}
 
       {/* Header */}
       <div className={`p-5 ${config.headerBg} bg-gradient-to-br ${config.gradient}`}>
@@ -221,13 +225,22 @@ function PackageCard({ pkg, onSelect }: { pkg: ProposalPackage; onSelect: () => 
       </div>
 
       {/* CTA */}
-      <div className="p-5 pt-4">
+      <div className="p-5 pt-4 mt-auto">
         <Button
-          className={`w-full ${pkg.recommended ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-800 hover:bg-slate-900 text-white'}`}
+          className={`w-full ${isSelected ? 'bg-amber-600 hover:bg-amber-700 text-white' : pkg.recommended ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-800 hover:bg-slate-900 text-white'}`}
           onClick={onSelect}
         >
-          Select {pkg.name}
-          <ArrowRight className="ml-2 h-4 w-4" />
+          {isSelected ? (
+            <>
+              Selected
+              <CheckCircle2 className="ml-2 h-4 w-4" />
+            </>
+          ) : (
+            <>
+              Select {pkg.name}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </>
+          )}
         </Button>
       </div>
     </motion.div>
@@ -248,6 +261,7 @@ export function ProposalView() {
   const [proposal, setProposal] = useState<ProposalData | null>(null)
   const [proposalOpen, setProposalOpen] = useState(false)
   const [loadingProposal, setLoadingProposal] = useState(false)
+  const [selectedTier, setSelectedTier] = useState<'basic' | 'professional' | 'premium' | null>('professional')
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
   const [page, setPage] = useState(1)
@@ -294,6 +308,11 @@ export function ProposalView() {
         const data = await res.json()
         setProposal(data.proposal)
         setSelectedBusiness(business)
+        
+        // Find recommended tier or default to professional
+        const recommendedPkg = data.proposal?.packages?.find((p: any) => p.recommended)
+        setSelectedTier(recommendedPkg?.tier || 'professional')
+
         setProposalOpen(true)
         toast({ title: 'Proposal Generated!', description: `Proposal for ${business.name} is ready.` })
         // Refresh businesses list
@@ -322,6 +341,10 @@ export function ProposalView() {
       if (res.ok) {
         const data = await res.json()
         setProposal(data.proposal)
+        
+        // Find recommended tier or default to professional
+        const recommendedPkg = data.proposal?.packages?.find((p: any) => p.recommended)
+        setSelectedTier(recommendedPkg?.tier || 'professional')
       } else {
         toast({ title: 'Failed to load proposal', variant: 'destructive' })
       }
@@ -601,89 +624,112 @@ export function ProposalView() {
       {/* ── Proposal Dialog ────────────────────────────────────────── */}
       <Dialog open={proposalOpen} onOpenChange={setProposalOpen}>
         <DialogContent className="sm:max-w-5xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <FileText className="h-5 w-5 text-amber-500" />
+              {proposal ? `Website Proposal for ${proposal.businessName}` : 'Website Proposal'}
+            </DialogTitle>
+          </DialogHeader>
+
           {loadingProposal ? (
             <div className="flex flex-col items-center justify-center py-16">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-200 border-t-amber-500" />
               <p className="mt-4 text-muted-foreground font-medium">Loading proposal...</p>
             </div>
           ) : proposal && selectedBusiness ? (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="h-5 w-5 text-amber-500" />
-                  Website Proposal for {proposal.businessName}
-                </DialogTitle>
-              </DialogHeader>
-
-              <div className="space-y-6 mt-2">
-                {/* Audit Summary Banner */}
-                <div className="rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 text-white p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-bold">{proposal.businessName}</h3>
-                      <p className="text-sm text-slate-300">{proposal.category}{proposal.city ? ` • ${proposal.city}` : ''}{proposal.country ? `, ${proposal.country}` : ''}</p>
-                      <p className="text-xs text-slate-400 mt-2 line-clamp-2">{proposal.auditSummary}</p>
+            <div className="space-y-6 mt-2">
+              {/* Audit Summary Banner */}
+              <div className="rounded-xl bg-gradient-to-r from-slate-800 to-slate-900 text-white p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold">{proposal.businessName}</h3>
+                    <p className="text-sm text-slate-300">{proposal.category}{proposal.city ? ` • ${proposal.city}` : ''}{proposal.country ? `, ${proposal.country}` : ''}</p>
+                    <p className="text-xs text-slate-400 mt-2 line-clamp-2">{proposal.auditSummary}</p>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="text-center">
+                      <div className={`text-2xl font-bold ${proposal.auditScore != null && proposal.auditScore < 40 ? 'text-red-400' : proposal.auditScore != null && proposal.auditScore < 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {proposal.auditScore ?? '-'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 uppercase">Audit Score</div>
                     </div>
-                    <div className="flex gap-4">
-                      <div className="text-center">
-                        <div className={`text-2xl font-bold ${proposal.auditScore != null && proposal.auditScore < 40 ? 'text-red-400' : proposal.auditScore != null && proposal.auditScore < 70 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                          {proposal.auditScore ?? '-'}
-                        </div>
-                        <div className="text-[10px] text-slate-400 uppercase">Audit Score</div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-amber-400">
+                        {formatCompact(proposal.totalOpportunityValue)}
                       </div>
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-amber-400">
-                          {formatCompact(proposal.totalOpportunityValue)}
-                        </div>
-                        <div className="text-[10px] text-slate-400 uppercase">Opp. Value</div>
-                      </div>
+                      <div className="text-[10px] text-slate-400 uppercase">Opp. Value</div>
                     </div>
                   </div>
-                  {proposal.servicesFromAudit.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {proposal.servicesFromAudit.map((s, i) => (
-                        <span key={i} className="inline-block bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded text-[10px]">{s}</span>
-                      ))}
-                    </div>
+                </div>
+                {proposal.servicesFromAudit.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {proposal.servicesFromAudit.map((s, i) => (
+                      <span key={i} className="inline-block bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded text-[10px]">{s}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 3 Package Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {proposal.packages.map((pkg) => (
+                  <PackageCard 
+                    key={pkg.tier} 
+                    pkg={pkg} 
+                    isSelected={selectedTier === pkg.tier}
+                    onSelect={() => {
+                      setSelectedTier(pkg.tier)
+                      toast({
+                        title: `${pkg.name} Package Selected!`,
+                        description: `The ${pkg.name} package (${formatCurr(pkg.price)}) has been selected for ${proposal.businessName}.`,
+                      })
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Cover Letter */}
+              <Card className="border-0 shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-amber-500" />
+                    Cover Letter
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{proposal.customMessage}</p>
+                </CardContent>
+              </Card>
+
+              {/* Action Bar */}
+              <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-slate-50 rounded-xl">
+                <Button className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white" onClick={() => handleExportPDF(selectedBusiness.id)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  {t('proposal.downloadPdf')}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  className="w-full sm:w-auto" 
+                  onClick={() => handleGenerateProposal(selectedBusiness, true)}
+                  disabled={generating === selectedBusiness.id}
+                >
+                  {generating === selectedBusiness.id ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin text-amber-500" />
+                      Enhancing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Enhance with AI
+                    </>
                   )}
-                </div>
-
-                {/* 3 Package Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {proposal.packages.map((pkg) => (
-                    <PackageCard key={pkg.tier} pkg={pkg} onSelect={() => {}} />
-                  ))}
-                </div>
-
-                {/* Cover Letter */}
-                <Card className="border-0 shadow-sm">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 text-amber-500" />
-                      Cover Letter
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-xs text-muted-foreground whitespace-pre-line leading-relaxed">{proposal.customMessage}</p>
-                  </CardContent>
-                </Card>
-
-                {/* Action Bar */}
-                <div className="flex flex-col sm:flex-row items-center gap-3 p-4 bg-slate-50 rounded-xl">
-                  <Button className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white" onClick={() => handleExportPDF(selectedBusiness.id)}>
-                    <Download className="mr-2 h-4 w-4" />
-                    {t('proposal.downloadPdf')}
-                  </Button>
-                  <Button variant="outline" className="w-full sm:w-auto" onClick={() => handleGenerateProposal(selectedBusiness, true)}>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Enhance with AI
-                  </Button>
-                  <div className="text-xs text-muted-foreground text-center sm:text-right sm:ml-auto">
-                    Valid until {new Date(proposal.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </div>
+                </Button>
+                <div className="text-xs text-muted-foreground text-center sm:text-right sm:ml-auto">
+                  Valid until {new Date(proposal.validUntil).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
               </div>
-            </>
+            </div>
           ) : null}
         </DialogContent>
       </Dialog>

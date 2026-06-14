@@ -16,6 +16,7 @@ import { Separator } from '@/components/ui/separator'
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart'
 import { Bar, BarChart, XAxis, YAxis, Area, AreaChart, CartesianGrid } from 'recharts'
 import { motion } from 'framer-motion'
+import { useToast } from '@/hooks/use-toast'
 import {
   Building2,
   DollarSign,
@@ -453,6 +454,17 @@ const mockCategories = [
 export function AdminCategories() {
   const [addOpen, setAddOpen] = useState(false)
   const [newCat, setNewCat] = useState('')
+  const { toast } = useToast()
+
+  const handleCreateCategory = () => {
+    if (!newCat.trim()) return
+    toast({
+      title: 'Category Created',
+      description: `Category "${newCat}" has been created successfully.`,
+    })
+    setNewCat('')
+    setAddOpen(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -528,7 +540,7 @@ export function AdminCategories() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setAddOpen(false)}>Create</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={handleCreateCategory}>Create</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -551,6 +563,20 @@ const mockLocations = [
 
 export function AdminLocations() {
   const [addOpen, setAddOpen] = useState(false)
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const { toast } = useToast()
+
+  const handleAddLocation = () => {
+    if (!city.trim() || !state.trim()) return
+    toast({
+      title: 'Location Added',
+      description: `Location "${city}, ${state}" has been added successfully.`,
+    })
+    setCity('')
+    setState('')
+    setAddOpen(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -610,12 +636,12 @@ export function AdminLocations() {
             <DialogDescription>Add a new city or region</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>City</Label><Input placeholder="City name" /></div>
-            <div className="space-y-2"><Label>State</Label><Input placeholder="State" /></div>
+            <div className="space-y-2"><Label>City</Label><Input placeholder="City name" value={city} onChange={(e) => setCity(e.target.value)} /></div>
+            <div className="space-y-2"><Label>State</Label><Input placeholder="State" value={state} onChange={(e) => setState(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setAddOpen(false)}>Add</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={handleAddLocation}>Add</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1156,6 +1182,21 @@ const mockAnnouncements = [
 
 export function AdminAnnouncements() {
   const [addOpen, setAddOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [message, setMessage] = useState('')
+  const [audience, setAudience] = useState('all')
+  const { toast } = useToast()
+
+  const handlePublishAnnouncement = () => {
+    if (!title.trim() || !message.trim()) return
+    toast({
+      title: 'Announcement Published',
+      description: `Announcement "${title}" has been published to ${audience} users.`,
+    })
+    setTitle('')
+    setMessage('')
+    setAddOpen(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -1219,11 +1260,11 @@ export function AdminAnnouncements() {
             <DialogDescription>Create a platform announcement</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Title</Label><Input placeholder="Announcement title" /></div>
-            <div className="space-y-2"><Label>Message</Label><Textarea placeholder="Write your announcement..." rows={4} /></div>
+            <div className="space-y-2"><Label>Title</Label><Input placeholder="Announcement title" value={title} onChange={(e) => setTitle(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Message</Label><Textarea placeholder="Write your announcement..." rows={4} value={message} onChange={(e) => setMessage(e.target.value)} /></div>
             <div className="space-y-2">
               <Label>Audience</Label>
-              <Select defaultValue="all">
+              <Select value={audience} onValueChange={setAudience}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Users</SelectItem>
@@ -1236,7 +1277,7 @@ export function AdminAnnouncements() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setAddOpen(false)}>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={handlePublishAnnouncement}>
               <Send className="h-4 w-4 mr-2" /> Publish
             </Button>
           </DialogFooter>
@@ -1254,6 +1295,24 @@ export function AdminEmailBroadcast() {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [audience, setAudience] = useState('all')
+  const { toast } = useToast()
+
+  const handleSendBroadcast = () => {
+    if (!subject.trim() || !body.trim()) return
+    toast({
+      title: 'Email Broadcast Sent',
+      description: `Successfully sent broadcast to ${audience} users.`,
+    })
+    setSubject('')
+    setBody('')
+  }
+
+  const handlePreviewBroadcast = () => {
+    toast({
+      title: 'Email Preview',
+      description: `Subject: ${subject || 'No Subject'}`,
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -1288,10 +1347,10 @@ export function AdminEmailBroadcast() {
                 </Select>
               </div>
               <div className="flex items-center gap-3">
-                <Button className="bg-amber-500 hover:bg-amber-600 text-white">
+                <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={handleSendBroadcast}>
                   <Send className="h-4 w-4 mr-2" /> Send Broadcast
                 </Button>
-                <Button variant="outline">
+                <Button variant="outline" onClick={handlePreviewBroadcast}>
                   <Eye className="h-4 w-4 mr-2" /> Preview
                 </Button>
               </div>
@@ -1343,6 +1402,23 @@ export function AdminEmailBroadcast() {
 export function AdminWhatsappBroadcast() {
   const [message, setMessage] = useState('')
   const [template, setTemplate] = useState('')
+  const { toast } = useToast()
+
+  const handleSendBroadcast = () => {
+    if (!message.trim()) return
+    toast({
+      title: 'WhatsApp Broadcast Sent',
+      description: 'Successfully queued WhatsApp broadcast message.',
+    })
+    setMessage('')
+  }
+
+  const handlePreviewBroadcast = () => {
+    toast({
+      title: 'WhatsApp Preview',
+      description: message || 'No message composed.',
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -1373,10 +1449,10 @@ export function AdminWhatsappBroadcast() {
                 <p className="text-xs text-muted-foreground">{message.length}/1000 characters</p>
               </div>
               <div className="flex items-center gap-3">
-                <Button className="bg-emerald-500 hover:bg-emerald-600 text-white">
+                <Button className="bg-emerald-500 hover:bg-emerald-600 text-white" onClick={handleSendBroadcast}>
                   <Send className="h-4 w-4 mr-2" /> Send Broadcast
                 </Button>
-                <Button variant="outline">Preview</Button>
+                <Button variant="outline" onClick={handlePreviewBroadcast}>Preview</Button>
               </div>
             </CardContent>
           </Card>
@@ -1650,6 +1726,36 @@ export function AdminFeatureFlags() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export function AdminSettings() {
+  const { toast } = useToast()
+
+  const handleSaveGeneral = () => {
+    toast({
+      title: 'Settings Saved',
+      description: 'General settings updated successfully.',
+    })
+  }
+
+  const handleSaveCredits = () => {
+    toast({
+      title: 'Settings Saved',
+      description: 'Credit configuration updated successfully.',
+    })
+  }
+
+  const handleSaveSecurity = () => {
+    toast({
+      title: 'Settings Saved',
+      description: 'Security options updated successfully.',
+    })
+  }
+
+  const handleSaveNotifications = () => {
+    toast({
+      title: 'Settings Saved',
+      description: 'Notification preferences updated successfully.',
+    })
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader icon={Settings} title="Admin Settings" description="Configure platform settings" color="slate" />
@@ -1679,7 +1785,7 @@ export function AdminSettings() {
                 </SelectContent>
               </Select>
             </div>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-white">Save Changes</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={handleSaveGeneral}>Save Changes</Button>
           </CardContent>
         </Card>
 
@@ -1704,7 +1810,7 @@ export function AdminSettings() {
               <Label>Allow Credit Purchases</Label>
               <Switch defaultChecked />
             </div>
-            <Button className="bg-amber-500 hover:bg-amber-600 text-white">Save Changes</Button>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white" onClick={handleSaveCredits}>Save Changes</Button>
           </CardContent>
         </Card>
 
@@ -1743,6 +1849,7 @@ export function AdminSettings() {
               </div>
               <Switch />
             </div>
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white w-full mt-2" onClick={handleSaveSecurity}>Save Changes</Button>
           </CardContent>
         </Card>
 
@@ -1766,6 +1873,7 @@ export function AdminSettings() {
                 <Switch defaultChecked />
               </div>
             ))}
+            <Button className="bg-amber-500 hover:bg-amber-600 text-white w-full mt-2" onClick={handleSaveNotifications}>Save Changes</Button>
           </CardContent>
         </Card>
       </div>

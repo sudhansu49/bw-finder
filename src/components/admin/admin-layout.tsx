@@ -444,7 +444,10 @@ export function AdminLayout() {
                       </div>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      setActivePanel('user')
+                      setCurrentView('user-profile')
+                    }}>
                       <User className="h-4 w-4 mr-2" />
                       Profile
                     </DropdownMenuItem>
